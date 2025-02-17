@@ -1,0 +1,15 @@
+# Data Processing
+pandas
+numpy
+
+# Social network
+networkx
+
+# ABM
+mesa
+lenskit
+
+# Data Visualization
+matplotlib
+seaborn
+

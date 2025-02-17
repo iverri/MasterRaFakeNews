@@ -1,15 +1,20 @@
 from mesa import Model, Agent
 from mesa.time import RandomActivation
+from mesa.space import NetworkGrid
+from mesa.datacollection import DataCollector
 from numpy import dot
 from numpy.linalg import norm
+import networkx as nx
 from agents.user_agent import BotAgent, InfluencerAgent, UserAgent
 from recommender.recommender import Recommender
 import random
+from objects.social_network import Social_Network
 
 class SocialMediaPlatform:
-    def __init__(self):
-        self.social_network = [] # TODO: Implement network
+    def __init__(self, num_agents, m_links):
         self.recommender = Recommender() # TODO: Implement recommender
+        self.social_network = Social_Network(num_agents, m_links)
+
 
 # Create a model class
 class FakeNewsModel(Model):
@@ -22,11 +27,13 @@ class FakeNewsModel(Model):
 
     #Initialize number of agents
     #Initialize agents
-    def __init__(self, N):
+    def __init__(self, N, m_links):
         self.num_agents = N # number of agents
+        self.m_links = m_links
         self.schedule = RandomActivation(self) # schedule for agents
-        self.social_media_platform = SocialMediaPlatform() # social media platform
+        self.social_media_platform = SocialMediaPlatform(self.num_agents, self.m_links) # social media platform
 
+        self.grid = NetworkGrid(self.social_media_platform.social_network)
         # Create agents
         for i in range(self.num_agents):
             preference_vector = self.random_preferences()
@@ -37,6 +44,9 @@ class FakeNewsModel(Model):
             else:
                 user = UserAgent(self, preference_vector, i)
             self.schedule.add(user)
+            self.grid.place_agent(user, i)
+
+        
 
     def step(self):
         for agent in self.schedule.agents:
