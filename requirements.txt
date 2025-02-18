@@ -8,8 +8,11 @@ networkx
 # ABM
 mesa
 lenskit
+altair
+
 
 # Data Visualization
 matplotlib
 seaborn
+solara
 

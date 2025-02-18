@@ -1,4 +1,5 @@
 import networkx as nx
+import random
 
 class Social_Network:
 
@@ -8,10 +9,23 @@ class Social_Network:
 
         # Barbasi Albert is an algorithm for creating random scale-free networks
         self.network = nx.barabasi_albert_graph(n=self.num_agents, m=self.m_links)
-
+    
     def updateNetwork(self):
-        # TODO create random changes to network for realism
-        return
+        """Update network structure to simulate real social network dynamics"""
+        # Randomly add/remove edges with small probability
+        if random.random() < 0.1:  # 10% chance of network change
+            if random.random() < 0.5:
+                # Add edge
+                nodes = list(self.social_media_platform.social_network.network.nodes())
+                source = random.choice(nodes)
+                target = random.choice(nodes)
+                if source != target and not self.social_media_platform.social_network.network.has_edge(source, target):
+                    self.social_media_platform.social_network.network.add_edge(source, target)
+            else:
+                # Remove edge
+                if self.social_media_platform.social_network.network.edges():
+                    edge = random.choice(list(self.social_media_platform.social_network.network.edges()))
+                    self.social_media_platform.social_network.network.remove_edge(*edge)
     
     def create_community_network(num_users, num_communities=3, intra_prob=0.3, inter_prob=0.05):
         """
