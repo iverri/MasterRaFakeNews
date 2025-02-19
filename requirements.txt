@@ -1,0 +1,18 @@
+# Data Processing
+pandas
+numpy
+
+# Social network
+networkx
+
+# ABM
+mesa
+lenskit
+altair
+
+
+# Data Visualization
+matplotlib
+seaborn
+solara
+
