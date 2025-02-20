@@ -4,7 +4,6 @@ from numpy import dot
 from numpy.linalg import norm
 from utils.similarity import cosine_similarity
 
-
 class UserAgent(Agent):
     # Initialize the agent
     def __init__(self, model, preference_vector, credibility_level, influence_level):
@@ -12,8 +11,9 @@ class UserAgent(Agent):
         self.preference_vector = preference_vector
         self.credibility_level = credibility_level
         self.influence_level = influence_level
-        self.feed = [] # feed with NewsContent
         self.state = "S"
+        self.feed = [] # feed with NewsContent
+        self.recommended_content = []
 
     def step(self):
         """Execute one step for the agent"""

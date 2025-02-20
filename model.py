@@ -59,9 +59,12 @@ class FakeNewsModel(Model):
             # Place agent in grid using integer node ID
             self.grid.place_agent(user, i)
 
+        # TODO: flytte dette til en annen plass
         # Initialize news content
         self.news_content = self.initialize_news_content()
+        # self.social_media_platform.recommender.news_content = self.news_content
 
+        # TODO: flytte dette til en annen plass
         # Distribute news to random agents
         for content in self.news_content:
             # Select random agent to receive the content
@@ -88,6 +91,9 @@ class FakeNewsModel(Model):
 
     def step(self):
         """Advance the model by one step."""
+        # Recommend news content to agents
+        self.social_media_platform.recommender.update_recommendations(self.agents)
+        
         self.agents.shuffle_do("step")  # Replace scheduler with agents.shuffle_do
         self.datacollector.collect(self)
 
@@ -111,8 +117,6 @@ class FakeNewsModel(Model):
             is_fake = i % 5 == 0
             news_items.append(NewsContent(i, is_fake, topic_vector))
         return news_items
-
-
 
 if __name__ == "__main__":
     from utils.visualization import create_visualization
