@@ -59,3 +59,4 @@ class InfluencerAgent(UserAgent):
         # TODO update values based on more thorough assessment
         super().__init__(model, preference_vector, influence_level=0.9, credibility_level=0.7)
    
+

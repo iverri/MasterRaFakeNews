@@ -31,7 +31,7 @@ class FakeNewsModel(Model):
     #Initialize agents
     def __init__(self, N: int = 5, m_links: int = 1, seed: int = None):
         """Initialize the Fake News Model."""
-        super().__init__(seed=seed)  # Required in Mesa 3.0
+        super().__init__(seed=seed)
         
         if N <= 0:
             raise ValueError("Number of agents must be positive")
@@ -40,21 +40,29 @@ class FakeNewsModel(Model):
         
         self.num_agents = N
         self.m_links = m_links
+        
+        # Generate preference vectors first
+        self.preference_vectors = [self.random_preferences() for _ in range(self.num_agents)]
+        
+        # Create social network with preference vectors
         self.social_media_platform = SocialMediaPlatform(self.num_agents, self.m_links)
+        self.social_media_platform.social_network = Social_Network(
+            self.num_agents, 
+            self.m_links,
+            self.preference_vectors
+        )
         self.grid = NetworkGrid(self.social_media_platform.social_network.network)
         
         # Create agents and add them to the grid
         for i in range(self.num_agents):
-            preference_vector = self.random_preferences()
-            
-            if i % 5 == 0:  # every 5th agent is a bot
-                user = BotAgent(self, preference_vector)
-            elif i % 6 == 0:  # every 6th agent is an influencer
-                user = InfluencerAgent(self, preference_vector)
-            else:
+            if i < int(0.05 * self.num_agents):  # First 5% are influencers
+                user = InfluencerAgent(self, self.preference_vectors[i])
+            elif i < int(0.10 * self.num_agents):  # Next 5% are bots
+                user = BotAgent(self, self.preference_vectors[i])
+            else:  # Rest are regular users
                 credibility_level = min(max(random.gauss(0.5, 0.15), 0), 1)
                 influence_level = min(max(random.gauss(0.3, 0.1), 0), 1)
-                user = UserAgent(self, preference_vector, credibility_level, influence_level)
+                user = UserAgent(self, self.preference_vectors[i], credibility_level, influence_level)
             
             # Place agent in grid using integer node ID
             self.grid.place_agent(user, i)
@@ -68,27 +76,37 @@ class FakeNewsModel(Model):
             random_agent = self.random.choice(list(self.agents))
             random_agent.feed.append(content)
 
-        # Initialize datacollector
+        # Initialize datacollector with updated metrics for directed graph
         self.datacollector = DataCollector(
             model_reporters={
                 "Number_of_Believers": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "B"),
                 "Number_of_Susceptible": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "S"),
                 "Number_of_Exposed": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "E"),
                 "Network_Density": lambda m: nx.density(m.social_media_platform.social_network.network),
-                "Average_Clustering": lambda m: nx.average_clustering(m.social_media_platform.social_network.network),
-                "Average_Path_Length": lambda m: nx.average_shortest_path_length(m.social_media_platform.social_network.network),
-                "Degree_Centrality": lambda m: nx.degree_centrality(m.social_media_platform.social_network.network),
-                "Community_Modularity": lambda m: get_community_modularity(m.social_media_platform.social_network.network)
+                "Average_Clustering": lambda m: nx.average_clustering(m.social_media_platform.social_network.network.to_undirected()),
+                # Remove average_path_length as it requires strongly connected graph
+                "In_Degree_Centrality": lambda m: nx.in_degree_centrality(m.social_media_platform.social_network.network),
+                "Out_Degree_Centrality": lambda m: nx.out_degree_centrality(m.social_media_platform.social_network.network),
+                "Community_Modularity": lambda m: get_community_modularity(m.social_media_platform.social_network.network.to_undirected())
             },
             agent_reporters={
                 "State": lambda a: getattr(a, "state", None),
-                "Influence": lambda a: getattr(a, "influence_level", 0)
+                "Influence": lambda a: getattr(a, "influence_level", 0),
+                "Followers": lambda a: a.social_media_platform.social_network.network.in_degree(a.pos),
+                "Following": lambda a: a.social_media_platform.social_network.network.out_degree(a.pos)
             }
         )
 
     def step(self):
         """Advance the model by one step."""
-        self.agents.shuffle_do("step")  # Replace scheduler with agents.shuffle_do
+
+        # Recommend news to agents
+        self.social_media_platform.recommender.recommend_news(self.agents)
+
+        # All agents evaluate their feed and engage with news
+        self.agents.shuffle_do("step")  
+
+        # Collect data
         self.datacollector.collect(self)
 
     def random_preferences(self):
@@ -112,9 +130,40 @@ class FakeNewsModel(Model):
             news_items.append(NewsContent(i, is_fake, topic_vector))
         return news_items
 
+    def visualize_network(self):
+        """Visualize the current state of the network"""
+        # Create agent_types dictionary
+        agent_types = {}
+        for agent in self.agents:
+            node_id = agent.pos
+            if isinstance(agent, InfluencerAgent):
+                agent_types[node_id] = 'influencer'
+            elif isinstance(agent, BotAgent):
+                agent_types[node_id] = 'bot'
+            else:
+                agent_types[node_id] = 'user'
+        
+        # Visualize the network
+        self.social_media_platform.social_network.visualize_network(agent_types)
+
+    def get_network_metrics(self):
+        """Get detailed network metrics"""
+        return self.social_media_platform.social_network.get_clustering_metrics()
 
 
 if __name__ == "__main__":
     from utils.visualization import create_visualization
     # Create the visualization and assign it to 'page'
-    page = create_visualization(FakeNewsModel) 
+    page = create_visualization(FakeNewsModel)
+
+    # Create and visualize model
+    model = FakeNewsModel(N=100, m_links=10)
+    model.social_media_platform.social_network.network.to_undirected()
+    model.visualize_network()
+
+    # Get detailed metrics
+    metrics = model.get_network_metrics()
+    print("\nDetailed Network Metrics:")
+    print(f"Average Clustering: {metrics['average_clustering']:.3f}")
+    print(f"Network Modularity: {metrics['modularity']:.3f}")
+    print(f"Network Transitivity: {metrics['transitivity']:.3f}") 
