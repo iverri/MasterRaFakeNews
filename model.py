@@ -10,7 +10,7 @@ from recommender.recommender import Recommender
 import random
 from objects.social_network import Social_Network
 from utils.metrics import (get_network_metrics, get_community_modularity )
-
+from utils.visualization import project_info
 
 class SocialMediaPlatform:
     def __init__(self, num_agents, m_links):
@@ -37,7 +37,7 @@ class FakeNewsModel(Model):
             raise ValueError("Number of agents must be positive")
         if m_links >= N:
             raise ValueError("Number of edges must be less than number of nodes")
-        
+        self.info = project_info
         self.num_agents = N
         self.m_links = m_links
         self.social_media_platform = SocialMediaPlatform(self.num_agents, self.m_links)
