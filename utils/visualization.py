@@ -1,5 +1,30 @@
 from mesa.visualization import SolaraViz, make_space_component, make_plot_component
 from agents.user_agent import BotAgent, InfluencerAgent
+import solara
+
+project_info = """
+    # Recommender systems and fake news
+    
+    This is a simulation of how recommender systems affect the spread of fake news in social networks.
+    The project is a part of the master thesis by Anna Holden Jacobsen and Lise Jakobsen.
+    
+    ## Agent Types:
+    - **Regular users** (blue): Standard network participants
+    - **Bot agents** (red): Automated accounts that spread content
+    - **Influencer agents** (green): Users with high influence levels
+    
+    ## States:
+    Agents transition through SIR-like states: Susceptible → Exposed → Believer
+    
+    *Created by Anna Holden Jacobsen and Lise Jakobsen - NTNU Trondheim*
+    
+    """
+
+@solara.component
+def ProjectInfo(model):
+    project_info = model.info
+    solara.Markdown(project_info)
+   
 
 def agent_portrayal(agent):
     """Define how to portray each agent"""
@@ -44,6 +69,7 @@ def create_visualization(model_class):
     viz = SolaraViz(
         model=model,
         components=[
+            ProjectInfo,
             make_space_component(agent_portrayal),
             make_plot_component(["Number_of_Believers", "Number_of_Susceptible", "Number_of_Exposed"]),
             make_plot_component(["Average_Clustering", "Community_Modularity"])
