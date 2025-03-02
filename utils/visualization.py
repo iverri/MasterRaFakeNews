@@ -24,6 +24,11 @@ project_info = """
 def ProjectInfo(model):
     project_info = model.info
     solara.Markdown(project_info)
+
+
+@solara.component
+def SocialNetwork(model):
+    model.visualize_network()
    
 
 def agent_portrayal(agent):
@@ -63,15 +68,16 @@ model_params = {
 
 def create_visualization(model_class):
     """Create a visualization for the given model class"""
-    model = model_class(N=5, m_links=1)
+    model = model_class(N=10, m_links=1)
     
     viz = SolaraViz(
         model=model,
         components=[
             ProjectInfo,
             make_space_component(agent_portrayal),
+            SocialNetwork,
             make_plot_component(["Number_of_Believers", "Number_of_Susceptible", "Number_of_Exposed"]),
-            make_plot_component(["Average_Clustering", "Community_Modularity"])
+           
         ],
         model_params=model_params
     )

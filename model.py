@@ -51,7 +51,17 @@ class FakeNewsModel(Model):
             self.m_links,
             self.preference_vectors
         )
-        self.grid = NetworkGrid(self.social_media_platform.social_network.network)
+        
+        # Create a simple UNDIRECTED graph for Mesa's internal mechanisms
+        # This is just a placeholder grid - we'll use our own network for actual connections
+        G = nx.Graph()  # Undirected graph just for Mesa's grid
+        G.add_nodes_from(range(self.num_agents))
+        
+        # Add edges from our social network (convert to undirected for visualization)
+        undirected_edges = list(self.social_media_platform.social_network.network.to_undirected().edges())
+        G.add_edges_from(undirected_edges)
+        
+        self.grid = NetworkGrid(G)
         
         # Create agents and add them to the grid
         for i in range(self.num_agents):
@@ -66,15 +76,15 @@ class FakeNewsModel(Model):
             
             # Place agent in grid using integer node ID
             self.grid.place_agent(user, i)
+            
+            # Store a reference to the social network in each agent
+            user.social_network = self.social_media_platform.social_network
 
         # Initialize news content
         self.news_content = self.initialize_news_content()
 
-        # Distribute news to random agents
-        for content in self.news_content:
-            # Select random agent to receive the content
-            random_agent = self.random.choice(list(self.agents))
-            random_agent.feed.append(content)
+        # Distribute news to agents based on social network
+        self.distribute_initial_news()
 
         # Initialize datacollector with updated metrics for directed graph
         self.datacollector = DataCollector(
@@ -99,9 +109,23 @@ class FakeNewsModel(Model):
 
     def step(self):
         """Advance the model by one step."""
-
-        # Recommend news to agents
-        self.social_media_platform.recommender.recommend_news(self.agents)
+        # Generate some new content each step (increased probability)
+        if self.random.random() < 0.5:  # 50% chance of new content each step
+            new_content = NewsContent(
+                len(self.news_content), 
+                self.random.random() < 0.3,  # 30% chance of fake news
+                self.random_preferences()
+            )
+            self.news_content.append(new_content)
+            
+            # Equal probability for all agents to receive new content
+            for agent in self.agents:
+                # Each agent has the same base probability to receive new content
+                seed_probability = 0.8  # 20% chance for any agent
+                
+                # Determine if this agent receives the content
+                if self.random.random() < seed_probability:
+                    agent.feed.append(new_content)
 
         # All agents evaluate their feed and engage with news
         self.agents.shuffle_do("step")  
@@ -122,13 +146,23 @@ class FakeNewsModel(Model):
     def initialize_news_content(self):
         """Create a mix of real and fake news content"""
         news_items = []
-        for i in range(10):  # Create 10 news items
+        for i in range(200):  
             # Create topic vector similar to preference vectors
             topic_vector = self.random_preferences()
             # Alternate between real and fake news
             is_fake = i % 5 == 0
             news_items.append(NewsContent(i, is_fake, topic_vector))
         return news_items
+        
+    def distribute_initial_news(self):
+        """Distribute news content to agents based on the social network structure"""
+        # Select a few seed agents to receive initial news
+        seed_agents = self.random.sample(list(self.agents), min(5, len(self.agents)))
+        
+        # Distribute news randomly among seed agents
+        for content in self.news_content:
+            seed_agent = self.random.choice(seed_agents)
+            seed_agent.feed.append(content)
 
     def visualize_network(self):
         """Visualize the current state of the network"""

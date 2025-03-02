@@ -195,33 +195,42 @@ class Social_Network:
         # Get position layout that groups communities together
         pos = nx.spring_layout(self.network)
         
+        # Define colors for agent types - using lighter colors
+        type_colors = {
+            'influencer': '#d057d9',  
+            'bot': '#53b028',        
+            'user': '#4e6ac7'    
+        }
+        
         # Draw nodes
         node_colors = []
         node_sizes = []
         
         for node in self.network.nodes():
-            # Set node color based on community
-            node_colors.append(communities[node])
-            
             # Set node size based on agent type and in-degree (number of followers)
             if agent_types:
                 base_size = 100
-                in_degree_factor = self.network.in_degree(node) / (self.num_agents * 0.1)  # Scale factor
+                in_degree = self.network.in_degree(node)
+                in_degree_factor = min(in_degree / (self.num_agents * 0.1), 2.0)  # Cap the scaling factor
                 
                 if agent_types[node] == 'influencer':
-                    node_sizes.append(200 * (1 + in_degree_factor))
+                    node_colors.append(type_colors['influencer'])
+                    node_sizes.append(base_size * 1.5 * (1 + in_degree_factor * 0.5))  # Reduced size multiplier
                 elif agent_types[node] == 'bot':
-                    node_sizes.append(50 * (1 + in_degree_factor))
+                    node_colors.append(type_colors['bot'])
+                    node_sizes.append(base_size * 0.7 * (1 + in_degree_factor * 0.3))
                 else:
-                    node_sizes.append(base_size * (1 + in_degree_factor))
+                    node_colors.append(type_colors['user'])
+                    node_sizes.append(base_size * (1 + in_degree_factor * 0.3))
             else:
+                # If no agent types provided, color by community
+                node_colors.append(communities[node])
                 node_sizes.append(100)
         
         # Draw the network
         nx.draw_networkx_nodes(self.network, pos, 
                              node_color=node_colors, 
-                             node_size=node_sizes,
-                             cmap=plt.cm.rainbow)
+                             node_size=node_sizes)
         
         # Draw edges with arrows
         nx.draw_networkx_edges(self.network, pos, 
@@ -233,7 +242,7 @@ class Social_Network:
         if agent_types:
             legend_elements = [
                 plt.Line2D([0], [0], marker='o', color='w', 
-                          markerfacecolor='gray', markersize=15, 
+                          markerfacecolor=type_colors[type_name], markersize=15, 
                           label=f'{type_name} (avg followers: {self._get_avg_followers(type_name, agent_types):.1f})')
                 for type_name in ['influencer', 'bot', 'user']
             ]
