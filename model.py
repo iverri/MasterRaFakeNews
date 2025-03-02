@@ -189,15 +189,3 @@ if __name__ == "__main__":
     from utils.visualization import create_visualization
     # Create the visualization and assign it to 'page'
     page = create_visualization(FakeNewsModel)
-
-    # Create and visualize model
-    model = FakeNewsModel(N=100, m_links=10)
-    model.social_media_platform.social_network.network.to_undirected()
-    model.visualize_network()
-
-    # Get detailed metrics
-    metrics = model.get_network_metrics()
-    print("\nDetailed Network Metrics:")
-    print(f"Average Clustering: {metrics['average_clustering']:.3f}")
-    print(f"Network Modularity: {metrics['modularity']:.3f}")
-    print(f"Network Transitivity: {metrics['transitivity']:.3f}") 
