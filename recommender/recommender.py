@@ -1,6 +1,6 @@
 
 from objects.news_content import NewsContent
-from utils.similarity import generate_random_topic_vector
+from utils.common import generate_random_topic_vector
 
 
 
