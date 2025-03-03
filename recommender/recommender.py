@@ -3,6 +3,11 @@ from objects.news_content import NewsContent
 # from utils.similarity import generate_random_topic_vector
 import random
 # from agents.user_agent import UserAgent
+from lenskit.datasets import ML100K
+from lenskit import batch, topn, util
+from lenskit import crossfold as xf
+from lenskit.algorithms import Recommender, als, item_knn as knn
+from lenskit import topn
 
 # generate random topic vector
 generate_random_topic_vector = lambda: [random.random() for i in range(10)]
@@ -35,7 +40,17 @@ class Recommender():
 
     # Recommender algorithms
     def collaborative_filtering(self, agent):
-        pass
+        user_user = knn.UserUser(15)
+        user_user.fit(self.news_content)
+        recs = user_user.recommend(agent, 10)
+        # agent.recommended_content = recs
+        item_item = knn.ItemItem(15)
+        item_item.fit(self.news_content)
+        recs = item_item.recommend(agent, 10)
+        # agent.recommended_content = recs
+        recommendations = user_user.recommend(agent, 10)
+        print(recommendations)
+
     def content_based(self):
         pass
     def hybrid(self):
