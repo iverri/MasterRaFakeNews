@@ -24,21 +24,27 @@ project_info = """
 def ProjectInfo(model):
     project_info = model.info
     solara.Markdown(project_info)
+
+
+@solara.component
+def SocialNetwork(model):
+    model.visualize_network()
    
 
 def agent_portrayal(agent):
     """Define how to portray each agent"""
-    if isinstance(agent, BotAgent):
-        color = "red"
-    elif isinstance(agent, InfluencerAgent):
-        color = "green"
-    else:
-        color = "blue"
-    
-    return {
-        "color": color,
-        "size": 50 * agent.influence_level
+    portrayal = {
+        "color": "blue",
+        "size": 5,
     }
+
+    if isinstance(agent, BotAgent):
+        portrayal["color"] = "red"
+    elif isinstance(agent, InfluencerAgent):
+        portrayal["color"] = "green"
+    
+    portrayal["size"] *= agent.influence_level * 10
+    return portrayal
 
 # Model parameters for the UI controls
 model_params = {
@@ -62,17 +68,16 @@ model_params = {
 
 def create_visualization(model_class):
     """Create a visualization for the given model class"""
-    # Create initial model instance
-    model = model_class(N=5, m_links=1)
+    model = model_class(N=10, m_links=1)
     
-    # Create visualization with explicit components
     viz = SolaraViz(
         model=model,
         components=[
             ProjectInfo,
             make_space_component(agent_portrayal),
+            SocialNetwork,
             make_plot_component(["Number_of_Believers", "Number_of_Susceptible", "Number_of_Exposed"]),
-            make_plot_component(["Average_Clustering", "Community_Modularity"])
+           
         ],
         model_params=model_params
     )
