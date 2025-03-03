@@ -1,6 +1,9 @@
 from mesa.visualization import SolaraViz, make_space_component, make_plot_component
 from agents.user_agent import BotAgent, InfluencerAgent
 import solara
+import matplotlib.pyplot as plt
+import networkx as nx
+import community  # python-louvain package
 
 project_info = """
     # Recommender systems and fake news
@@ -28,8 +31,101 @@ def ProjectInfo(model):
 
 @solara.component
 def SocialNetwork(model):
-    model.visualize_network()
+    visualize_network(model.social_media_platform.social_network.network, model.get_agent_types())
    
+
+def visualize_network(network, agent_types=None):
+    """
+    Visualize the network with communities and agent types
+    
+    Parameters:
+    - network: networkx graph object
+    - agent_types: dictionary mapping node ids to agent types ('influencer', 'bot', 'user')
+    """
+    plt.figure(figsize=(12, 8))
+    
+    # Convert to undirected graph for community detection
+    undirected_network = network.to_undirected()
+    
+    # Detect communities using Louvain method on undirected graph
+    communities = community.best_partition(undirected_network)
+    
+    # Get position layout that groups communities together
+    pos = nx.spring_layout(network)
+    
+    # Define colors for agent types - using lighter colors
+    type_colors = {
+        'influencer': '#d057d9',  
+        'bot': '#53b028',        
+        'user': '#4e6ac7'    
+    }
+    
+    # Draw nodes
+    node_colors = []
+    node_sizes = []
+    
+    num_agents = network.number_of_nodes()
+    
+    for node in network.nodes():
+        # Set node size based on agent type and in-degree (number of followers)
+        if agent_types:
+            base_size = 100
+            in_degree = network.in_degree(node)
+            in_degree_factor = min(in_degree / (num_agents * 0.1), 2.0)  # Cap the scaling factor
+            
+            if agent_types[node] == 'influencer':
+                node_colors.append(type_colors['influencer'])
+                node_sizes.append(base_size * 1.5 * (1 + in_degree_factor * 0.5))  # Reduced size multiplier
+            elif agent_types[node] == 'bot':
+                node_colors.append(type_colors['bot'])
+                node_sizes.append(base_size * 0.7 * (1 + in_degree_factor * 0.3))
+            else:
+                node_colors.append(type_colors['user'])
+                node_sizes.append(base_size * (1 + in_degree_factor * 0.3))
+        else:
+            # If no agent types provided, color by community
+            node_colors.append(communities[node])
+            node_sizes.append(100)
+    
+    # Draw the network
+    nx.draw_networkx_nodes(network, pos, 
+                         node_color=node_colors, 
+                         node_size=node_sizes)
+    
+    # Draw edges with arrows
+    nx.draw_networkx_edges(network, pos, 
+                          alpha=0.2,
+                          arrows=True,  # Show direction of edges
+                          arrowsize=10)  # Size of arrow head
+    
+    # Add labels for agent types if provided
+    if agent_types:
+        legend_elements = [
+            plt.Line2D([0], [0], marker='o', color='w', 
+                      markerfacecolor=type_colors[type_name], markersize=15, 
+                      label=f'{type_name} (avg followers: {_get_avg_followers(network, type_name, agent_types):.1f})')
+            for type_name in ['influencer', 'bot', 'user']
+        ]
+        plt.legend(handles=legend_elements, loc='upper left')
+    
+    # Add title with metrics
+    clustering_coef = nx.average_clustering(undirected_network)
+    modularity = community.modularity(communities, undirected_network)
+    plt.title(f'Network Communities\nClustering Coefficient: {clustering_coef:.3f}\n'
+             f'Modularity: {modularity:.3f}\n'
+             f'Total Connections: {network.number_of_edges()}')
+    
+    plt.axis('off')
+    plt.show()
+
+
+def _get_avg_followers(network, agent_type, agent_types):
+    """Helper method to calculate average followers for each agent type"""
+    followers = [network.in_degree(node) 
+                for node, type_ in agent_types.items() 
+                if type_ == agent_type]
+    return sum(followers) / len(followers) if followers else 0
+
 
 def agent_portrayal(agent):
     """Define how to portray each agent"""

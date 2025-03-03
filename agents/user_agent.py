@@ -1,8 +1,11 @@
 from mesa import Agent
 import numpy as np
-from numpy import dot
-from numpy.linalg import norm
-from utils.similarity import cosine_similarity
+from utils.common import cosine_similarity
+from utils.agents_utils import (
+    evaluate_content_interest,
+    update_agent_state,
+    get_network_neighbors
+)
 
 
 class UserAgent(Agent):
@@ -19,56 +22,43 @@ class UserAgent(Agent):
 
     def step(self):
         """Execute one step for the agent"""
-        # Process each content in feed
-        processed_feed = self.feed.copy()  # Create copy to avoid modifying list during iteration
-        self.feed = []  # Clear feed
+        processed_feed = self.feed.copy()
+        self.feed = []
         
         for content in processed_feed:
             if self.evaluate_content(content):
                 self.share_content(content)
 
     def evaluate_content(self, content):
-        # Evaluate content based on interest vector
-        # Return True if content is interesting
+        """Evaluate if content is interesting enough to share."""
         belief_probability = cosine_similarity(self.preference_vector, content.topic_vector)
         
-        # Update state based on content evaluation
-        if content.isFake:
-            # Only become exposed if not already a believer
-            if self.state != "B":
-                self.state = "E"
-            
-            # Chance to become a believer based on belief probability and credibility
-            if self.state == "E" and np.random.random() < belief_probability * self.credibility_level:
-                self.state = "B"
+        # Update agent state based on content
+        update_agent_state(self, content, belief_probability)
         
-        return belief_probability > 0.8
+        return evaluate_content_interest(belief_probability)
     
     def share_content(self, content):
-        """Share content with neighboring agents in the network"""
-        # Get all neighbors from the network
-        neighbors = self.get_followers()
+        """Share content with followers."""
+        followers = self.get_followers()
         
-        # Share content with each neighbor
-        for neighbor in neighbors:
-            if content not in neighbor.feed:
-                neighbor.feed.append(content)
+        # Share with each follower
+        for follower in followers:
+            if content not in follower.feed:
+                follower.feed.append(content)
         
-        # If sharing fake content and not already a believer, become one
+        # Update state if sharing fake content
         if content.isFake and self.state != "B":
-            # Higher influence level increases chance of becoming a believer when sharing
             if np.random.random() < self.influence_level:
                 self.state = "B"
 
     def get_followers(self):
-        """Get list of agents that follow this agent"""
-        follower_ids = [n for n in self.social_network.network.predecessors(self.pos)]
-        return [agent for agent in self.model.agents if agent.pos in follower_ids]
+        """Get list of agents that follow this agent."""
+        return get_network_neighbors(self.model, self.social_network, self.pos, "predecessors")
 
     def get_following(self):
-        """Get list of agents this agent follows"""
-        following_ids = [n for n in self.social_network.network.successors(self.pos)]
-        return [agent for agent in self.model.agents if agent.pos in following_ids]
+        """Get list of agents this agent follows."""
+        return get_network_neighbors(self.model, self.social_network, self.pos, "successors")
 
 class BotAgent(UserAgent):
     def __init__(self, model, preference_vector):
