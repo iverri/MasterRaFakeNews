@@ -19,48 +19,49 @@ Diagrams can be found in the [diagrams](diagrams) folder.
 - News content classification (real/fake)
 - Network metrics and visualization
 - SIR-like state transitions (Susceptible → Exposed → Believer)
+- Preference-based network formation
+- Community detection using Louvain method
 
 ## Requirements
 
-pandas
-numpy
-networkx
-mesa
-lenskit
-altair
-matplotlib
-seaborn
-solara
+- pandas
+- numpy
+- networkx
+- mesa
+- lenskit
+- altair
+- matplotlib
+- seaborn
+- solara
+- python-louvain
 
 ## Installation
 
 1. Clone the repository:
 
-```
-git clone https://github.com/yourusername/MasterRaFakeNews.git
-```
-```
+```bash
+git clone https://github.com/annajacobsen/MasterRaFakeNews.git
 cd MasterRaFakeNews
 ```
 
 2. Create and activate a virtual environment:
 
-```
+```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
 ```
 
 3. Install dependencies:
 
-```
-pip install -r requirements.txt`
+```bash
+pip install -r requirements.txt
 ```
 
 ## Usage
 
 To run the simulation:
 
-```
+```bash
 solara run model.py
 ```
 
@@ -81,11 +82,15 @@ This will launch a Solara visualization interface where you can:
 - `objects/`: Core simulation objects
   - `news_content.py`: News content representation
   - `social_network.py`: Network structure and dynamics
+  - `social_media_platform.py`: Platform that connects network and recommender
 - `recommender/`: Content recommendation system
 - `utils/`: Helper functions and utilities
   - `metrics.py`: Network analysis metrics
   - `visualization.py`: Visualization components
   - `similarity.py`: Content similarity calculations
+  - `agents_utils.py`: Agent behavior utilities
+  - `objects_utils.py`: Network creation and manipulation
+  - `model_utils.py`: Model initialization helpers
 
 ## License
 

@@ -3,7 +3,6 @@ import numpy as np
 from utils.common import cosine_similarity
 from utils.agents_utils import (
     evaluate_content_interest,
-    update_agent_state,
     get_network_neighbors
 )
 
@@ -31,15 +30,23 @@ class UserAgent(Agent):
 
     def evaluate_content(self, content):
         """Evaluate if content is interesting enough to share."""
-        belief_probability = cosine_similarity(self.preference_vector, content.topic_vector)
+        belief_probability = cosine_similarity(self.preference_vector, content.topic_vector) * self.credibility_level
         
+        believe_content = evaluate_content_interest(belief_probability)
+
         # Update agent state based on content
-        update_agent_state(self, content, belief_probability)
+        if content.isFake:
+            if self.state == "S":
+                self.state = "E"
         
-        return evaluate_content_interest(belief_probability)
+        return believe_content
     
     def share_content(self, content):
         """Share content with followers."""
+         # Update state if sharing fake content
+        if content.isFake and self.state == "E":
+            self.state = "B"
+
         followers = self.get_followers()
         
         # Share with each follower
@@ -47,10 +54,7 @@ class UserAgent(Agent):
             if content not in follower.feed:
                 follower.feed.append(content)
         
-        # Update state if sharing fake content
-        if content.isFake and self.state != "B":
-            if np.random.random() < self.influence_level:
-                self.state = "B"
+       
 
     def get_followers(self):
         """Get list of agents that follow this agent."""

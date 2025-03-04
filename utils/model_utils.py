@@ -1,31 +1,87 @@
 from mesa.datacollection import DataCollector
 import random
-from objects.news_content import NewsContent
 from utils.metrics import get_community_modularity
 import networkx as nx
 
+#------------------------------------------------------------------------------
+# PREFERENCE AND CONTENT GENERATION FUNCTIONS
+#------------------------------------------------------------------------------
+
 def random_preferences(model=None):
     """Generate random normalized preference vector."""
-    preferences = [random.random() for i in range(3)]
+    preferences = [random.random() for i in range(10)]
     magnitude = sum(x*x for x in preferences) ** 0.5
     return [x/magnitude for x in preferences]
 
-def initialize_news_content(model):
-    """Create a mix of real and fake news content."""
-    news_items = []
-    for i in range(200):  
-        topic_vector = random_preferences(model)
-        is_fake = i % 5 == 0
-        news_items.append(NewsContent(i, is_fake, topic_vector))
-    return news_items
+def generate_new_content(model):
+    """Generate multiple new content pieces with some probability."""
+    # Determine how many content pieces to generate (between 10-20)
+    content_count = model.random.randint(10, 20)
+    # Clear the existing content pool
+    model.news_content = []
     
-def distribute_initial_news(model):
-    """Distribute news content to seed agents."""
-    seed_agents = model.random.sample(list(model.agents), min(5, len(model.agents)))
+    for _ in range(content_count):
+        if model.random.random() < 0.8:  # 80% chance of new content
+            # Import inside function to avoid circular import
+            from objects.news_content import NewsContent
+            
+            new_content = NewsContent(
+                len(model.news_content), 
+                model.random.random() < 0.2,  # 20% chance of fake news
+                random_preferences(model)
+            )
+            model.news_content.append(new_content)
     
-    for content in model.news_content:
-        seed_agent = model.random.choice(seed_agents)
-        seed_agent.feed.append(content)
+    # Distribute the newly generated content
+    distribute_news(model)
+
+def distribute_news(model):
+    """Distribute news content to agents.
+    
+    Distributes content from the model's news_content pool to agents.
+    Each agent receives a random sample of the content with varying sizes.
+    """
+    # If no content to distribute, return early
+    if not model.news_content:
+        return
+    
+    # Distribute content to all agents
+    for agent in model.agents:
+        # Determine a random number of content pieces for this agent
+        content_sample_size = model.random.randint(1, min(5, len(model.news_content)))
+        
+        # Select random content from the content pool
+        content_sample = model.random.sample(
+            model.news_content, 
+            content_sample_size
+        )
+        
+        # Add the content to the agent's feed
+        agent.feed.extend(content_sample)
+
+#------------------------------------------------------------------------------
+# AGENT AND NETWORK ANALYSIS FUNCTIONS
+#------------------------------------------------------------------------------
+
+def get_agent_types(model):
+    """Get a dictionary mapping node IDs to agent types"""
+    # Import inside function to avoid circular import
+    from agents.user_agent import InfluencerAgent, BotAgent
+    
+    agent_types = {}
+    for agent in model.agents:
+        node_id = agent.pos
+        if isinstance(agent, InfluencerAgent):
+            agent_types[node_id] = 'influencer'
+        elif isinstance(agent, BotAgent):
+            agent_types[node_id] = 'bot'
+        else:
+            agent_types[node_id] = 'user'
+    return agent_types
+
+#------------------------------------------------------------------------------
+# DATA COLLECTION FUNCTIONS
+#------------------------------------------------------------------------------
 
 def setup_datacollector(model):
     """Initialize the datacollector with metrics."""

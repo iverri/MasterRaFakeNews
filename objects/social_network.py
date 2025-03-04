@@ -3,8 +3,8 @@ from utils.objects_utils import (
     create_preference_based_network,
     create_basic_network,
     adjust_node_connectivity,
-    get_clustering_metrics,
 )
+from utils.metrics import get_clustering_metrics
 
 class Social_Network:
 
