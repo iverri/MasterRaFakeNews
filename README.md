@@ -6,6 +6,8 @@ Master thesis repository for Anna Holden Jacobsen and Lise Jakobsen - Computer S
 
 An agent-based model (ABM) simulation of fake news propagation in social networks. The model simulates how different types of agents (regular users, bots, and influencers) interact with and spread news content through a social network structure.
 
+Diagrams can be found in the [diagrams](diagrams) folder.
+
 ## Features
 
 - Agent-based modeling using Mesa framework

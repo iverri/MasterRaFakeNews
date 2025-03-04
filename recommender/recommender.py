@@ -8,6 +8,9 @@ from lenskit import batch, topn, util
 from lenskit import crossfold as xf
 from lenskit.algorithms import Recommender, als, item_knn as knn
 from lenskit import topn
+from utils.common import generate_random_topic_vector
+
+
 
 # generate random topic vector
 generate_random_topic_vector = lambda: [random.random() for i in range(10)]
@@ -64,4 +67,6 @@ class Recommender():
                 agent.recommended_content.append(content)
             else:
                 continue
+
+    
 

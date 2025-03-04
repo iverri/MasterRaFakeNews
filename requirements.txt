@@ -15,4 +15,4 @@ altair
 matplotlib
 seaborn
 solara
-
+python-louvain
