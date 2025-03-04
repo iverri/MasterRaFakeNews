@@ -15,11 +15,11 @@ def random_preferences(model=None):
 
 def generate_new_content(model):
     """Generate multiple new content pieces with some probability."""
-    # Determine how many content pieces to generate (between 10-20)
-    content_count = model.random.randint(10, 20)
-    # Clear the existing content pool
-    model.news_content = []
+    # Determine how many content pieces to generate (between 2-5)
+    content_count = model.random.randint(2, 5)
     
+    # Generate and add new content
+    new_content_items = []
     for _ in range(content_count):
         if model.random.random() < 0.8:  # 80% chance of new content
             # Import inside function to avoid circular import
@@ -30,34 +30,38 @@ def generate_new_content(model):
                 model.random.random() < 0.2,  # 20% chance of fake news
                 random_preferences(model)
             )
-            model.news_content.append(new_content)
+            new_content_items.append(new_content)
     
-    # Distribute the newly generated content
-    distribute_news(model)
+    # Add new content to the pool
+    model.news_content.extend(new_content_items)
+    
+    # Distribute only the new content
+    if new_content_items:
+        distribute_news_items(model, new_content_items)
+
+def distribute_news_items(model, content_items):
+    """Distribute specific news content items to agents."""
+    if not content_items:
+        return
+    
+    # Each agent gets 1-2 pieces of the new content
+    for agent in model.agents:
+        num_items = model.random.randint(1, min(2, len(content_items)))
+        selected_items = model.random.sample(content_items, num_items)
+        for item in selected_items:
+            if item not in agent.feed:
+                agent.feed.append(item)
 
 def distribute_news(model):
-    """Distribute news content to agents.
-    
-    Distributes content from the model's news_content pool to agents.
-    Each agent receives a random sample of the content with varying sizes.
-    """
-    # If no content to distribute, return early
+    """Initial distribution of news content to agents."""
     if not model.news_content:
         return
     
-    # Distribute content to all agents
+    # Initially each agent gets 3-5 pieces of content
     for agent in model.agents:
-        # Determine a random number of content pieces for this agent
-        content_sample_size = model.random.randint(1, min(5, len(model.news_content)))
-        
-        # Select random content from the content pool
-        content_sample = model.random.sample(
-            model.news_content, 
-            content_sample_size
-        )
-        
-        # Add the content to the agent's feed
-        agent.feed.extend(content_sample)
+        num_items = model.random.randint(3, min(5, len(model.news_content)))
+        selected_items = model.random.sample(model.news_content, num_items)
+        agent.feed.extend(selected_items)
 
 #------------------------------------------------------------------------------
 # AGENT AND NETWORK ANALYSIS FUNCTIONS

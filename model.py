@@ -52,6 +52,9 @@ class FakeNewsModel(Model):
         # Initialize news content
         self.news_content = initialize_news_content(self, news_amount)
 
+        # Initialize recommender system (starts with random recommendations)
+        self.recommender = Recommender(type="random")
+
         # Distribute news to agents based on social network
         distribute_news(self)
 
@@ -60,8 +63,16 @@ class FakeNewsModel(Model):
 
     def step(self):
         """Advance the model by one step."""
+        # Generate new content
         generate_new_content(self)
-        self.agents.shuffle_do("step")  
+        
+        # Update recommendations for all agents
+        self.recommender.update_recommendations(self.agents)
+        
+        # Let agents process their feed and recommendations
+        self.agents.shuffle_do("step")
+        
+        # Collect data
         self.datacollector.collect(self)
 
     def _validate_parameters(self, N, m_links):
@@ -125,3 +136,66 @@ if __name__ == "__main__":
     from utils.visualization import create_visualization
     # Create the visualization and assign it to 'page'
     page = create_visualization(FakeNewsModel)
+
+    # Initialize model with a smaller number of agents for testing
+    # model = FakeNewsModel(N=10, m_links=2, news_amount=20)
+    
+    # print("\nInitial Model State:")
+    # print("-" * 50)
+    # print(f"Number of agents: {model.num_agents}")
+    # print(f"Number of news content items: {len(model.news_content)}")
+    # print(f"Content IDs in pool: {[c.content for c in model.news_content]}")
+    # print(f"Recommender type: {model.recommender.type}")
+    
+    # # Verify initial news content distribution
+    # print("\nInitial news content distribution:")
+    # for i, agent in enumerate(model.agents):
+    #     agent_type = "Influencer" if isinstance(agent, InfluencerAgent) else "Bot" if isinstance(agent, BotAgent) else "Regular User"
+    #     print(f"\nAgent {i} ({agent_type}):")
+    #     print(f"Feed size: {len(agent.feed)}")
+    #     if agent.feed:
+    #         print("Feed content IDs:", [c.content for c in agent.feed])
+    
+    # # Run the model for a few steps
+    # num_steps = 3
+    # for step in range(num_steps):
+    #     print(f"\nStep {step + 1}")
+    #     print("-" * 30)
+        
+    #     # Generate recommendations explicitly
+    #     print("\nGenerating recommendations...")
+    #     model.recommender.update_recommendations(model.agents)
+        
+    #     # Check recommendations before step
+    #     print("\nRecommendations before step:")
+    #     for i, agent in enumerate(model.agents):
+    #         agent_type = "Influencer" if isinstance(agent, InfluencerAgent) else "Bot" if isinstance(agent, BotAgent) else "Regular User"
+    #         print(f"\nAgent {i} ({agent_type}):")
+    #         print(f"Feed size: {len(agent.feed)}")
+    #         if agent.feed:
+    #             print("Feed content IDs:", [c.content for c in agent.feed])
+    #         print(f"Recommendations: {len(agent.recommended_content)}")
+    #         if agent.recommended_content:
+    #             print("Recommended content IDs:", [c.content for c in agent.recommended_content])
+        
+    #     # Execute step
+    #     print("\nExecuting step...")
+    #     model.step()
+        
+    #     # Check state after step
+    #     print("\nState after step:")
+    #     print(f"Total news content items: {len(model.news_content)}")
+    #     print(f"Content IDs in pool: {[c.content for c in model.news_content]}")
+        
+    #     for i, agent in enumerate(model.agents):
+    #         agent_type = "Influencer" if isinstance(agent, InfluencerAgent) else "Bot" if isinstance(agent, BotAgent) else "Regular User"
+    #         print(f"\nAgent {i} ({agent_type}):")
+    #         print(f"State: {agent.state}")
+    #         print(f"Feed size: {len(agent.feed)}")
+    #         if agent.feed:
+    #             print("Feed content IDs:", [c.content for c in agent.feed])
+    #         print(f"Recommendations: {len(agent.recommended_content)}")
+    #         if agent.recommended_content:
+    #             print("Recommended content IDs:", [c.content for c in agent.recommended_content])
+    
+    # print("\nTest completed!")
