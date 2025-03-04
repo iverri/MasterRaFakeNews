@@ -4,6 +4,8 @@ import solara
 import matplotlib.pyplot as plt
 import networkx as nx
 import community  # python-louvain package
+from utils.model_utils import get_agent_types
+
 
 project_info = """
     # Recommender systems and fake news
@@ -31,7 +33,7 @@ def ProjectInfo(model):
 
 @solara.component
 def SocialNetwork(model):
-    visualize_network(model.social_media_platform.social_network.network, model.get_agent_types())
+    visualize_network(model.social_media_platform.social_network.network, get_agent_types(model))
    
 
 def visualize_network(network, agent_types=None):
@@ -146,25 +148,34 @@ def agent_portrayal(agent):
 model_params = {
     "N": {
         "type": "SliderInt",
-        "value": 5,
+        "value": 100,
         "label": "Number of agents",
-        "min": 5,
-        "max": 100,
+        "min": 50,
+        "max": 500,
         "step": 1
     },
     "m_links": {
         "type": "SliderInt",
-        "value": 1,
+        "value": 5,
         "label": "Number of edges per new node",
-        "min": 1,
-        "max": 5,
+        "min": 2,
+        "max": 10,
         "step": 1
+    },
+    "news_amount": {
+        "type": "SliderInt",
+        "value": 200,
+        "label": "Number of news items",
+        "min": 100,
+        "max": 1000,
+        "step": 1,
+        "default": 200
     }
 }
 
 def create_visualization(model_class):
     """Create a visualization for the given model class"""
-    model = model_class(N=10, m_links=1)
+    model = model_class()
     
     viz = SolaraViz(
         model=model,

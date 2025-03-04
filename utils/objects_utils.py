@@ -7,6 +7,12 @@ import networkx as nx
 import numpy as np
 import community  # python-louvain package
 
+#------------------------------------------------------------------------------
+# NETWORK CREATION FUNCTIONS
+#------------------------------------------------------------------------------
+
+# TODO: look at bot handling
+
 def create_preference_based_network(num_agents, m_links, preference_vectors):
     """
     Create directed network with communities based on preference similarity.
@@ -110,6 +116,10 @@ def create_basic_network(num_agents, m_links):
     """
     return nx.barabasi_albert_graph(n=num_agents, m=m_links)
 
+#------------------------------------------------------------------------------
+# NETWORK MANIPULATION FUNCTIONS
+#------------------------------------------------------------------------------
+
 def swap_node_connections(G, node1, node2):
     """
     Swap all connections between two nodes.
@@ -165,42 +175,7 @@ def adjust_node_connectivity(G, num_agents, num_influencers, num_bots):
             new_node = i
             swap_node_connections(G, old_node, new_node)
 
-def get_clustering_metrics(G):
-    """
-    Return detailed clustering metrics for a network.
-    
-    Args:
-        G (nx.Graph): The network graph
-        
-    Returns:
-        dict: Dictionary of network metrics
-    """
-    # Convert to undirected for metrics that require it
-    if isinstance(G, nx.DiGraph):
-        undirected_network = G.to_undirected()
-    else:
-        undirected_network = G
-    
-    metrics = {
-        'average_clustering': nx.average_clustering(undirected_network),
-        'clustering_by_node': nx.clustering(undirected_network),
-        'communities': community.best_partition(undirected_network),
-        'modularity': community.modularity(
-            community.best_partition(undirected_network), 
-            undirected_network
-        ),
-        'transitivity': nx.transitivity(undirected_network)
-    }
-    
-    # Add directed-specific metrics if applicable
-    if isinstance(G, nx.DiGraph):
-        metrics.update({
-            'in_degree_centrality': nx.in_degree_centrality(G),
-            'out_degree_centrality': nx.out_degree_centrality(G),
-            'average_in_degree': sum(dict(G.in_degree()).values()) / G.number_of_nodes(),
-            'average_out_degree': sum(dict(G.out_degree()).values()) / G.number_of_nodes(),
-        })
-    
-    return metrics
+
+
 
 

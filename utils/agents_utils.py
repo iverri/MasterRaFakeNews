@@ -1,19 +1,26 @@
 import numpy as np
 
-def evaluate_content_interest(belief_probability, threshold=0.8):
+#------------------------------------------------------------------------------
+# CONTENT EVALUATION FUNCTIONS
+#------------------------------------------------------------------------------
+
+def evaluate_content_interest(belief_probability, threshold=0.6):
     """Determine if content is interesting enough to share."""
     return belief_probability > threshold
 
+#------------------------------------------------------------------------------
+# AGENT STATE MANAGEMENT FUNCTIONS
+#------------------------------------------------------------------------------
+
 def update_agent_state(agent, content, belief_probability):
     """Update agent state based on content evaluation."""
-    if content.isFake:
-        # Only become exposed if not already a believer
-        if agent.state != "B":
-            agent.state = "E"
-        
-        # Chance to become a believer
-        if agent.state == "E" and np.random.random() < belief_probability * agent.credibility_level:
-            agent.state = "B"
+    # TODO: Implement this
+
+       
+
+#------------------------------------------------------------------------------
+# NETWORK TRAVERSAL FUNCTIONS
+#------------------------------------------------------------------------------
 
 def get_network_neighbors(model, social_network, pos, direction="predecessors"):
     """Get neighbors from the network in specified direction."""

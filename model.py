@@ -2,15 +2,16 @@ from mesa import Model
 import networkx as nx
 from mesa.space import NetworkGrid
 from agents.user_agent import BotAgent, InfluencerAgent, UserAgent
-from objects.news_content import NewsContent
 import random
+from objects.news_content import NewsContent, initialize_news_content
 from objects.social_network import Social_Network
 from utils.visualization import project_info
 from utils.model_utils import (
-    initialize_news_content,
-    distribute_initial_news,
+    distribute_news,
     random_preferences,
-    setup_datacollector
+    setup_datacollector,
+    generate_new_content,
+    get_agent_types
 )
 from objects.social_media_platform import SocialMediaPlatform
 
@@ -25,7 +26,7 @@ class FakeNewsModel(Model):
 
     #Initialize number of agents
     #Initialize agents
-    def __init__(self, N: int = 5, m_links: int = 1, seed: int = None):
+    def __init__(self, N: int = 50, m_links: int = 2, seed: int = None, news_amount: int = 200):
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
         
@@ -47,13 +48,19 @@ class FakeNewsModel(Model):
         self._create_agents()
 
         # Initialize news content
-        self.news_content = initialize_news_content(self)
+        self.news_content = initialize_news_content(self, news_amount)
 
         # Distribute news to agents based on social network
-        distribute_initial_news(self)
+        distribute_news(self)
 
         # Initialize datacollector
         self.datacollector = setup_datacollector(self)
+
+    def step(self):
+        """Advance the model by one step."""
+        generate_new_content(self)
+        self.agents.shuffle_do("step")  
+        self.datacollector.collect(self)
 
     def _validate_parameters(self, N, m_links):
         """Validate model parameters."""
@@ -97,52 +104,16 @@ class FakeNewsModel(Model):
             influence_level = min(max(random.gauss(0.3, 0.1), 0), 1)
             return UserAgent(self, self.preference_vectors[index], credibility_level, influence_level)
 
-    def step(self):
-        """Advance the model by one step."""
-        self._generate_new_content()
-        self.agents.shuffle_do("step")  
-        self.datacollector.collect(self)
-        
-    def _generate_new_content(self):
-        """Generate new content with some probability."""
-        if self.random.random() < 0.5:  # 50% chance of new content
-            new_content = NewsContent(
-                len(self.news_content), 
-                self.random.random() < 0.3,  # 30% chance of fake news
-                random_preferences(self)
-            )
-            self.news_content.append(new_content)
-            self._distribute_new_content(new_content)
-            
-    def _distribute_new_content(self, content):
-        """Distribute new content to agents."""
-        for agent in self.agents:
-            if self.random.random() < 0.8:  # 80% chance to receive
-                agent.feed.append(content)
-
     def visualize_network(self):
         """Visualize the current state of the network"""
         # Create agent_types dictionary
-        agent_types = self.get_agent_types()
+        agent_types = get_agent_types(self)
         
         # Import the visualization function from utils.visualization
         from utils.visualization import visualize_network
         
         # Visualize the network
         visualize_network(self.social_media_platform.social_network.network, agent_types)
-
-    def get_agent_types(self):
-        """Get a dictionary mapping node IDs to agent types"""
-        agent_types = {}
-        for agent in self.agents:
-            node_id = agent.pos
-            if isinstance(agent, InfluencerAgent):
-                agent_types[node_id] = 'influencer'
-            elif isinstance(agent, BotAgent):
-                agent_types[node_id] = 'bot'
-            else:
-                agent_types[node_id] = 'user'
-        return agent_types
 
     def get_network_metrics(self):
         """Get detailed network metrics"""
