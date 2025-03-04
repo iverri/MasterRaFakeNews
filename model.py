@@ -2,6 +2,7 @@ from mesa import Model
 import networkx as nx
 from mesa.space import NetworkGrid
 from agents.user_agent import BotAgent, InfluencerAgent, UserAgent
+from recommender.recommender import Recommender
 from objects.news_content import NewsContent
 import random
 from objects.social_network import Social_Network
@@ -148,8 +149,38 @@ class FakeNewsModel(Model):
         """Get detailed network metrics"""
         return self.social_media_platform.social_network.get_clustering_metrics()
 
-
 if __name__ == "__main__":
-    from utils.visualization import create_visualization
-    # Create the visualization and assign it to 'page'
-    page = create_visualization(FakeNewsModel)
+    # from utils.visualization import create_visualization
+    # # Create the visualization and assign it to 'page'
+    # page = create_visualization(FakeNewsModel)
+    # Initialize the model with 10 agents
+    model = FakeNewsModel(N=10, m_links=2)
+    
+    # Create a random recommender
+    recommender = Recommender(type="random")
+    
+    print("\nTesting Random Recommendations:")
+    print("-" * 50)
+    print(f"Total number of agents: {len(model.agents)}")
+    
+    # Test recommendations for each agent
+    for agent in model.agents:
+        # Get recommendations for the agent
+        recommender.random_recommendation(agent)
+        
+        # Determine agent type
+        if isinstance(agent, InfluencerAgent):
+            agent_type = "Influencer"
+        elif isinstance(agent, BotAgent):
+            agent_type = "Bot"
+        else:
+            agent_type = "Regular User"
+            
+        # Print agent info and their recommendations
+        print(f"\nAgent at position {agent.pos} ({agent_type}):")
+        print(f"Credibility: {agent.credibility_level:.2f}")
+        print(f"Influence: {agent.influence_level:.2f}")
+        print("Recommended content IDs:", [content.content for content in agent.recommended_content])
+        print(f"Number of recommendations: {len(agent.recommended_content)}")
+        
+    print("\nRecommendation test completed!")

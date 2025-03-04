@@ -3,7 +3,7 @@ from agents.user_agent import BotAgent, InfluencerAgent
 import solara
 import matplotlib.pyplot as plt
 import networkx as nx
-import community  # python-louvain package
+# import community  # python-louvain package
 
 project_info = """
     # Recommender systems and fake news

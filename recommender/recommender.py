@@ -1,21 +1,11 @@
-
+from agents.user_agent import UserAgent
 from objects.news_content import NewsContent
 # from utils.similarity import generate_random_topic_vector
 import random
-# from agents.user_agent import UserAgent
-from lenskit.datasets import ML100K
-from lenskit import batch, topn, util
-from lenskit import crossfold as xf
-from lenskit.algorithms import Recommender, als, item_knn as knn
-from lenskit import topn
 from utils.common import generate_random_topic_vector
-
-
 
 # generate random topic vector
 generate_random_topic_vector = lambda: [random.random() for i in range(10)]
-
-# user_agents = [UserAgent(i, generate_random_topic_vector(), False) for i in range(10)] # Create 10 user agents
 content_pool = [NewsContent(i, generate_random_topic_vector(), False) for i in range(100)] # Create 100 news content items
 
 class Recommender():
@@ -43,16 +33,7 @@ class Recommender():
 
     # Recommender algorithms
     def collaborative_filtering(self, agent):
-        user_user = knn.UserUser(15)
-        user_user.fit(self.news_content)
-        recs = user_user.recommend(agent, 10)
-        # agent.recommended_content = recs
-        item_item = knn.ItemItem(15)
-        item_item.fit(self.news_content)
-        recs = item_item.recommend(agent, 10)
-        # agent.recommended_content = recs
-        recommendations = user_user.recommend(agent, 10)
-        print(recommendations)
+        pass
 
     def content_based(self):
         pass
@@ -60,13 +41,15 @@ class Recommender():
         pass
     def random_recommendation(self, agent):
         """Recommend random news content to an agent"""
-        # use the content_pool to recommend a random news content as candidate
-        for content in content_pool:
-            # Select if content should be recommended or not
-            if random.random() < 0.5: # TODO: hvordan velge hvilken agent som skal få hvilket anbefalt innhold?
-                agent.recommended_content.append(content)
-            else:
-                continue
+        # Clear previous recommendations
+        agent.recommended_content = []
+        
+        # Get a random sample of 5 content items from the pool
+        num_recommendations = 5
+        recommendations = random.sample(content_pool, min(num_recommendations, len(content_pool)))
+        
+        # Add the recommendations to the agent's recommended content
+        agent.recommended_content.extend(recommendations)
 
-    
+
 

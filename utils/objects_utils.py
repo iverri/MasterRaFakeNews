@@ -5,7 +5,7 @@ Contains helper functions for network creation, manipulation, and analysis.
 
 import networkx as nx
 import numpy as np
-import community  # python-louvain package
+# import community  # python-louvain package
 
 def create_preference_based_network(num_agents, m_links, preference_vectors):
     """
