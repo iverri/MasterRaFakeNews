@@ -26,9 +26,8 @@ class FakeNewsModel(Model):
     The process repeats over multiple timesteps, influencing network dynamics. 
     '''
 
-    #Initialize number of agents
     #Initialize agents
-    def __init__(self, N: int = 50, m_links: int = 2, seed: int = None, news_amount: int = 200):
+    def __init__(self, N: int = 10, m_links: int = 2, seed: int = None, news_amount: int = 200):
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
         
@@ -136,66 +135,3 @@ if __name__ == "__main__":
     from utils.visualization import create_visualization
     # Create the visualization and assign it to 'page'
     page = create_visualization(FakeNewsModel)
-
-    # Initialize model with a smaller number of agents for testing
-    # model = FakeNewsModel(N=10, m_links=2, news_amount=20)
-    
-    # print("\nInitial Model State:")
-    # print("-" * 50)
-    # print(f"Number of agents: {model.num_agents}")
-    # print(f"Number of news content items: {len(model.news_content)}")
-    # print(f"Content IDs in pool: {[c.content for c in model.news_content]}")
-    # print(f"Recommender type: {model.recommender.type}")
-    
-    # # Verify initial news content distribution
-    # print("\nInitial news content distribution:")
-    # for i, agent in enumerate(model.agents):
-    #     agent_type = "Influencer" if isinstance(agent, InfluencerAgent) else "Bot" if isinstance(agent, BotAgent) else "Regular User"
-    #     print(f"\nAgent {i} ({agent_type}):")
-    #     print(f"Feed size: {len(agent.feed)}")
-    #     if agent.feed:
-    #         print("Feed content IDs:", [c.content for c in agent.feed])
-    
-    # # Run the model for a few steps
-    # num_steps = 3
-    # for step in range(num_steps):
-    #     print(f"\nStep {step + 1}")
-    #     print("-" * 30)
-        
-    #     # Generate recommendations explicitly
-    #     print("\nGenerating recommendations...")
-    #     model.recommender.update_recommendations(model.agents)
-        
-    #     # Check recommendations before step
-    #     print("\nRecommendations before step:")
-    #     for i, agent in enumerate(model.agents):
-    #         agent_type = "Influencer" if isinstance(agent, InfluencerAgent) else "Bot" if isinstance(agent, BotAgent) else "Regular User"
-    #         print(f"\nAgent {i} ({agent_type}):")
-    #         print(f"Feed size: {len(agent.feed)}")
-    #         if agent.feed:
-    #             print("Feed content IDs:", [c.content for c in agent.feed])
-    #         print(f"Recommendations: {len(agent.recommended_content)}")
-    #         if agent.recommended_content:
-    #             print("Recommended content IDs:", [c.content for c in agent.recommended_content])
-        
-    #     # Execute step
-    #     print("\nExecuting step...")
-    #     model.step()
-        
-    #     # Check state after step
-    #     print("\nState after step:")
-    #     print(f"Total news content items: {len(model.news_content)}")
-    #     print(f"Content IDs in pool: {[c.content for c in model.news_content]}")
-        
-    #     for i, agent in enumerate(model.agents):
-    #         agent_type = "Influencer" if isinstance(agent, InfluencerAgent) else "Bot" if isinstance(agent, BotAgent) else "Regular User"
-    #         print(f"\nAgent {i} ({agent_type}):")
-    #         print(f"State: {agent.state}")
-    #         print(f"Feed size: {len(agent.feed)}")
-    #         if agent.feed:
-    #             print("Feed content IDs:", [c.content for c in agent.feed])
-    #         print(f"Recommendations: {len(agent.recommended_content)}")
-    #         if agent.recommended_content:
-    #             print("Recommended content IDs:", [c.content for c in agent.recommended_content])
-    
-    # print("\nTest completed!")
