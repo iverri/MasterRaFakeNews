@@ -26,9 +26,8 @@ class FakeNewsModel(Model):
     The process repeats over multiple timesteps, influencing network dynamics. 
     '''
 
-    #Initialize number of agents
     #Initialize agents
-    def __init__(self, N: int = 50, m_links: int = 2, seed: int = None, news_amount: int = 200):
+    def __init__(self, N: int = 10, m_links: int = 2, seed: int = None, news_amount: int = 200):
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
         
@@ -52,6 +51,9 @@ class FakeNewsModel(Model):
         # Initialize news content
         self.news_content = initialize_news_content(self, news_amount)
 
+        # Initialize recommender system (starts with random recommendations)
+        self.recommender = Recommender(type="random")
+
         # Distribute news to agents based on social network
         distribute_news(self)
 
@@ -60,8 +62,16 @@ class FakeNewsModel(Model):
 
     def step(self):
         """Advance the model by one step."""
+        # Generate new content
         generate_new_content(self)
-        self.agents.shuffle_do("step")  
+        
+        # Update recommendations for all agents
+        self.recommender.update_recommendations(self.agents)
+        
+        # Let agents process their feed and recommendations
+        self.agents.shuffle_do("step")
+        
+        # Collect data
         self.datacollector.collect(self)
 
     def _validate_parameters(self, N, m_links):

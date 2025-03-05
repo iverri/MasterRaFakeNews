@@ -21,10 +21,15 @@ class UserAgent(Agent):
 
     def step(self):
         """Execute one step for the agent"""
+        # Process regular feed
         processed_feed = self.feed.copy()
         self.feed = []
         
-        for content in processed_feed:
+        # Process both feed and recommendations
+        all_content = processed_feed + self.recommended_content
+        self.recommended_content = []  # Clear recommendations after processing
+        
+        for content in all_content:
             if self.evaluate_content(content):
                 self.share_content(content)
 

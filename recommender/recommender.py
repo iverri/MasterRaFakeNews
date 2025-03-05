@@ -1,19 +1,11 @@
-from agents.user_agent import UserAgent
-from objects.news_content import NewsContent
-# from utils.similarity import generate_random_topic_vector
 import random
-from utils.common import generate_random_topic_vector
-
-# generate random topic vector
-generate_random_topic_vector = lambda: [random.random() for i in range(10)]
-content_pool = [NewsContent(i, generate_random_topic_vector(), False) for i in range(100)] # Create 100 news content items
 
 class Recommender():
     def __init__(self, type="random"):
         self.news_content = []
-        self.user_preferences = []
-        self.recommendations = []
         self.type = type
+        self.user_preferences = []
+        self.user_interactions = []
 
     def update_recommendations(self, agents):
         """Update recommendations for all agents"""
@@ -44,12 +36,29 @@ class Recommender():
         # Clear previous recommendations
         agent.recommended_content = []
         
-        # Get a random sample of 5 content items from the pool
-        num_recommendations = 5
-        recommendations = random.sample(content_pool, min(num_recommendations, len(content_pool)))
+        # Get content pool from model and ensure it exists
+        if not hasattr(agent.model, 'news_content'):
+            return
+            
+        if not agent.model.news_content:
+            return
+            
+        content_pool = agent.model.news_content
         
-        # Add the recommendations to the agent's recommended content
-        agent.recommended_content.extend(recommendations)
-
+        # Get content that isn't in the agent's current feed
+        available_content = [c for c in content_pool if c not in agent.feed]
+        
+        if available_content:
+            # Always recommend 3 items if possible
+            num_recommendations = min(3, len(available_content))
+            recommendations = random.sample(available_content, num_recommendations)
+            agent.recommended_content.extend(recommendations)
+        else:
+            # TODO: remove this? Only want to recommend news that is available?
+            # If no new content available, recommend from the entire pool
+            if content_pool:
+                num_recommendations = min(2, len(content_pool))
+                recommendations = random.sample(content_pool, num_recommendations)
+                agent.recommended_content.extend(recommendations)
 
 
