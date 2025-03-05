@@ -2,6 +2,8 @@ from mesa import Model
 import networkx as nx
 from mesa.space import NetworkGrid
 from agents.user_agent import BotAgent, InfluencerAgent, UserAgent
+from recommender.recommender import Recommender
+from objects.news_content import NewsContent
 import random
 from objects.news_content import NewsContent, initialize_news_content
 from objects.social_network import Social_Network
@@ -118,7 +120,6 @@ class FakeNewsModel(Model):
     def get_network_metrics(self):
         """Get detailed network metrics"""
         return self.social_media_platform.social_network.get_clustering_metrics()
-
 
 if __name__ == "__main__":
     from utils.visualization import create_visualization

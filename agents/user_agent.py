@@ -6,7 +6,6 @@ from utils.agents_utils import (
     get_network_neighbors
 )
 
-
 class UserAgent(Agent):
     # Initialize the agent
     def __init__(self, model, preference_vector, credibility_level, influence_level):
@@ -14,8 +13,9 @@ class UserAgent(Agent):
         self.preference_vector = preference_vector
         self.credibility_level = credibility_level
         self.influence_level = influence_level
-        self.feed = [] # feed with NewsContent
         self.state = "S"
+        self.feed = [] # feed with NewsContent
+        self.recommended_content = []
         self.social_network = model.social_media_platform.social_network
         self.social_media_platform = model.social_media_platform
 
