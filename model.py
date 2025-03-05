@@ -52,7 +52,7 @@ class FakeNewsModel(Model):
         self.news_content = initialize_news_content(self, news_amount)
 
         # Initialize recommender system (starts with random recommendations)
-        self.recommender = Recommender(type="random")
+        self.recommender = Recommender(type="collaborative_filtering")
 
         # Distribute news to agents based on social network
         distribute_news(self)

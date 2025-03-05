@@ -5,6 +5,7 @@ from utils.agents_utils import (
     evaluate_content_interest,
     get_network_neighbors
 )
+import random
 
 class UserAgent(Agent):
     # Initialize the agent
@@ -48,18 +49,25 @@ class UserAgent(Agent):
     
     def share_content(self, content):
         """Share content with followers."""
-         # Update state if sharing fake content
+        # Update state if sharing fake content
         if content.isFake and self.state == "E":
             self.state = "B"
 
         followers = self.get_followers()
+
+        # Only record interaction if we actually have followers to share with
+        if followers:
+            # Calculate rating based on content similarity and credibility
+            rating = cosine_similarity(self.preference_vector, content.topic_vector)
+            
+            # Record interaction for collaborative filtering
+            self.model.recommender.add_interaction(self.pos, content.content, rating)
+            
+            # Share with each follower
+            for follower in followers:
+                if content not in follower.feed:
+                    follower.feed.append(content)
         
-        # Share with each follower
-        for follower in followers:
-            if content not in follower.feed:
-                follower.feed.append(content)
-        
-       
 
     def get_followers(self):
         """Get list of agents that follow this agent."""
