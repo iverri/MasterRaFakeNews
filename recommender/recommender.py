@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from lenskit.algorithms import item_knn as knn
 
+
 class Recommender():
     def __init__(self, type="random"):
         self.type = type
@@ -70,9 +71,6 @@ class Recommender():
             
         # Convert to DataFrame and ensure proper data types
         ratings_df = pd.DataFrame(self.user_interactions)
-        ratings_df['user'] = ratings_df['user'].astype(np.int64)
-        ratings_df['item'] = ratings_df['item'].astype(np.int64)
-        ratings_df['rating'] = ratings_df['rating'].astype(np.float64)
         
         # Remove duplicates keeping most recent
         ratings_df = ratings_df.sort_values('timestamp').drop_duplicates(['user', 'item'], keep='last')
