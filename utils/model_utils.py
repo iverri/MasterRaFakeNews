@@ -15,11 +15,14 @@ def random_preferences(model=None):
 
 def generate_new_content(model):
     """Generate multiple new content pieces with some probability."""
-    # Determine how many content pieces to generate (between 10-20)
-    content_count = model.random.randint(10, 20)
-    # Clear the existing content pool
-    model.news_content = []
+    # Determine how many content pieces to generate (between 30-80)
+    content_count = model.random.randint(30, 60)
     
+    # Filter out content with low engagement instead of clearing everything
+    model.news_content = [content for content in model.news_content 
+                          if content.engagement >= 0.3]
+    
+    # Generate new content
     for _ in range(content_count):
         if model.random.random() < 0.8:  # 80% chance of new content
             # Import inside function to avoid circular import
@@ -30,10 +33,16 @@ def generate_new_content(model):
                 model.random.random() < 0.2,  # 20% chance of fake news
                 random_preferences(model)
             )
+            # Set creation step to current model step
+            new_content.creation_step = model.steps
             model.news_content.append(new_content)
-    
+
+    # Update engagement for all news content
+    for content in model.news_content:
+        content.update_engagement(model.steps)
+
     # Distribute the newly generated content
-    distribute_news(model)
+    # distribute_news(model)
 
 def distribute_news(model):
     """Distribute news content to agents.
@@ -94,12 +103,18 @@ def setup_datacollector(model):
             "Average_Clustering": lambda m: nx.average_clustering(m.social_media_platform.social_network.network.to_undirected()),
             "In_Degree_Centrality": lambda m: nx.in_degree_centrality(m.social_media_platform.social_network.network),
             "Out_Degree_Centrality": lambda m: nx.out_degree_centrality(m.social_media_platform.social_network.network),
-            "Community_Modularity": lambda m: get_community_modularity(m.social_media_platform.social_network.network.to_undirected())
+            "Community_Modularity": lambda m: get_community_modularity(m.social_media_platform.social_network.network.to_undirected()),
+            "Active_Users": lambda m: sum(1 for a in m.agents if hasattr(a, "is_active") and a.is_active),
+            "Active_Percentage": lambda m: sum(1 for a in m.agents if hasattr(a, "is_active") and a.is_active) / len(m.agents) if len(m.agents) > 0 else 0,
+            "Active_Believers": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "B" and hasattr(a, "is_active") and a.is_active),
+            "Current_Hour": lambda m: m.current_hour,
         },
         agent_reporters={
             "State": lambda a: getattr(a, "state", None),
             "Influence": lambda a: getattr(a, "influence_level", 0),
             "Followers": lambda a: a.social_media_platform.social_network.network.in_degree(a.pos),
-            "Following": lambda a: a.social_media_platform.social_network.network.out_degree(a.pos)
+            "Following": lambda a: a.social_media_platform.social_network.network.out_degree(a.pos),
+            "Is_Active": lambda a: getattr(a, "is_active", False),
+            "Activity_Probability": lambda a: getattr(a, "activity_probability", 0),
         }
     )

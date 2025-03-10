@@ -181,11 +181,11 @@ def create_visualization(model_class):
         model=model,
         components=[
             ProjectInfo,
-            make_space_component(agent_portrayal),
-            SocialNetwork,
             make_plot_component(["Number_of_Believers", "Number_of_Susceptible", "Number_of_Exposed"]),
-           
+            SocialNetwork,
+            make_plot_component(["Active_Percentage"]),
+            
         ],
         model_params=model_params
     )
-    return viz 
+    return viz

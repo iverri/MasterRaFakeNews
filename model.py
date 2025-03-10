@@ -60,8 +60,15 @@ class FakeNewsModel(Model):
         # Initialize datacollector
         self.datacollector = setup_datacollector(self)
 
+        # Add time-related properties
+        self.hours_per_step = 3  # Each step represents 3 hours
+        self.current_hour = 0  # Track the current hour (0-23)
+
     def step(self):
         """Advance the model by one step."""
+        # Update the current hour
+        self.current_hour = (self.current_hour + self.hours_per_step) % 24
+        
         # Generate new content
         generate_new_content(self)
         
