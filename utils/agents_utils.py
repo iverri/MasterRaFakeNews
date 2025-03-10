@@ -4,7 +4,7 @@ import numpy as np
 # CONTENT EVALUATION FUNCTIONS
 #------------------------------------------------------------------------------
 
-def evaluate_content_interest(belief_probability, threshold=0.6):
+def evaluate_content_interest(belief_probability, threshold=0.7):
     """Determine if content is interesting enough to share."""
     return belief_probability > threshold
 
