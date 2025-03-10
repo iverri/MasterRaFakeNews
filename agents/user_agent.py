@@ -127,7 +127,7 @@ class UserAgent(Agent):
                 self.pos, 
                 content.content, 
                 final_rating,
-                current_step=self.model.steps
+                # current_step=self.model.steps
             )
             
             # Share with each follower

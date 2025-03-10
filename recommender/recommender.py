@@ -2,18 +2,26 @@ import random
 import pandas as pd
 import numpy as np
 from lenskit.algorithms import item_knn as knn
+from lenskit.data import sparse_ratings
+from scipy.sparse import csr_matrix
 
 
 class Recommender():
     def __init__(self, type):
         self.type = type
         self.user_interactions = []  # List to store user-content interactions
-        # Configure ItemItem with better parameters for our use case
+        self.rating_matrix = None  # Store the user-item matrix
+        self.user_index = None  # Store user index mapping
+        self.item_index = None  # Store item index mapping
+        self.ratings_df = None
+        
+        # Configure ItemItem for explicit feedback with proper parameters
         self.item_knn = knn.ItemItem(
             20,         # n_neighbors
-            min_nbrs=1,
-            min_sim=-1, # Allow negative similarities
-            center=False, # Don't center the ratings
+            min_nbrs=0,
+            min_sim=0.0,  # Non-negative similarities for our rating scale
+            feedback='explicit',  # Using explicit ratings
+            center=False,  # Don't center ratings to preserve scale
             aggregate='weighted-average'  # Use weighted average for predictions
         )
         
@@ -29,11 +37,11 @@ class Recommender():
             elif self.type == "hybrid":
                 self.hybrid(agent)
 
-    def add_interaction(self, agent_id, content_id, rating, current_step=None):
+    def add_interaction(self, agent_id, content_id, rating):
         """Add an interaction between an agent and content item
         
         Args:
-            agent_id: The ID of the agent
+            agent_id: The ID of the agent (grid position)
             content_id: The ID of the content
             rating: The rating value (should be between 0 and 1)
             current_step: The current model step (optional)
@@ -52,7 +60,7 @@ class Recommender():
             'user': agent_id,
             'item': content_id,
             'rating': rating,
-            'timestamp': current_step if current_step is not None else len(self.user_interactions)
+            # 'timestamp': current_step if current_step is not None else len(self.user_interactions)
         }
         
         # Remove any existing interaction for this user-item pair
@@ -63,12 +71,43 @@ class Recommender():
         
         # Add the new interaction
         self.user_interactions.append(new_interaction)
+        #print the user interactions with agent.pos
 
     def recommend(self, agent, content_pool):
         """Recommend news content to an agent"""
         pass
 
-    # Recommender algorithms
+    def _update_rating_matrix(self):
+        """Update the user-item rating matrix from interactions"""
+        # print(f"User interactions count: {len(self.user_interactions)}")
+        # print(f"User interactions: {self.user_interactions}")
+
+        if not self.user_interactions:
+            return
+            
+        # Convert interactions to DataFrame
+        self.ratings_df = pd.DataFrame(self.user_interactions)
+        
+        # Ensure proper data types
+        self.ratings_df['user'] = self.ratings_df['user'].astype('int32')
+        self.ratings_df['item'] = self.ratings_df['item'].astype('int32')
+        self.ratings_df['rating'] = self.ratings_df['rating'].astype('float64')
+        
+        # print("Users in ratings_df before sparse conversion:", ratings_df['user'].unique())
+
+        # Remove duplicates keeping most recent
+        self.ratings_df = self.ratings_df.drop_duplicates(['user', 'item'], keep='last')
+        # print(f"ratings_df: {self.ratings_df}")
+        
+        # Create sparse rating matrix
+        self.rating_matrix, raw_user_index, self.item_index = sparse_ratings(self.ratings_df)
+
+        # Convert to Python int to avoid type mismatch
+        self.user_index = pd.Index([int(uid) for uid in raw_user_index])
+
+        # print(f"User index after sparse_ratings(): {self.user_index}")
+        # print(f"Item index: {self.item_index}")
+
     def collaborative_filtering(self, agent):
         """Recommend content using item-based collaborative filtering"""
         # Clear previous recommendations
@@ -78,80 +117,141 @@ class Recommender():
         if not hasattr(agent.model, 'news_content') or not agent.model.news_content:
             # print(f"No content pool available for agent {agent.pos}")
             return
-            
-        # Convert interactions to DataFrame
+
         if len(self.user_interactions) < 5:  # Need some minimum interactions
             # print(f"Not enough interactions ({len(self.user_interactions)}) for CF, using random")
             self.random_recommendation(agent)
             return
         
-        # Convert to DataFrame and ensure proper data types
-        ratings_df = pd.DataFrame(self.user_interactions)
-        
-        # Remove duplicates keeping most recent
-        ratings_df = ratings_df.sort_values('timestamp').drop_duplicates(['user', 'item'], keep='last')
-
-        
         try:
-            # Check rating distribution
-            rating_mean = ratings_df['rating'].mean()
-            rating_std = ratings_df['rating'].std()
-            # print(f"Rating stats for agent {agent.pos}: mean={rating_mean:.3f}, std={rating_std:.3f}")
-            
-            if rating_std < 0.01:  # If ratings are too similar
-                # print(f"Ratings not varied enough, using random")
+            # Update the rating matrix
+            self._update_rating_matrix()
+            # print(f"User index mapping: {self.user_index}")
+            # print(f"Agent position: {agent.pos} (type: {type(agent.pos)})") 
+            # Need minimum interactions for meaningful recommendations
+            if self.rating_matrix is None or self.rating_matrix.nnz < 5:
+                # print(f"Not enough interactions ({self.rating_matrix.nnz}) for CF, using random")
                 self.random_recommendation(agent)
                 return
             
-            # Get items the user hasn't interacted with
-            user_items = set(ratings_df[ratings_df['user'] == agent.pos]['item'])
-            all_items = set(ratings_df['item'].unique())
-            candidate_items = list(all_items - user_items)
-            
-            if not candidate_items:
-                # print(f"No new items for agent {agent.pos}, using random")
-                self.random_recommendation(agent)
-                return
-            
-            # Fit the model with current interactions
+            # Get user's rated items using matrix indices
             try:
-                self.item_knn.fit(ratings_df)
-            except ValueError as e:
-                # print(f"Error fitting model: {e}, using random recommendations")
-                self.random_recommendation(agent)
-                return
-                
-            # Get recommendations
-            try:
-                recs = self.item_knn.predict_for_user(int(agent.pos), candidate_items)
-                if recs is None or len(recs) == 0:
-                    # print(f"No recommendations generated for agent {agent.pos}, using random")
+                # print(f"User index: {list(self.user_index)}")
+                # print(f"Agent pos: {agent.pos}")
+                # If user is not in the index, they haven't had any interactions yet
+                if agent.pos not in list(self.user_index):
+                    # print(f"User {agent.pos} not in index. Available users: {list(self.user_index)}")
+                    # For new users, use random recommendations until they have interactions
                     self.random_recommendation(agent)
                     return
                     
-                # Sort by predicted rating and get top 3
-                top_items = recs.sort_values(ascending=False).head(3)
+                user_idx = self.user_index.get_loc(agent.pos)
+                print(f"it worked: {user_idx}")
+                # print(f"Agent pos: {agent.pos}")
+                # print(f"User index2: {user_idx}")
+            except KeyError:
+                print(f"User {agent.pos} not in index. Available users: {list(self.user_index)}")
+                # print(f"User {agent.pos} not in index: {self.user_index.keys()}")
+                print(f"User not in index, using random recommendations")
+                self.random_recommendation(agent)
+                return
+                
+            try:
+                user_ratings = self.rating_matrix.row(user_idx)
+                # print(f"user_ratings: {user_ratings}")
+            except Exception as e:
+                print(f"Error getting user ratings: {e}")
+                self.random_recommendation(agent)
+                return
+            
+            rated_items = np.where(user_ratings > 0)[0]
+            print(f"rated_items: {rated_items}")
+            if len(rated_items) == 0:
+                self.random_recommendation(agent)
+                return
+                
+            # get item ids
+            rated_items = [self.item_index[i] for i in rated_items]
+            print(f"rated_itemsID: {rated_items}")
+            # Get candidate items using matrix operations
+            try:
+                # all_items = np.arange(self.rating_matrix.ncols)
+                all_items = self.item_index.values
+                # print(f"all_items: {all_items}")
+            except Exception as e:
+                print(f"Error getting candidate items: {e}")
+                # self.random_recommendation(agent)
+                return
+
+            try:
+                # get candidate items not rated by user
+                candidate_items = np.setdiff1d(all_items, rated_items)
+                # print(f"rated_items: {rated_items}")
+                print(f"candidate_items: {candidate_items}")
+                print(f"item_index: {self.item_index}")
+            except Exception as e:
+                print(f"Error getting candidate items: {e}")
+                # self.random_recommendation(agent)
+                return
+
+            if len(candidate_items) == 0:
+                print(f"No candidate items found")
+                # self.random_recommendation(agent)
+                return
+            
+            # Fit model with the rating matrix
+            try:
+                self.item_knn.fit(self.ratings_df)
+                print(f"Model fitted successfully")
+            except Exception as e:
+                print(f"Error fitting model: {e}")
+                # self.random_recommendation(agent)
+                return
+            
+            try:
+                print(f"Number of rated items: {len(rated_items)}")
+                print(f"Number of candidate items: {len(candidate_items)}")
+                
+                if self.item_knn is None:
+                    # print("Error: Model has not been trained yet.")
+                    return
+
+                predictions = self.item_knn.predict_for_user(user_idx, candidate_items)
+
+                # Remove NaN values and handle empty predictions
+                predictions = predictions.dropna()
+                print(f"predictions: {predictions}")
+                
+                if predictions is None or len(predictions) == 0:
+                    print(f"No predictions found")
+                    # self.random_recommendation(agent)
+                    return
+            
+                # Get top 3 items with highest predicted ratings
+                top_items = predictions.nlargest(3)
+                print(f"top_items: {top_items}")
                 
                 # Convert content IDs back to NewsContent objects
                 content_dict = {int(c.content): c for c in agent.model.news_content}
-                recommendations = [content_dict[int(item_id)] for item_id in top_items.index 
-                                 if int(item_id) in content_dict]
+                recommendations = [content_dict[int(self.item_index[i])] 
+                                for i in top_items.index 
+                                if int(self.item_index[i]) in content_dict]
+                print(f"recommendations: {recommendations}")
                 
                 if recommendations:
-                    # print(f"CF recommending {len(recommendations)} items to agent {agent.pos}")
                     agent.recommended_content.extend(recommendations)
                 else:
-                    # print(f"No valid recommendations for agent {agent.pos}, using random")
-                    self.random_recommendation(agent)
-                    
-            except (ValueError, TypeError) as e:
-                # print(f"Error generating predictions: {e}, using random recommendations")
-                self.random_recommendation(agent)
+                    self.random_recommendation(agent)# Get top 3 items with highest predicted ratings
+
+            except Exception as e:
+                print(f"Error generating predictions: {e}")
+                # self.random_recommendation(agent)
+
                 
         except Exception as e:
-            # print(f"Collaborative filtering failed for agent {agent.pos}: {e}")
-            self.random_recommendation(agent)
-
+            # self.random_recommendation(agent)
+            print(f"Error in collaborative filtering: {e}")
+            
     def content_based(self):
         pass
     def hybrid(self):
