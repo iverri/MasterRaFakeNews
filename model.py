@@ -27,7 +27,7 @@ class FakeNewsModel(Model):
     '''
 
     #Initialize agents
-    def __init__(self, N: int = 10, m_links: int = 2, seed: int = None, news_amount: int = 200):
+    def __init__(self, N: int = 50, m_links: int = 2, seed: int = None, news_amount: int = 200):
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
         
@@ -107,11 +107,12 @@ class FakeNewsModel(Model):
         
     def _create_agents(self):
         """Create and place agents in the grid."""
+ 
         for i in range(self.num_agents):
             user = self._create_agent_by_type(i)
             self.grid.place_agent(user, i)
             user.social_network = self.social_media_platform.social_network
-            
+
     def _create_agent_by_type(self, index):
         """Create an agent based on its index/type."""
         if index < int(0.05 * self.num_agents):  # Influencers

@@ -5,7 +5,7 @@ from lenskit.algorithms import item_knn as knn
 
 
 class Recommender():
-    def __init__(self, type="random"):
+    def __init__(self, type):
         self.type = type
         self.user_interactions = []  # List to store user-content interactions
         # Configure ItemItem with better parameters for our use case
@@ -29,14 +29,30 @@ class Recommender():
             elif self.type == "hybrid":
                 self.hybrid(agent)
 
-    def add_interaction(self, agent_id, content_id, rating):
-        """Add an interaction between an agent and content item"""
+    def add_interaction(self, agent_id, content_id, rating, current_step=None):
+        """Add an interaction between an agent and content item
+        
+        Args:
+            agent_id: The ID of the agent
+            content_id: The ID of the content
+            rating: The rating value (should be between 0 and 1)
+            current_step: The current model step (optional)
+        """
+        # Validate inputs
+        if not isinstance(agent_id, (int, np.integer)):
+            agent_id = int(agent_id)
+        if not isinstance(content_id, (int, np.integer)):
+            content_id = int(content_id)
+        
+        # Ensure rating is between 0 and 1
+        rating = max(0.0, min(1.0, float(rating)))
+        
         # Create new interaction
         new_interaction = {
             'user': agent_id,
             'item': content_id,
             'rating': rating,
-            'timestamp': len(self.user_interactions)
+            'timestamp': current_step if current_step is not None else len(self.user_interactions)
         }
         
         # Remove any existing interaction for this user-item pair
@@ -60,29 +76,30 @@ class Recommender():
         
         # Get content pool from model
         if not hasattr(agent.model, 'news_content') or not agent.model.news_content:
-            print(f"No content pool available for agent {agent.pos}")
+            # print(f"No content pool available for agent {agent.pos}")
             return
             
         # Convert interactions to DataFrame
         if len(self.user_interactions) < 5:  # Need some minimum interactions
-            print(f"Not enough interactions ({len(self.user_interactions)}) for CF, using random")
+            # print(f"Not enough interactions ({len(self.user_interactions)}) for CF, using random")
             self.random_recommendation(agent)
             return
-            
+        
         # Convert to DataFrame and ensure proper data types
         ratings_df = pd.DataFrame(self.user_interactions)
         
         # Remove duplicates keeping most recent
         ratings_df = ratings_df.sort_values('timestamp').drop_duplicates(['user', 'item'], keep='last')
+
         
         try:
             # Check rating distribution
             rating_mean = ratings_df['rating'].mean()
             rating_std = ratings_df['rating'].std()
-            print(f"Rating stats for agent {agent.pos}: mean={rating_mean:.3f}, std={rating_std:.3f}")
+            # print(f"Rating stats for agent {agent.pos}: mean={rating_mean:.3f}, std={rating_std:.3f}")
             
             if rating_std < 0.01:  # If ratings are too similar
-                print(f"Ratings not varied enough, using random")
+                # print(f"Ratings not varied enough, using random")
                 self.random_recommendation(agent)
                 return
             
@@ -92,7 +109,7 @@ class Recommender():
             candidate_items = list(all_items - user_items)
             
             if not candidate_items:
-                print(f"No new items for agent {agent.pos}, using random")
+                # print(f"No new items for agent {agent.pos}, using random")
                 self.random_recommendation(agent)
                 return
             
@@ -100,7 +117,7 @@ class Recommender():
             try:
                 self.item_knn.fit(ratings_df)
             except ValueError as e:
-                print(f"Error fitting model: {e}, using random recommendations")
+                # print(f"Error fitting model: {e}, using random recommendations")
                 self.random_recommendation(agent)
                 return
                 
@@ -108,7 +125,7 @@ class Recommender():
             try:
                 recs = self.item_knn.predict_for_user(int(agent.pos), candidate_items)
                 if recs is None or len(recs) == 0:
-                    print(f"No recommendations generated for agent {agent.pos}, using random")
+                    # print(f"No recommendations generated for agent {agent.pos}, using random")
                     self.random_recommendation(agent)
                     return
                     
@@ -121,18 +138,18 @@ class Recommender():
                                  if int(item_id) in content_dict]
                 
                 if recommendations:
-                    print(f"CF recommending {len(recommendations)} items to agent {agent.pos}")
+                    # print(f"CF recommending {len(recommendations)} items to agent {agent.pos}")
                     agent.recommended_content.extend(recommendations)
                 else:
-                    print(f"No valid recommendations for agent {agent.pos}, using random")
+                    # print(f"No valid recommendations for agent {agent.pos}, using random")
                     self.random_recommendation(agent)
                     
             except (ValueError, TypeError) as e:
-                print(f"Error generating predictions: {e}, using random recommendations")
+                # print(f"Error generating predictions: {e}, using random recommendations")
                 self.random_recommendation(agent)
                 
         except Exception as e:
-            print(f"Collaborative filtering failed for agent {agent.pos}: {e}")
+            # print(f"Collaborative filtering failed for agent {agent.pos}: {e}")
             self.random_recommendation(agent)
 
     def content_based(self):
