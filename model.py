@@ -27,15 +27,22 @@ class FakeNewsModel(Model):
     '''
 
     #Initialize agents
-    def __init__(self, N: int = 10, m_links: int = 2, seed: int = None, news_amount: int = 200):
+    def __init__(self, N: int = 100, m_links: int = 10, seed: int = None, news_amount: int = 200, fake_news_percentage: int = 10, recommender_type: str = "random", bot_percentage: int = 5, influencer_percentage: int = 5):
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
         
+        # Validate parameters
         self._validate_parameters(N, m_links)
+        
+        # Set model parameters
         self.info = project_info
         self.num_agents = N
         self.m_links = m_links
-        
+        self.fake_news_percentage = fake_news_percentage / 100
+        self.recommender_type = recommender_type
+        self.bot_percentage = bot_percentage / 100
+        self.influencer_percentage = influencer_percentage / 100
+
         # Generate preference vectors first
         self.preference_vectors = [random_preferences() for _ in range(self.num_agents)]
         
@@ -71,9 +78,11 @@ class FakeNewsModel(Model):
         
         # Generate new content
         generate_new_content(self)
+
+        distribute_news(self)
         
         # Update recommendations for all agents
-        self.recommender.update_recommendations(self.agents)
+        # self.recommender.update_recommendations(self.agents)
         
         # Let agents process their feed and recommendations
         self.agents.shuffle_do("step")
@@ -90,9 +99,9 @@ class FakeNewsModel(Model):
             
     def _setup_social_network(self):
         """Setup the social network."""
-        self.social_media_platform = SocialMediaPlatform(self.num_agents, self.m_links)
-        self.social_media_platform.social_network = Social_Network(
-            self.num_agents, 
+        self.social_media_platform = SocialMediaPlatform(
+            self,
+            self.num_agents,
             self.m_links,
             self.preference_vectors
         )
@@ -114,9 +123,9 @@ class FakeNewsModel(Model):
             
     def _create_agent_by_type(self, index):
         """Create an agent based on its index/type."""
-        if index < int(0.05 * self.num_agents):  # Influencers
+        if index < int(self.influencer_percentage * self.num_agents):  # Influencers
             return InfluencerAgent(self, self.preference_vectors[index])
-        elif index < int(0.10 * self.num_agents):  # Bots
+        elif index < int(self.influencer_percentage * self.num_agents + self.bot_percentage * self.num_agents):  # Bots
             return BotAgent(self, self.preference_vectors[index])
         else:  # Regular users
             credibility_level = min(max(random.gauss(0.5, 0.15), 0), 1)

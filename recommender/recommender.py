@@ -1,7 +1,8 @@
 import random
+from .types import RecommenderType
 
 class Recommender():
-    def __init__(self, type="random"):
+    def __init__(self, type=RecommenderType.RANDOM):
         self.news_content = []
         self.type = type
         self.user_preferences = []
@@ -10,13 +11,13 @@ class Recommender():
     def update_recommendations(self, agents):
         """Update recommendations for all agents"""
         for agent in agents:
-            if self.type == "random":
+            if self.type == RecommenderType.RANDOM:
                 self.random_recommendation(agent)
-            elif self.type == "collaborative_filtering":
+            elif self.type == RecommenderType.COLLABORATIVE_FILTERING:
                 self.collaborative_filtering(agent)
-            elif self.type == "content_based":
+            elif self.type == RecommenderType.CONTENT_BASED:
                 self.content_based(agent)
-            elif self.type == "hybrid":
+            elif self.type == RecommenderType.HYBRID:
                 self.hybrid(agent)
 
     def recommend(self, agent, content_pool):
@@ -50,7 +51,7 @@ class Recommender():
         
         if available_content:
             # Always recommend 3 items if possible
-            num_recommendations = min(3, len(available_content))
+            num_recommendations = min(5, len(available_content))
             recommendations = random.sample(available_content, num_recommendations)
             agent.recommended_content.extend(recommendations)
         else:

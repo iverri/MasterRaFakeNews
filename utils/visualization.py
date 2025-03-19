@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import community  # python-louvain package
 from utils.model_utils import get_agent_types
+from recommender.types import RecommenderType
 
 
 project_info = """
@@ -156,9 +157,25 @@ model_params = {
     },
     "m_links": {
         "type": "SliderInt",
-        "value": 5,
+        "value": 10,
         "label": "Number of edges per new node",
-        "min": 2,
+        "min": 5,
+        "max": 20,
+        "step": 1
+    },
+    "influencer_percentage": {
+        "type": "SliderInt",
+        "value": 5,
+        "label": "Percentage of influencers",
+        "min": 1,
+        "max": 10,
+        "step": 1
+    },
+    "bot_percentage": {
+        "type": "SliderInt",
+        "value": 5,
+        "label": "Percentage of bots",
+        "min": 1,
         "max": 10,
         "step": 1
     },
@@ -170,7 +187,22 @@ model_params = {
         "max": 1000,
         "step": 1,
         "default": 200
+    },
+    "fake_news_percentage": {
+        "type": "SliderInt",
+        "value": 10,
+        "label": "Percentage of fake news",
+        "min": 5,
+        "max": 40,
+        "step": 1
+    },
+    "recommender_type": {
+        "type": "Select",
+        "value": RecommenderType.RANDOM.value,
+        "label": "Type of recommender",
+        "values": [type.value for type in RecommenderType]
     }
+    
 }
 
 def create_visualization(model_class):
@@ -184,6 +216,7 @@ def create_visualization(model_class):
             make_plot_component(["Number_of_Believers", "Number_of_Susceptible", "Number_of_Exposed"]),
             SocialNetwork,
             make_plot_component(["Active_Percentage"]),
+            make_plot_component(["Average_Feed_Size"]),
             
         ],
         model_params=model_params
