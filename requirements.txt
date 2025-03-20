@@ -1,6 +1,7 @@
 # Data Processing
 pandas
 numpy
+scikit-learn
 
 # Social network
 networkx
