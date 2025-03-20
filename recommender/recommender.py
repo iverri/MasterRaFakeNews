@@ -2,17 +2,18 @@ import random
 import pandas as pd
 import numpy as np
 from lenskit.knn import ItemKNNScorer, ItemKNNConfig
-from lenskit.data import from_interactions_df
+from lenskit.data import Dataset, ItemList
+from lenskit.pipeline import Pipeline, topn_pipeline
+# from lenskit.data import from_interactions_df
 # from lenskit.data import sparse_ratings
 # from scipy.sparse import csr_matrix
+import traceback
 
 
 class Recommender():
     def __init__(self, type):
         self.type = type
         self.user_interactions = []  # List to store user-content interactions
-        self.ratings_df = None
-        self.from_interactions_df = None
         
         # Configure ItemKNN with new API
         config = ItemKNNConfig(
@@ -20,9 +21,13 @@ class Recommender():
             min_nbrs=1,   # Minimum number of neighbors
             min_sim=0.1,  # Minimum similarity threshold
             feedback='explicit',  # Using explicit ratings
-            block_size=250,  # Block size for parallel computation
         )
+        
+        # Create the scorer
         self.item_knn = ItemKNNScorer(config)
+        
+        # Create a recommendation pipeline
+        self.pipeline = None
         
     def update_recommendations(self, agents):
         """Update recommendations for all agents"""
@@ -37,14 +42,7 @@ class Recommender():
                 self.hybrid(agent)
 
     def add_interaction(self, agent_id, content_id, rating):
-        """Add an interaction between an agent and content item
-        
-        Args:
-            agent_id: The ID of the agent (grid position)
-            content_id: The ID of the content
-            rating: The rating value (should be between 0 and 1)
-            current_step: The current model step (optional)
-        """
+        """Add an interaction between an agent and content item"""
         # Validate inputs
         if not isinstance(agent_id, (int, np.integer)):
             agent_id = int(agent_id)
@@ -56,46 +54,44 @@ class Recommender():
         
         # Create new interaction
         new_interaction = {
-            'user': agent_id,
-            'item': content_id,
+            'user_id': agent_id,
+            'item_id': content_id,
             'rating': rating,
-            # 'timestamp': current_step if current_step is not None else len(self.user_interactions)
         }
         
         # Remove any existing interaction for this user-item pair
         self.user_interactions = [
             inter for inter in self.user_interactions 
-            if not (inter['user'] == agent_id and inter['item'] == content_id)
+            if not (inter['user_id'] == agent_id and inter['item_id'] == content_id)
         ]
         
         # Add the new interaction
         self.user_interactions.append(new_interaction)
-        #print the user interactions with agent.pos
 
-    def recommend(self, agent, content_pool):
-        """Recommend news content to an agent"""
-        pass
-
-    def _update_rating_matrix(self):
-        """Update the ratings DataFrame from interactions"""
+    def _create_dataset(self):
+        """Create a LensKit Dataset from interactions"""
         if not self.user_interactions:
-            return
-            
+            return None
+        
         # Convert interactions to DataFrame
-        self.ratings_df = pd.DataFrame(self.user_interactions)
+        df = pd.DataFrame(self.user_interactions)
         
         # Ensure proper data types
-        self.ratings_df['user'] = self.ratings_df['user'].astype('int32')
-        self.ratings_df['item'] = self.ratings_df['item'].astype('int32')
-        self.ratings_df['rating'] = self.ratings_df['rating'].astype('float64')
+        df['user_id'] = df['user_id'].astype('int32')
+        df['item_id'] = df['item_id'].astype('int32')
+        df['rating'] = df['rating'].astype('float64')
         
         # Remove duplicates keeping most recent
-        self.ratings_df = self.ratings_df.drop_duplicates(['user', 'item'], keep='last')
+        df = df.drop_duplicates(['user_id', 'item_id'], keep='last')
         
-        # Create LensKit Dataset
-        self.from_interactions_df = from_interactions_df(self.ratings_df)
-        print(self.from_interactions_df)
-        print(self.user_interactions)
+        # Create dataset using from_interactions_df
+        try:
+            from lenskit.data import from_interactions_df
+            dataset = from_interactions_df(df)
+            return dataset
+        except Exception as e:
+            print(f"Error creating dataset: {e}")
+            return None
 
     def collaborative_filtering(self, agent):
         """Recommend content using item-based collaborative filtering"""
@@ -104,93 +100,90 @@ class Recommender():
         
         # Get content pool from model
         if not hasattr(agent.model, 'news_content') or not agent.model.news_content:
-            # print(f"No content pool available for agent {agent.pos}")
             return
 
-        if len(self.user_interactions) < 20:  # Need some minimum interactions
-            # print(f"Not enough interactions ({len(self.user_interactions)}) for CF, using random")
-            # self.random_recommendation(agent)
+        # Check if this specific user has enough interactions (at least 2)
+        user_interactions = [inter for inter in self.user_interactions if inter['user_id'] == agent.pos]
+        if len(user_interactions) < 3:
+            # Fall back to random recommendations if user doesn't have enough interactions
+            self.random_recommendation(agent)
+            return
+        
+        # Check if the system as a whole has enough interactions
+        min_interactions = 30  # Minimum total interactions needed
+        if len(self.user_interactions) < min_interactions:
+            # Fall back to random recommendations if not enough data overall
+            self.random_recommendation(agent)
             return
         
         try:
-            # Update the rating matrix
-            self._update_rating_matrix()
-            
-            if self.ratings_df is None or len(self.ratings_df) < 5:
+            # Create dataset
+            dataset = self._create_dataset()
+            if dataset is None:
                 self.random_recommendation(agent)
                 return
+                
+            # Create and train pipeline if not already created or if it needs retraining
+            if self.pipeline is None or len(self.user_interactions) > self._last_training_count:
+                print(f"Training new pipeline with {len(self.user_interactions)} interactions")
+                if self.pipeline is None:
+                    self.pipeline = topn_pipeline(self.item_knn)
+                self.pipeline.train(dataset)
+                self._last_training_count = len(self.user_interactions)
             
-            # Get user's rated items
-            user_ratings = self.ratings_df[self.ratings_df['user'] == agent.pos]
-            rated_items = user_ratings['item'].values
-            print(f"rated_items: {rated_items}")
+            # Get all available content IDs
+            all_content_ids = {c.content for c in agent.model.news_content}
             
-            # User needs at least one interaction to get recommendations
-            if len(rated_items) == 0:
-                self.random_recommendation(agent)
+            # Get items already in user's feed
+            feed_ids = {c.content for c in agent.feed}
+            
+            # Get candidate items (not in feed)
+            candidate_ids = all_content_ids - feed_ids
+            if not candidate_ids:
                 return
+                
+            # Convert to list for recommendation
+            from lenskit.data import ItemList
+            candidates = ItemList(list(candidate_ids))
             
-            # Get all available items that have been rated by any user
-            all_items = self.ratings_df['item'].unique()
-            print(f"all_items: {all_items}")
-            # Get candidate items not rated by user
-            candidate_items = np.setdiff1d(all_items, rated_items)
-            print(f"candidate_items: {candidate_items}")
-            if len(candidate_items) == 0:
-                print(f"No candidate items found")
-                # self.random_recommendation(agent)
-                return
-            
-            # Fit model with the rating matrix
+            # Get recommendations using the recommend function
+            from lenskit import recommend
             try:
-                # Train the model with the rating matrix
-                self.item_knn.train(self.from_interactions_df)
                 
-                # Create query DataFrame for scoring
-                query = pd.DataFrame({
-                    'user': [agent.pos] * len(candidate_items),
-                    'item': candidate_items
-                })
+                recs = recommend(self.pipeline, agent.pos, n=5, items=candidates)
                 
-                # Score items
-                scores = self.item_knn(query)
+                # Convert to NewsContent objects
+                content_dict = {c.content: c for c in agent.model.news_content}
+                recommendations = []
                 
-                if scores is None or len(scores) == 0:
-                    return
-                
-                # Convert scores to Series with item indices
-                scores = pd.Series(scores, index=candidate_items)
-                
-                # Remove any NaN scores
-                scores = scores.dropna()
-                
-                if len(scores) == 0:
-                    return
-                
-                # Sort items by score and get top 3
-                top_items = scores.nlargest(3).index
-                
-                # Convert content IDs back to NewsContent objects
-                content_dict = {int(c.content): c for c in agent.model.news_content}
-                recommendations = [content_dict[int(item)] 
-                                for item in top_items 
-                                if int(item) in content_dict]
+                rec_ids = recs.ids()
+                # Process the recommendations
+                for item_id in rec_ids:
+                    if item_id in content_dict:
+                        recommendations.append(content_dict[item_id])
                 
                 if recommendations:
                     agent.recommended_content.extend(recommendations)
-                    
+                    print(f"Added {len(recommendations)} recommendations to agent {agent.pos}")
+                else:
+                    # Fall back to random if no recommendations were generated
+                    self.random_recommendation(agent)
             except Exception as e:
-                print(f"Error in collaborative filtering scoring: {e}")
-                # self.random_recommendation(agent)
+                print(f"Error getting recommendations: {e}")
+                traceback.print_exc()  # Add traceback for better debugging
+                self.random_recommendation(agent)
                 
         except Exception as e:
-            # self.random_recommendation(agent)
             print(f"Error in collaborative filtering: {e}")
+            traceback.print_exc()  # Add traceback for better debugging
+            self.random_recommendation(agent)
             
-    def content_based(self):
+    def content_based(self, agent):
         pass
-    def hybrid(self):
+        
+    def hybrid(self, agent):
         pass
+        
     def random_recommendation(self, agent):
         """Recommend random news content to an agent"""
         # Clear previous recommendations
@@ -213,12 +206,5 @@ class Recommender():
             num_recommendations = min(3, len(available_content))
             recommendations = random.sample(available_content, num_recommendations)
             agent.recommended_content.extend(recommendations)
-        else:
-            # TODO: remove this? Only want to recommend news that is available?
-            # If no new content available, recommend from the entire pool
-            if content_pool:
-                num_recommendations = min(2, len(content_pool))
-                recommendations = random.sample(content_pool, num_recommendations)
-                agent.recommended_content.extend(recommendations)
 
 
