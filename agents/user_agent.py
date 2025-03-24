@@ -105,18 +105,34 @@ class UserAgent(Agent):
     
     def share_content(self, content):
         """Share content with followers."""
-         # Update state if sharing fake content
+        # Update state if sharing fake content
         if content.isFake and self.state == "E":
             self.state = "B"
 
         followers = self.get_followers()
+
+        # Record interaction even if no followers (for CF)
+        # Calculate base rating from content similarity
+        base_rating = cosine_similarity(self.preference_vector, content.topic_vector)
         
-        # Share with each follower
-        for follower in followers:
-            if content not in follower.feed:
-                follower.feed.append(content)
+        # Adjust rating based on content engagement (normalized to 0-1 range)
+        engagement_factor = min(1.0, content.engagement / 1.5)  # Normalize by max possible engagement
         
-       
+        # Combine ratings (70% similarity, 30% engagement)
+        final_rating = 0.7 * base_rating + 0.3 * engagement_factor
+        
+        # Record interaction for collaborative filtering
+        self.model.social_media_platform.recommender.add_interaction(
+            self.pos, 
+            content.content, 
+            final_rating
+        )
+        
+        # Only share with followers if we have any
+        if followers:
+            for follower in followers:
+                if content not in follower.feed:
+                    follower.feed.append(content)
 
     def get_followers(self):
         """Get list of agents that follow this agent."""
