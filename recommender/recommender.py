@@ -9,9 +9,11 @@ from lenskit.pipeline import Pipeline, topn_pipeline
 # from scipy.sparse import csr_matrix
 import traceback
 
+from recommender.types import RecommenderType
+
 
 class Recommender():
-    def __init__(self, type):
+    def __init__(self, type=RecommenderType.RANDOM):
         self.type = type
         self.user_interactions = []  # List to store user-content interactions
         
@@ -36,6 +38,10 @@ class Recommender():
                 self.random_recommendation(agent)
             elif self.type == RecommenderType.COLLABORATIVE_FILTERING:
                 self.collaborative_filtering(agent)
+            elif self.type == RecommenderType.ITEM_KNN:
+                self.item_knn(agent)
+            elif self.type == RecommenderType.USER_KNN:
+                self.user_knn(agent)
             elif self.type == RecommenderType.CONTENT_BASED:
                 self.content_based(agent)
             elif self.type == RecommenderType.HYBRID:
