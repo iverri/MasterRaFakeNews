@@ -122,7 +122,7 @@ class UserAgent(Agent):
         final_rating = 0.7 * base_rating + 0.3 * engagement_factor
         
         # Record interaction for collaborative filtering
-        self.model.recommender.add_interaction(
+        self.model.social_media_platform.recommender.add_interaction(
             self.pos, 
             content.content, 
             final_rating

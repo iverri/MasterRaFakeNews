@@ -45,9 +45,8 @@ class FakeNewsModel(Model):
 
         # Generate preference vectors first
         self.preference_vectors = [random_preferences() for _ in range(self.num_agents)]
-        
-        # Setup social network
-        self._setup_social_network()
+
+        self.social_media_platform = SocialMediaPlatform(self, self.num_agents, self.m_links, self.preference_vectors, self.recommender_type)
         
         # Setup grid for Mesa
         self._setup_grid()
@@ -57,9 +56,6 @@ class FakeNewsModel(Model):
 
         # Initialize news content
         self.news_content = initialize_news_content(self, news_amount)
-
-        # Initialize recommender system (starts with random recommendations)
-        self.recommender = Recommender(type="collaborative_filtering")
 
         # Distribute news to agents based on social network
         distribute_news(self)
@@ -78,11 +74,9 @@ class FakeNewsModel(Model):
         
         # Generate new content
         generate_new_content(self)
-
-        distribute_news(self)
         
         # Update recommendations for all agents
-        # self.recommender.update_recommendations(self.agents)
+        self.social_media_platform.recommender.update_recommendations(self.agents)
         
         # Let agents process their feed and recommendations
         self.agents.shuffle_do("step")
@@ -97,14 +91,6 @@ class FakeNewsModel(Model):
         if m_links >= N:
             raise ValueError("Number of edges must be less than number of nodes")
             
-    def _setup_social_network(self):
-        """Setup the social network."""
-        self.social_media_platform = SocialMediaPlatform(
-            self,
-            self.num_agents,
-            self.m_links,
-            self.preference_vectors
-        )
         
     def _setup_grid(self):
         """Setup the grid for Mesa."""

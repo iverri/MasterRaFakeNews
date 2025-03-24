@@ -13,9 +13,10 @@ from recommender.types import RecommenderType
 
 
 class Recommender():
-    def __init__(self, type=RecommenderType.RANDOM):
-        self.type = type
+    def __init__(self, recommender_type):
+        self.type = recommender_type
         self.user_interactions = []  # List to store user-content interactions
+        self._last_training_count = 0  # Add this line to track when retraining is needed
         
         # Configure ItemKNN with new API
         config = ItemKNNConfig(
@@ -33,18 +34,19 @@ class Recommender():
         
     def update_recommendations(self, agents):
         """Update recommendations for all agents"""
+        print(f"Recommender type: {self.type}")
         for agent in agents:
-            if self.type == RecommenderType.RANDOM:
+            if self.type == RecommenderType.RANDOM.value:
                 self.random_recommendation(agent)
-            elif self.type == RecommenderType.COLLABORATIVE_FILTERING:
+            elif self.type == RecommenderType.COLLABORATIVE_FILTERING.value:
                 self.collaborative_filtering(agent)
-            elif self.type == RecommenderType.ITEM_KNN:
-                self.item_knn(agent)
-            elif self.type == RecommenderType.USER_KNN:
-                self.user_knn(agent)
-            elif self.type == RecommenderType.CONTENT_BASED:
+            elif self.type == RecommenderType.ITEM_KNN.value:
+                self.collaborative_filtering(agent)
+            elif self.type == RecommenderType.USER_KNN.value:
+                self.random_recommendation(agent)
+            elif self.type == RecommenderType.CONTENT_BASED.value:
                 self.content_based(agent)
-            elif self.type == RecommenderType.HYBRID:
+            elif self.type == RecommenderType.HYBRID.value:
                 self.hybrid(agent)
 
     def add_interaction(self, agent_id, content_id, rating):
