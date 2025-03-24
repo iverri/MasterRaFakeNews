@@ -13,8 +13,10 @@ from recommender.types import RecommenderType
 
 
 class Recommender():
-    def __init__(self, recommender_type):
+    def __init__(self, recommender_type, diversity_lambda, increase_diversity):
         self.type = recommender_type
+        self.diversity_lambda = diversity_lambda
+        self.increase_diversity = increase_diversity
         self.user_interactions = []  # List to store user-content interactions
         self._last_training_count = 0  # Add this line to track when retraining is needed
         

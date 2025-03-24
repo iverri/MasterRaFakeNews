@@ -27,7 +27,7 @@ class FakeNewsModel(Model):
     '''
 
     #Initialize agents
-    def __init__(self, N: int = 100, m_links: int = 10, seed: int = None, news_amount: int = 200, fake_news_percentage: int = 10, recommender_type: str = "random", bot_percentage: int = 5, influencer_percentage: int = 5):
+    def __init__(self, N: int = 100, m_links: int = 10, seed: int = None, news_amount: int = 200, fake_news_percentage: int = 10, recommender_type: str = "random", bot_percentage: int = 5, influencer_percentage: int = 5, diversity_lambda: float = 0.5, increase_diversity: bool = False):
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
         
@@ -42,11 +42,13 @@ class FakeNewsModel(Model):
         self.recommender_type = recommender_type
         self.bot_percentage = bot_percentage / 100
         self.influencer_percentage = influencer_percentage / 100
+        self.diversity_lambda = diversity_lambda
+        self.increase_diversity = increase_diversity
 
         # Generate preference vectors first
         self.preference_vectors = [random_preferences() for _ in range(self.num_agents)]
 
-        self.social_media_platform = SocialMediaPlatform(self, self.num_agents, self.m_links, self.preference_vectors, self.recommender_type)
+        self.social_media_platform = SocialMediaPlatform(self, self.num_agents, self.m_links, self.preference_vectors, self.recommender_type, self.diversity_lambda, self.increase_diversity)
         
         # Setup grid for Mesa
         self._setup_grid()

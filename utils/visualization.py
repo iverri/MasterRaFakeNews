@@ -201,6 +201,19 @@ model_params = {
         "value": RecommenderType.RANDOM.value,
         "label": "Type of recommender",
         "values": [type.value for type in RecommenderType]
+    },
+    "diversity_lambda": {
+        "type": "SliderInt",
+        "value": 0.5,
+        "label": "Diversity lambda",
+        "min": 0,
+        "max": 1,
+        "step": 0.01
+    },
+    "increase_diversity": {
+        "type": "Checkbox",
+        "value": False,
+        "label": "Increase diversity"
     }
     
 }
