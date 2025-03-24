@@ -59,7 +59,7 @@ class FakeNewsModel(Model):
         self.news_content = initialize_news_content(self, news_amount)
 
         # Initialize recommender system (starts with random recommendations)
-        self.recommender = Recommender(type="random")
+        self.recommender = Recommender(type="collaborative_filtering")
 
         # Distribute news to agents based on social network
         distribute_news(self)
@@ -116,11 +116,12 @@ class FakeNewsModel(Model):
         
     def _create_agents(self):
         """Create and place agents in the grid."""
+ 
         for i in range(self.num_agents):
             user = self._create_agent_by_type(i)
             self.grid.place_agent(user, i)
             user.social_network = self.social_media_platform.social_network
-            
+
     def _create_agent_by_type(self, index):
         """Create an agent based on its index/type."""
         if index < int(self.influencer_percentage * self.num_agents):  # Influencers
