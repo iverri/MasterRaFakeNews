@@ -8,7 +8,8 @@ from utils.metrics import get_clustering_metrics
 
 class Social_Network:
 
-    def __init__(self, num_agents, m_links, preference_vectors=None):
+    def __init__(self, model, num_agents, m_links, preference_vectors=None):
+        self.model = model
         self.num_agents = num_agents
         self.m_links = m_links
         
@@ -19,7 +20,7 @@ class Social_Network:
         
         # Create network with community structure based on preferences
         if preference_vectors is not None:
-            self.network = create_preference_based_network(num_agents, m_links, preference_vectors)
+            self.network = create_preference_based_network(model, num_agents, m_links, preference_vectors)
         else:
             # Fallback to simpler network if no preferences provided
             self.network = create_basic_network(num_agents, m_links)

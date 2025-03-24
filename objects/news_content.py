@@ -21,16 +21,22 @@ class NewsContent:
         return self.engagement
 
 def initialize_news_content(model, news_amount):
-    """Create a mix of real and fake news content."""
+    """Create a mix of real and fake news content based on the model's fake_news_percentage."""
     from utils.model_utils import random_preferences
     
     news_items = []
-    for i in range(news_amount):  
+    fake_news_count = int(news_amount * model.fake_news_percentage)
+    
+    # Create fake news items
+    for i in range(fake_news_count):
         topic_vector = random_preferences(model)
-        is_fake = i % 5 == 0 # Should be between 20-40 percent fake news
-        news_items.append(NewsContent(i, is_fake, topic_vector))
+        news_items.append(NewsContent(i, True, topic_vector))
+    
+    # Create real news items
+    for i in range(fake_news_count, news_amount):
+        topic_vector = random_preferences(model)
+        news_items.append(NewsContent(i, False, topic_vector))
 
-    print(f"Initialized {len(news_items)} news items")
     return news_items
 
 

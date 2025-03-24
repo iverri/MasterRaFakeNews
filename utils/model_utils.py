@@ -28,9 +28,12 @@ def generate_new_content(model):
             # Import inside function to avoid circular import
             from objects.news_content import NewsContent
             
+            # Use model's fake_news_percentage parameter
+            is_fake = model.random.random() < model.fake_news_percentage
+            
             new_content = NewsContent(
                 len(model.news_content), 
-                model.random.random() < 0.2,  # 20% chance of fake news
+                is_fake,  # Now using the model parameter
                 random_preferences(model)
             )
             # Set creation step to current model step
@@ -108,6 +111,7 @@ def setup_datacollector(model):
             "Active_Percentage": lambda m: sum(1 for a in m.agents if hasattr(a, "is_active") and a.is_active) / len(m.agents) if len(m.agents) > 0 else 0,
             "Active_Believers": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "B" and hasattr(a, "is_active") and a.is_active),
             "Current_Hour": lambda m: m.current_hour,
+            "Average_Feed_Size": lambda m: sum(len(a.feed) for a in m.agents if hasattr(a, "feed")) / len(m.agents) if len(m.agents) > 0 else 0,
         },
         agent_reporters={
             "State": lambda a: getattr(a, "state", None),
@@ -116,5 +120,6 @@ def setup_datacollector(model):
             "Following": lambda a: a.social_media_platform.social_network.network.out_degree(a.pos),
             "Is_Active": lambda a: getattr(a, "is_active", False),
             "Activity_Probability": lambda a: getattr(a, "activity_probability", 0),
+            "Feed_Size": lambda a: len(a.feed),
         }
     )

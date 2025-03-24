@@ -9,11 +9,14 @@ from lenskit.pipeline import Pipeline, topn_pipeline
 # from scipy.sparse import csr_matrix
 import traceback
 
+from recommender.types import RecommenderType
+
 
 class Recommender():
-    def __init__(self, type):
-        self.type = type
+    def __init__(self, recommender_type):
+        self.type = recommender_type
         self.user_interactions = []  # List to store user-content interactions
+        self._last_training_count = 0  # Add this line to track when retraining is needed
         
         # Configure ItemKNN with new API
         config = ItemKNNConfig(
@@ -31,14 +34,19 @@ class Recommender():
         
     def update_recommendations(self, agents):
         """Update recommendations for all agents"""
+        print(f"Recommender type: {self.type}")
         for agent in agents:
-            if self.type == "random":
+            if self.type == RecommenderType.RANDOM.value:
                 self.random_recommendation(agent)
-            elif self.type == "collaborative_filtering":
+            elif self.type == RecommenderType.COLLABORATIVE_FILTERING.value:
                 self.collaborative_filtering(agent)
-            elif self.type == "content_based":
+            elif self.type == RecommenderType.ITEM_KNN.value:
+                self.collaborative_filtering(agent)
+            elif self.type == RecommenderType.USER_KNN.value:
+                self.random_recommendation(agent)
+            elif self.type == RecommenderType.CONTENT_BASED.value:
                 self.content_based(agent)
-            elif self.type == "hybrid":
+            elif self.type == RecommenderType.HYBRID.value:
                 self.hybrid(agent)
 
     def add_interaction(self, agent_id, content_id, rating):
@@ -203,7 +211,7 @@ class Recommender():
         
         if available_content:
             # Always recommend 3 items if possible
-            num_recommendations = min(3, len(available_content))
+            num_recommendations = min(5, len(available_content))
             recommendations = random.sample(available_content, num_recommendations)
             agent.recommended_content.extend(recommendations)
 
