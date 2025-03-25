@@ -13,6 +13,7 @@ class UserAgent(Agent):
         super().__init__(model)
         self.preference_vector = preference_vector
         self.credibility_level = credibility_level
+        # whatto do with this
         self.influence_level = influence_level
         self.state = "S"
         self.feed = [] # feed with NewsContent

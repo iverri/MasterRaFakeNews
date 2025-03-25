@@ -229,7 +229,7 @@ def create_visualization(model_class):
             make_plot_component(["Number_of_Believers", "Number_of_Susceptible", "Number_of_Exposed"]),
             SocialNetwork,
             make_plot_component(["Active_Percentage"]),
-            # make_plot_component(["Average_Feed_Size"]),
+            make_plot_component(["Average_Feed_Size"]),
             
         ],
         model_params=model_params

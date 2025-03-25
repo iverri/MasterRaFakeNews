@@ -9,6 +9,7 @@ from lenskit.pipeline import Pipeline, topn_pipeline
 # from scipy.sparse import csr_matrix
 import traceback
 
+from recommender.diversity import calculate_diversity, diversity_reranking
 from recommender.types import RecommenderType
 
 
@@ -160,8 +161,7 @@ class Recommender():
             from lenskit import recommend
             try:
                 
-                recs = recommend(self.pipeline, agent.pos, n=5, items=candidates)
-                
+                recs = recommend(self.pipeline, agent.pos, n=20, items=candidates)
                 # Convert to NewsContent objects
                 content_dict = {c.content: c for c in agent.model.news_content}
                 recommendations = []
@@ -173,6 +173,14 @@ class Recommender():
                         recommendations.append(content_dict[item_id])
                 
                 if recommendations:
+                    # get the first half of the recommendations
+                    rec_vectors = [recommendations[i].topic_vector for i in range(len(recommendations)//2)]
+                    print(f"Diversity score before reranking: {calculate_diversity(rec_vectors)}")
+
+                    if self.increase_diversity:
+                        recommendations, diversity_score = diversity_reranking(agent.preference_vector, recommendations, self.diversity_lambda, k=(len(recommendations)//2))
+                        print(f"Diversity score after reranking: {diversity_score}")
+
                     agent.recommended_content.extend(recommendations)
                     print(f"Added {len(recommendations)} recommendations to agent {agent.pos}")
                 else:

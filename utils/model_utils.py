@@ -9,7 +9,7 @@ import networkx as nx
 
 def random_preferences(model=None):
     """Generate random normalized preference vector."""
-    preferences = [random.random() for i in range(10)]
+    preferences = [random.random() for i in range(10)] # [0, 1, 1 , 0 ...] 
     magnitude = sum(x*x for x in preferences) ** 0.5
     return [x/magnitude for x in preferences]
 
@@ -27,6 +27,7 @@ def generate_new_content(model):
         if model.random.random() < 0.8:  # 80% chance of new content
             # Import inside function to avoid circular import
             from objects.news_content import NewsContent
+            
             
             # Use model's fake_news_percentage parameter
             is_fake = model.random.random() < model.fake_news_percentage

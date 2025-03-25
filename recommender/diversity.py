@@ -6,11 +6,18 @@
 '''
 
 from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
-def calculate_diversity(content):
+def calculate_diversity(topic_vectors):
     """Calculate the diversity score of the recommendations."""
+    if not topic_vectors or len(topic_vectors) < 2:
+        return 0.0  # No diversity with 0 or 1 item
+        
+    # Ensure topic vectors are properly formatted for cosine_similarity
+    vectors = np.array(topic_vectors)
+    
     # Calculate the cosine similarity between the recommendations
-    similarity_matrix = cosine_similarity(content)
+    similarity_matrix = cosine_similarity(vectors)
     
     # Calculate the diversity score
     diversity_score = 1 - similarity_matrix.mean()
