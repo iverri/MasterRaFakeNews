@@ -4,15 +4,14 @@ numpy
 
 # Social network
 networkx
+python-louvain
 
 # ABM
 mesa
 lenskit>=2025.1.0
 altair
 
-
 # Data Visualization
 matplotlib
 seaborn
 solara
-python-louvain

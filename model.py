@@ -21,13 +21,13 @@ from objects.social_media_platform import SocialMediaPlatform
 class FakeNewsModel(Model):
     '''This model simulates the spread of fake news in a social network.  
     At each timestep, users receive a content feed, engage with news,  
-    and may transition from Susceptible (S) → Exposed (E) → Believer (B).  
+    and may transition from Susceptible (S) → Exposed (E) → Infected (I).  
     Bots and influencers accelerate spread, while moderation reduces visibility.  
     The process repeats over multiple timesteps, influencing network dynamics. 
     '''
 
     #Initialize agents
-    def __init__(self, N: int = 100, m_links: int = 10, seed: int = None, news_amount: int = 200, fake_news_percentage: int = 10, recommender_type: str = "random", bot_percentage: int = 5, influencer_percentage: int = 5):
+    def __init__(self, N: int = 100, m_links: int = 10, seed: int = None, news_amount: int = 200, fake_news_percentage: int = 10, recommender_type: str = "content_based", bot_percentage: int = 5, influencer_percentage: int = 5):
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
         

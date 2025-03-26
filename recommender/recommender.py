@@ -1,14 +1,17 @@
+# Standard library imports
 import random
+import traceback
+
+# Third-party library imports
 import pandas as pd
 import numpy as np
 from lenskit.knn import ItemKNNScorer, ItemKNNConfig
-from lenskit.data import Dataset, ItemList
-from lenskit.pipeline import Pipeline, topn_pipeline
-# from lenskit.data import from_interactions_df
-# from lenskit.data import sparse_ratings
-# from scipy.sparse import csr_matrix
-import traceback
+from lenskit.data import ItemList, from_interactions_df
+from lenskit.pipeline import topn_pipeline
+from lenskit import recommend
 
+# Local imports
+from utils.common import cosine_similarity
 from recommender.types import RecommenderType
 
 
@@ -94,7 +97,6 @@ class Recommender():
         
         # Create dataset using from_interactions_df
         try:
-            from lenskit.data import from_interactions_df
             dataset = from_interactions_df(df)
             return dataset
         except Exception as e:
@@ -151,11 +153,9 @@ class Recommender():
                 return
                 
             # Convert to list for recommendation
-            from lenskit.data import ItemList
             candidates = ItemList(list(candidate_ids))
             
             # Get recommendations using the recommend function
-            from lenskit import recommend
             try:
                 
                 recs = recommend(self.pipeline, agent.pos, n=5, items=candidates)
@@ -187,7 +187,43 @@ class Recommender():
             self.random_recommendation(agent)
             
     def content_based(self, agent):
-        pass
+        """Recommend content based on topic vector similarity."""
+        
+        # Clear previous recommendations
+        agent.recommended_content = []
+        
+        # Get content not already in agent's feed
+        available_content = [c for c in agent.model.news_content if c not in agent.feed]
+        
+        if not available_content:
+            print("No new content available for recommendation")
+            return
+        
+        # Calculate similarity scores for each content item
+        scores = []
+        for content in available_content:
+            # Calculate cosine similarity between agent's preference vector and content's topic vector
+            similarity = cosine_similarity(agent.preference_vector, content.topic_vector)
+            
+            # TODO: Dette er vel ikke nødvendig?
+            # # Normalize engagement score to 0-1 range
+            # engagement_score = min(1.0, content.engagement / 1.5)
+            
+            # # Combine similarity and engagement (70% similarity, 30% engagement)
+            # final_score = 0.7 * similarity + 0.3 * engagement_score
+            
+            # # Add small random noise to prevent identical scores
+            # noise = np.random.normal(0, 0.01)
+            # final_score = np.clip(final_score + noise, 0, 1)
+            
+            scores.append((content, similarity))
+        
+        # Sort by score and get top recommendations
+        scores.sort(key=lambda x: x[1], reverse=True)
+        recommendations = [content for content, _ in scores[:3]]
+        
+        # Add recommendations to agent's recommended_content
+        agent.recommended_content.extend(recommendations)
         
     def hybrid(self, agent):
         pass
