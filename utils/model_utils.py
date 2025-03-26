@@ -2,8 +2,6 @@ from mesa.datacollection import DataCollector
 import random
 from utils.metrics import get_community_modularity
 import networkx as nx
-# from sklearn.metrics.pairwise import cosine_similarity
-from utils.common import cosine_similarity
 import numpy as np
 
 #------------------------------------------------------------------------------
@@ -116,8 +114,6 @@ def setup_datacollector(model):
             "Current_Hour": lambda m: m.current_hour,
             "Average_Feed_Size": lambda m: sum(len(a.feed) for a in m.agents if hasattr(a, "feed")) / len(m.agents) if len(m.agents) > 0 else 0,
             # New metrics for content-based recommendations
-            "Average_Recommendation_Score": lambda m: _calculate_avg_recommendation_score(m),
-            "Content_Engagement": lambda m: _calculate_avg_content_engagement(m),
         },
         agent_reporters={
             "State": lambda a: getattr(a, "state", None),
@@ -128,52 +124,5 @@ def setup_datacollector(model):
             "Activity_Probability": lambda a: getattr(a, "activity_probability", 0),
             "Feed_Size": lambda a: len(a.feed),
             # New agent metrics
-            "Recommendation_Score": lambda a: _calculate_agent_recommendation_score(a),
-            "Content_Engagement": lambda a: _calculate_agent_content_engagement(a),
         }
     )
-
-def _calculate_avg_recommendation_score(model):
-    """Calculate average recommendation score across all agents"""
-    scores = []
-    for agent in model.agents:
-        if hasattr(agent, 'recommended_content') and agent.recommended_content:
-            score = _calculate_agent_recommendation_score(agent)
-            scores.append(score)
-    return sum(scores) / len(scores) if scores else 0
-
-def _calculate_agent_recommendation_score(agent):
-    """Calculate recommendation score for a single agent"""
-    if not hasattr(agent, 'recommended_content') or not agent.recommended_content:
-        return 0
-    
-    scores = []
-    for content in agent.recommended_content:
-        # Reshape vectors to 2D arrays for cosine_similarity
-        # pref_vector = np.array(agent.preference_vector).reshape(1, -1)
-        # topic_vector = np.array(content.topic_vector).reshape(1, -1)
-        
-        # Calculate similarity score
-        similarity = cosine_similarity(agent.preference_vector, content.topic_vector)
-        # Combine with engagement
-        engagement_factor = min(1.0, content.engagement / 1.5)
-        score = 0.7 * similarity + 0.3 * engagement_factor
-        scores.append(score)
-    
-    return sum(scores) / len(scores) if scores else 0
-
-def _calculate_avg_content_engagement(model):
-    """Calculate average content engagement across all content"""
-    if not hasattr(model, 'news_content') or not model.news_content:
-        return 0
-    
-    engagements = [content.engagement for content in model.news_content]
-    return sum(engagements) / len(engagements) if engagements else 0
-
-def _calculate_agent_content_engagement(agent):
-    """Calculate average content engagement for a single agent's feed"""
-    if not hasattr(agent, 'feed') or not agent.feed:
-        return 0
-    
-    engagements = [content.engagement for content in agent.feed]
-    return sum(engagements) / len(engagements) if engagements else 0

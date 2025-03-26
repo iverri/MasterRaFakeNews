@@ -205,17 +205,6 @@ class Recommender():
             # Calculate cosine similarity between agent's preference vector and content's topic vector
             similarity = cosine_similarity(agent.preference_vector, content.topic_vector)
             
-            # TODO: Dette er vel ikke nødvendig?
-            # # Normalize engagement score to 0-1 range
-            # engagement_score = min(1.0, content.engagement / 1.5)
-            
-            # # Combine similarity and engagement (70% similarity, 30% engagement)
-            # final_score = 0.7 * similarity + 0.3 * engagement_score
-            
-            # # Add small random noise to prevent identical scores
-            # noise = np.random.normal(0, 0.01)
-            # final_score = np.clip(final_score + noise, 0, 1)
-            
             scores.append((content, similarity))
         
         # Sort by score and get top recommendations

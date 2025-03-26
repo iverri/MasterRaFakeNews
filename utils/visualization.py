@@ -217,8 +217,6 @@ def create_visualization(model_class):
             SocialNetwork,
             make_plot_component(["Active_Percentage"]),
             # make_plot_component(["Average_Feed_Size"]),
-            make_plot_component(["Average_Recommendation_Score"]),
-            make_plot_component(["Content_Engagement"]),
         ],
         model_params=model_params
     )
