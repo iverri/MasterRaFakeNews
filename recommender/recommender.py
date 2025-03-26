@@ -14,10 +14,11 @@ from recommender.types import RecommenderType
 
 
 class Recommender():
-    def __init__(self, recommender_type, diversity_lambda, increase_diversity):
+    def __init__(self, recommender_type, diversity_lambda, increase_diversity, num_recommendations):
         self.type = recommender_type
         self.diversity_lambda = diversity_lambda
         self.increase_diversity = increase_diversity
+        self.num_recommendations = num_recommendations
         self.user_interactions = []  # List to store user-content interactions
         self._last_training_count = 0  # Add this line to track when retraining is needed
         
@@ -106,8 +107,6 @@ class Recommender():
 
     def collaborative_filtering(self, agent):
         """Recommend content using item-based collaborative filtering"""
-        # Clear previous recommendations
-        agent.recommended_content = []
         
         # Get content pool from model
         if not hasattr(agent.model, 'news_content') or not agent.model.news_content:
@@ -115,13 +114,13 @@ class Recommender():
 
         # Check if this specific user has enough interactions (at least 2)
         user_interactions = [inter for inter in self.user_interactions if inter['user_id'] == agent.pos]
-        if len(user_interactions) < 3:
+        if len(user_interactions) < 2:
             # Fall back to random recommendations if user doesn't have enough interactions
             self.random_recommendation(agent)
             return
         
         # Check if the system as a whole has enough interactions
-        min_interactions = 30  # Minimum total interactions needed
+        min_interactions = 100  # Minimum total interactions needed
         if len(self.user_interactions) < min_interactions:
             # Fall back to random recommendations if not enough data overall
             self.random_recommendation(agent)
@@ -136,7 +135,6 @@ class Recommender():
                 
             # Create and train pipeline if not already created or if it needs retraining
             if self.pipeline is None or len(self.user_interactions) > self._last_training_count:
-                print(f"Training new pipeline with {len(self.user_interactions)} interactions")
                 if self.pipeline is None:
                     self.pipeline = topn_pipeline(self.item_knn)
                 self.pipeline.train(dataset)
@@ -160,8 +158,9 @@ class Recommender():
             # Get recommendations using the recommend function
             from lenskit import recommend
             try:
+                num_recommendations = self.num_recommendations * 2 if self.increase_diversity else self.num_recommendations
                 
-                recs = recommend(self.pipeline, agent.pos, n=20, items=candidates)
+                recs = recommend(self.pipeline, agent.pos, n=num_recommendations, items=candidates)
                 # Convert to NewsContent objects
                 content_dict = {c.content: c for c in agent.model.news_content}
                 recommendations = []
@@ -174,14 +173,18 @@ class Recommender():
                 
                 if recommendations:
                     # get the first half of the recommendations
-                    rec_vectors = [recommendations[i].topic_vector for i in range(len(recommendations)//2)]
-                    print(f"Diversity score before reranking: {calculate_diversity(rec_vectors)}")
+                    if len(recommendations) < num_recommendations:
+                        self.random_recommendation(agent, num_recommendations - len(recommendations))
 
                     if self.increase_diversity:
-                        recommendations, diversity_score = diversity_reranking(agent.preference_vector, recommendations, self.diversity_lambda, k=(len(recommendations)//2))
-                        print(f"Diversity score after reranking: {diversity_score}")
-
+                        rec_vectors = [recommendations[i].topic_vector for i in range(len(recommendations)//2)]
+                        # print(f"Diversity score before reranking: {calculate_diversity(rec_vectors)}")
+                        recommendations = diversity_reranking(agent.preference_vector, recommendations, self.diversity_lambda, k=(len(recommendations)//2))
+                    
                     agent.recommended_content.extend(recommendations)
+
+                    rec_vectors = [agent.recommended_content[i].topic_vector for i in range(len(agent.recommended_content))]
+                    #print(f"Diversity score after reranking: {calculate_diversity(rec_vectors)}")
                     print(f"Added {len(recommendations)} recommendations to agent {agent.pos}")
                 else:
                     # Fall back to random if no recommendations were generated
@@ -202,7 +205,7 @@ class Recommender():
     def hybrid(self, agent):
         pass
         
-    def random_recommendation(self, agent):
+    def random_recommendation(self, agent, num_recommendations=10):
         """Recommend random news content to an agent"""
         # Clear previous recommendations
         agent.recommended_content = []
@@ -221,7 +224,7 @@ class Recommender():
         
         if available_content:
             # Always recommend 3 items if possible
-            num_recommendations = min(5, len(available_content))
+            num_recommendations = min(10, len(available_content))
             recommendations = random.sample(available_content, num_recommendations)
             agent.recommended_content.extend(recommendations)
 

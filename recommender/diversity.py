@@ -24,7 +24,7 @@ def calculate_diversity(topic_vectors):
     
     return diversity_score
 
-def diversity_reranking(user_preferences, recs, lambda_param=0.5, k=10):
+def diversity_reranking(user_preferences, recs, lambda_param, k=10):
     """
     Rerank the recommendations based on diversity using Maximal Marginal Relevance (MMR).
     
@@ -58,7 +58,7 @@ def diversity_reranking(user_preferences, recs, lambda_param=0.5, k=10):
                 # Calculate similarity to already selected items
                 selected_vectors = [rec_topic_vectors[j] for j in selected_indices]
                 similarity_to_selected = cosine_similarity([rec_topic_vectors[i]], selected_vectors)[0]
-                max_similarity = max(similarity_to_selected)
+                max_similarity = max(similarity_to_selected) ** 0.5
                 
                 # MMR formula: λ * relevance - (1-λ) * max_similarity
                 mmr_score = lambda_param * relevance_scores[i] - (1 - lambda_param) * max_similarity
@@ -73,9 +73,6 @@ def diversity_reranking(user_preferences, recs, lambda_param=0.5, k=10):
     # Create the reranked list
     reranked_recs = [recs[i] for i in selected_indices]
     
-    # Calculate diversity score of the reranked recommendations
-    diversity_score = calculate_diversity([rec.topic_vector for rec in reranked_recs])
-    
-    return reranked_recs, diversity_score
+    return reranked_recs
 
     

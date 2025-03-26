@@ -9,14 +9,14 @@ import networkx as nx
 
 def random_preferences(model=None):
     """Generate random normalized preference vector."""
-    preferences = [random.random() for i in range(10)] # [0, 1, 1 , 0 ...] 
-    magnitude = sum(x*x for x in preferences) ** 0.5
-    return [x/magnitude for x in preferences]
+    # TODO: How should we generate preferences?
+    preferences = [random.random() for i in range(10)] 
+    return preferences
 
 def generate_new_content(model):
     """Generate multiple new content pieces with some probability."""
     # Determine how many content pieces to generate (between 30-80)
-    content_count = model.random.randint(30, 60)
+    content_count = model.random.randint(50, 100)
     
     # Filter out content with low engagement instead of clearing everything
     model.news_content = [content for content in model.news_content 
@@ -24,10 +24,9 @@ def generate_new_content(model):
     
     # Generate new content
     for _ in range(content_count):
-        if model.random.random() < 0.8:  # 80% chance of new content
+        if model.random.random() < 0.9:  # 80% chance of new content
             # Import inside function to avoid circular import
             from objects.news_content import NewsContent
-            
             
             # Use model's fake_news_percentage parameter
             is_fake = model.random.random() < model.fake_news_percentage
@@ -45,9 +44,6 @@ def generate_new_content(model):
     for content in model.news_content:
         content.update_engagement(model.steps)
 
-    # Distribute the newly generated content
-    # distribute_news(model)
-
 def distribute_news(model):
     """Distribute news content to agents.
     
@@ -61,7 +57,7 @@ def distribute_news(model):
     # Distribute content to all agents
     for agent in model.agents:
         # Determine a random number of content pieces for this agent
-        content_sample_size = model.random.randint(1, min(5, len(model.news_content)))
+        content_sample_size = model.random.randint(5, min(10, len(model.news_content)))
         
         # Select random content from the content pool
         content_sample = model.random.sample(
@@ -112,7 +108,8 @@ def setup_datacollector(model):
             "Active_Percentage": lambda m: sum(1 for a in m.agents if hasattr(a, "is_active") and a.is_active) / len(m.agents) if len(m.agents) > 0 else 0,
             "Active_Believers": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "B" and hasattr(a, "is_active") and a.is_active),
             "Current_Hour": lambda m: m.current_hour,
-            "Average_Feed_Size": lambda m: sum(len(a.feed) for a in m.agents if hasattr(a, "feed")) / len(m.agents) if len(m.agents) > 0 else 0,
+            "Average_Feed_Size": lambda m: sum(len(a.recommended_content) for a in m.agents if hasattr(a, "recommended_content")) / len(m.agents) if len(m.agents) > 0 else 0,
+            "Average_Diversity_Score": lambda m: sum(a.diversity_score for a in m.agents if hasattr(a, "diversity_score")) / len(m.agents) if len(m.agents) > 0 else 0,
         },
         agent_reporters={
             "State": lambda a: getattr(a, "state", None),
@@ -122,5 +119,6 @@ def setup_datacollector(model):
             "Is_Active": lambda a: getattr(a, "is_active", False),
             "Activity_Probability": lambda a: getattr(a, "activity_probability", 0),
             "Feed_Size": lambda a: len(a.feed),
+            "Diversity_Score": lambda a: getattr(a, "diversity_score", 0),
         }
     )

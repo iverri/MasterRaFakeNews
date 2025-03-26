@@ -181,7 +181,7 @@ model_params = {
     },
     "news_amount": {
         "type": "SliderInt",
-        "value": 200,
+        "value": 400,
         "label": "Number of news items",
         "min": 100,
         "max": 1000,
@@ -202,9 +202,17 @@ model_params = {
         "label": "Type of recommender",
         "values": [type.value for type in RecommenderType]
     },
+    "num_recommendations": {
+        "type": "SliderInt",
+        "value": 10,
+        "label": "Number of recommendations",
+        "min": 5,
+        "max": 20,
+        "step": 1
+    },
     "diversity_lambda": {
         "type": "SliderInt",
-        "value": 0.5,
+        "value": 0.1,
         "label": "Diversity lambda",
         "min": 0,
         "max": 1,
@@ -228,7 +236,7 @@ def create_visualization(model_class):
             ProjectInfo,
             make_plot_component(["Number_of_Believers", "Number_of_Susceptible", "Number_of_Exposed"]),
             SocialNetwork,
-            make_plot_component(["Active_Percentage"]),
+            make_plot_component(["Average_Diversity_Score"]),
             make_plot_component(["Average_Feed_Size"]),
             
         ],
