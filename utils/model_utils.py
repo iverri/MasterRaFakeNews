@@ -110,7 +110,7 @@ def setup_datacollector(model):
             "Active_Infected": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "I" and hasattr(a, "is_active") and a.is_active),
             "Current_Hour": lambda m: m.current_hour,
             "Average_Feed_Size": lambda m: sum(len(a.recommended_content) for a in m.agents if hasattr(a, "recommended_content")) / len(m.agents) if len(m.agents) > 0 else 0,
-            "Average_Diversity_Score": lambda m: sum(a.diversity_score for a in m.agents if hasattr(a, "diversity_score")) / len(m.agents) if len(m.agents) > 0 else 0,
+            "Average_Diversity_Score": lambda m: sum(a.diversity_score for a in m.agents if hasattr(a, "diversity_score") and a.diversity_score != 0) / len(m.agents) if len(m.agents) > 0 else 0,
         },
         agent_reporters={
             "State": lambda a: getattr(a, "state", None),
