@@ -18,7 +18,7 @@ Diagrams can be found in the [diagrams](diagrams) folder.
   - Influencer agents
 - News content classification (real/fake)
 - Network metrics and visualization
-- SIR-like state transitions (Susceptible → Exposed → Believer)
+- SIR-like state transitions (Susceptible → Exposed → Infected)
 - Preference-based network formation
 - Community detection using Louvain method
 
@@ -70,7 +70,7 @@ This will launch a Solara visualization interface where you can:
 - Modify the number of edges per new node (1-5)
 - View network visualization
 - Monitor metrics like:
-  - Number of Believers/Susceptible/Exposed agents
+  - Number of Infected/Susceptible/Exposed agents
   - Average clustering
   - Community modularity
 

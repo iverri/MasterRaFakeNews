@@ -20,7 +20,7 @@ project_info = """
     - **Influencer agents** (green): Users with high influence levels
     
     ## States:
-    Agents transition through SIR-like states: Susceptible → Exposed → Believer
+    Agents transition through SIR-like states: Susceptible → Exposed → Infected
     
     *Created by Anna Holden Jacobsen and Lise Jakobsen - NTNU Trondheim*
     
@@ -234,7 +234,7 @@ def create_visualization(model_class):
         model=model,
         components=[
             ProjectInfo,
-            make_plot_component(["Number_of_Believers", "Number_of_Susceptible", "Number_of_Exposed"]),
+            make_plot_component(["Number_of_Infected", "Number_of_Susceptible", "Number_of_Exposed"]),
             SocialNetwork,
             make_plot_component(["Average_Diversity_Score"]),
             make_plot_component(["Average_Feed_Size"]),

@@ -16,7 +16,8 @@ class UserAgent(Agent):
         self.credibility_level = credibility_level
         # whatto do with this
         self.influence_level = influence_level
-        self.state = "S"
+        self.state = "S"  # S: Susceptible, E: Exposed, I: Infected
+        self.infection_start_step = 0  # Track when infection started
         self.feed = [] # feed with NewsContent
         self.recommended_content = []
         self.social_network = model.social_media_platform.social_network
@@ -44,6 +45,13 @@ class UserAgent(Agent):
 
     def step(self):
         """Execute one step for the agent"""
+        # Update infection state if infected
+        if self.state == "I":
+            if self.model.steps - self.infection_start_step >= 40:  # After 40 timesteps
+                # Check if agent still has fake news in feed
+                has_fake_news = any(content.isFake for content in self.feed)
+                self.state = "E" if has_fake_news else "S"
+        
         # Determine if the agent becomes active in this step
         self.update_activity_state()
         
@@ -112,8 +120,10 @@ class UserAgent(Agent):
     def share_content(self, content):
         """Share content with followers."""
         # Update state if sharing fake content
-        if content.isFake and self.state == "E":
-            self.state = "B"
+        if content.isFake:
+            if self.state == "E":
+                self.state = "I"
+                self.infection_start_step = self.model.steps  # Record when infection started
 
         followers = self.get_followers()
 

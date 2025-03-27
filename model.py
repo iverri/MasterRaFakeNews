@@ -21,7 +21,7 @@ from objects.social_media_platform import SocialMediaPlatform
 class FakeNewsModel(Model):
     '''This model simulates the spread of fake news in a social network.  
     At each timestep, users receive a content feed, engage with news,  
-    and may transition from Susceptible (S) → Exposed (E) → Believer (B).  
+    and may transition from Susceptible (S) → Exposed (E) → Infected (I).  
     Bots and influencers accelerate spread, while moderation reduces visibility.  
     The process repeats over multiple timesteps, influencing network dynamics. 
     '''

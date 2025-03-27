@@ -2,6 +2,7 @@ from mesa.datacollection import DataCollector
 import random
 from utils.metrics import get_community_modularity
 import networkx as nx
+import numpy as np
 
 #------------------------------------------------------------------------------
 # PREFERENCE AND CONTENT GENERATION FUNCTIONS
@@ -96,7 +97,7 @@ def setup_datacollector(model):
     """Initialize the datacollector with metrics."""
     return DataCollector(
         model_reporters={
-            "Number_of_Believers": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "B"),
+            "Number_of_Infected": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "I"),
             "Number_of_Susceptible": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "S"),
             "Number_of_Exposed": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "E"),
             "Network_Density": lambda m: nx.density(m.social_media_platform.social_network.network),
@@ -106,7 +107,7 @@ def setup_datacollector(model):
             "Community_Modularity": lambda m: get_community_modularity(m.social_media_platform.social_network.network.to_undirected()),
             "Active_Users": lambda m: sum(1 for a in m.agents if hasattr(a, "is_active") and a.is_active),
             "Active_Percentage": lambda m: sum(1 for a in m.agents if hasattr(a, "is_active") and a.is_active) / len(m.agents) if len(m.agents) > 0 else 0,
-            "Active_Believers": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "B" and hasattr(a, "is_active") and a.is_active),
+            "Active_Infected": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "I" and hasattr(a, "is_active") and a.is_active),
             "Current_Hour": lambda m: m.current_hour,
             "Average_Feed_Size": lambda m: sum(len(a.recommended_content) for a in m.agents if hasattr(a, "recommended_content")) / len(m.agents) if len(m.agents) > 0 else 0,
             "Average_Diversity_Score": lambda m: sum(a.diversity_score for a in m.agents if hasattr(a, "diversity_score")) / len(m.agents) if len(m.agents) > 0 else 0,
