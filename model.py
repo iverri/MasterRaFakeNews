@@ -25,9 +25,11 @@ class FakeNewsModel(Model):
     Bots and influencers accelerate spread, while moderation reduces visibility.  
     The process repeats over multiple timesteps, influencing network dynamics. 
     '''
-
     #Initialize agents
-    def __init__(self, N: int = 100, m_links: int = 10, seed: int = None, news_amount: int = 200, fake_news_percentage: int = 10, recommender_type: str = "random", bot_percentage: int = 5, influencer_percentage: int = 5):
+    def __init__(self, N=100, m_links=10, news_amount=400, fake_news_percentage=10, 
+                 recommender_type="random", bot_percentage=5, influencer_percentage=5, 
+                 diversity_lambda=0.1, increase_diversity=False, num_recommendations=10, 
+                 seed: int = None):
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
         
@@ -42,11 +44,13 @@ class FakeNewsModel(Model):
         self.recommender_type = recommender_type
         self.bot_percentage = bot_percentage / 100
         self.influencer_percentage = influencer_percentage / 100
-
+        self.diversity_lambda = diversity_lambda
+        self.increase_diversity = increase_diversity
+        self.num_recommendations = num_recommendations
         # Generate preference vectors first
         self.preference_vectors = [random_preferences() for _ in range(self.num_agents)]
 
-        self.social_media_platform = SocialMediaPlatform(self, self.num_agents, self.m_links, self.preference_vectors, self.recommender_type)
+        self.social_media_platform = SocialMediaPlatform(self, self.num_agents, self.m_links, self.preference_vectors, self.recommender_type, self.diversity_lambda, self.increase_diversity, self.num_recommendations)
         
         # Setup grid for Mesa
         self._setup_grid()

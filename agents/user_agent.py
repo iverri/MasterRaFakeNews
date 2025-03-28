@@ -1,5 +1,6 @@
 from mesa import Agent
 import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 from utils.common import cosine_similarity
 from utils.agents_utils import (
     evaluate_content_interest,
@@ -13,6 +14,7 @@ class UserAgent(Agent):
         super().__init__(model)
         self.preference_vector = preference_vector
         self.credibility_level = credibility_level
+        # whatto do with this
         self.influence_level = influence_level
         self.state = "S"  # S: Susceptible, E: Exposed, I: Infected
         self.infection_start_step = 0  # Track when infection started
@@ -20,7 +22,7 @@ class UserAgent(Agent):
         self.recommended_content = []
         self.social_network = model.social_media_platform.social_network
         self.social_media_platform = model.social_media_platform
-        
+        self.diversity_score = 0
         # Activity-related properties
         self.is_active = False
         self.activity_probability = min(max(random.gauss(0.3, 0.1), 0.1), 0.7)  # Base probability of being active
@@ -58,19 +60,23 @@ class UserAgent(Agent):
         
         # Only process feed if the agent is active
         if self.is_active:
-            # Process regular feed
-            processed_feed = self.feed.copy()
-            self.feed = []
-            
+         
             # Process both feed and recommendations
-            all_content = processed_feed + self.recommended_content
-            self.recommended_content = []  # Clear recommendations after processing
+            all_content = self.feed + self.recommended_content
+
+            import recommender.diversity as diversity
             
+            topic_vectors = [content.topic_vector for content in all_content]
+            self.diversity_score = diversity.calculate_diversity(topic_vectors)
+
             for content in all_content:
                 if self.evaluate_content(content):
                     self.share_content(content)
-            
+
+            self.feed = []
+            self.recommended_content = []
             self.last_active_step = self.model.steps
+
         else:
             # Inactive users still accumulate content in their feed
             pass  # Feed remains unchanged until they become active
@@ -137,12 +143,12 @@ class UserAgent(Agent):
             content.content, 
             final_rating
         )
-        
+        '''
         # Only share with followers if we have any
         if followers:
             for follower in followers:
                 if content not in follower.feed:
-                    follower.feed.append(content)
+                    follower.feed.append(content)'''
 
     def get_followers(self):
         """Get list of agents that follow this agent."""
