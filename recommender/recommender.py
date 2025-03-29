@@ -5,7 +5,7 @@ import traceback
 # Third-party library imports
 import pandas as pd
 import numpy as np
-from lenskit.knn import ItemKNNScorer, ItemKNNConfig
+from lenskit.knn import ItemKNNScorer, ItemKNNConfig, UserKNNScorer, UserKNNConfig
 from lenskit.data import ItemList, from_interactions_df
 from lenskit.pipeline import topn_pipeline
 from lenskit import recommend
@@ -26,15 +26,21 @@ class Recommender():
         self._last_training_count = 0  # Add this line to track when retraining is needed
         
         # Configure ItemKNN with new API
-        config = ItemKNNConfig(
+        ItemKNNconfig = ItemKNNConfig(
             max_nbrs=20,  # Maximum number of neighbors
             min_nbrs=1,   # Minimum number of neighbors
             min_sim=0.1,  # Minimum similarity threshold
             feedback='explicit',  # Using explicit ratings
         )
-        
+        UserKNNconfig = UserKNNConfig(
+            max_nbrs=20,  # Maximum number of neighbors
+            min_nbrs=1,   # Minimum number of neighbors
+            min_sim=0.1,  # Minimum similarity threshold
+            feedback='explicit',  # Using explicit ratings
+        )
+        self.user_knn = UserKNNScorer(UserKNNconfig)
         # Create the scorer
-        self.item_knn = ItemKNNScorer(config)
+        self.item_knn = ItemKNNScorer(ItemKNNconfig)
         
         # Create a recommendation pipeline
         self.pipeline = None
@@ -106,6 +112,8 @@ class Recommender():
         except Exception as e:
             print(f"Error creating dataset: {e}")
             return None
+        
+    
 
     def collaborative_filtering(self, agent):
         """Recommend content using item-based collaborative filtering"""
