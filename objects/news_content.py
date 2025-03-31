@@ -19,23 +19,27 @@ class NewsContent:
         # Set a minimum engagement level
         self.engagement = max(0.05, self.engagement)
         return self.engagement
+    
+def topic_likely_to_be_fake(topic_vector):
+    """Determine if a topic vector is likely to be fake news."""
+    sum_of_first_three_elements = sum(topic_vector[:3])
+    return sum_of_first_three_elements > 0.3
 
-def initialize_news_content(model, news_amount):
+def generate_news_content(fake_news_percentage, news_amount):
     """Create a mix of real and fake news content based on the model's fake_news_percentage."""
     from utils.model_utils import random_preferences
-    
+
+    topic_vectors = [random_preferences() for _ in range(news_amount)]
     news_items = []
-    fake_news_count = int(news_amount * model.fake_news_percentage)
-    
-    # Create fake news items
-    for i in range(fake_news_count):
-        topic_vector = random_preferences(model)
-        news_items.append(NewsContent(i, True, topic_vector))
-    
-    # Create real news items
-    for i in range(fake_news_count, news_amount):
-        topic_vector = random_preferences(model)
-        news_items.append(NewsContent(i, False, topic_vector))
+
+    for i in range(news_amount):
+        if topic_likely_to_be_fake(topic_vectors[i]):
+            is_fake = np.random.random() < fake_news_percentage * 2
+        else:
+            is_fake = np.random.random() < fake_news_percentage
+        
+        news_items.append(NewsContent(i, is_fake, topic_vectors[i]))
+        
 
     return news_items
 

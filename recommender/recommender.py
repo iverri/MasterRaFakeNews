@@ -116,14 +116,10 @@ class Recommender():
 
         # Check if this specific user has enough interactions (at least 2)
         user_interactions = [inter for inter in self.user_interactions if inter['user_id'] == agent.pos]
-        if len(user_interactions) < 2:
-            # Fall back to random recommendations if user doesn't have enough interactions
-            self.random_recommendation(agent)
-            return
         
         # Check if the system as a whole has enough interactions
-        min_interactions = 100  # Minimum total interactions needed
-        if len(self.user_interactions) < min_interactions:
+        min_interactions = max(150, agent.model.num_agents // 2)  # Minimum total interactions needed
+        if len(self.user_interactions) < min_interactions or len(user_interactions) < 3:
             # Fall back to random recommendations if not enough data overall
             self.random_recommendation(agent)
             return
@@ -178,14 +174,14 @@ class Recommender():
 
                     if self.increase_diversity:
                         rec_vectors = [recommendations[i].topic_vector for i in range(len(recommendations)//2)]
-                        # print(f"Diversity score before reranking: {calculate_diversity(rec_vectors)}")
+                        print(f"Diversity score before reranking: {calculate_diversity(rec_vectors)}")
                         recommendations = diversity_reranking(agent.preference_vector, recommendations, self.diversity_lambda, k=(len(recommendations)//2))
                     
                     agent.recommended_content.extend(recommendations)
 
                     rec_vectors = [agent.recommended_content[i].topic_vector for i in range(len(agent.recommended_content))]
                     #print(f"Diversity score after reranking: {calculate_diversity(rec_vectors)}")
-                    print(f"Added {len(recommendations)} recommendations to agent {agent.pos}")
+                    # print(f"Added {len(recommendations)} recommendations to agent {agent.pos}")
                 else:
                     # Fall back to random if no recommendations were generated
                     self.random_recommendation(agent)

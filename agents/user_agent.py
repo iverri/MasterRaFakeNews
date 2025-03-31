@@ -3,19 +3,17 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from utils.common import cosine_similarity
 from utils.agents_utils import (
-    evaluate_content_interest,
     get_network_neighbors
 )
 import random
 
 class UserAgent(Agent):
     # Initialize the agent
-    def __init__(self, model, preference_vector, credibility_level, influence_level):
+    def __init__(self, model, preference_vector, naivety_level):
         super().__init__(model)
         self.preference_vector = preference_vector
-        self.credibility_level = credibility_level
+        self.naivety_level = naivety_level
         # whatto do with this
-        self.influence_level = influence_level
         self.state = "S"  # S: Susceptible, E: Exposed, I: Infected
         self.infection_start_step = 0  # Track when infection started
         self.feed = [] # feed with NewsContent
@@ -69,9 +67,9 @@ class UserAgent(Agent):
             topic_vectors = [content.topic_vector for content in all_content]
             self.diversity_score = diversity.calculate_diversity(topic_vectors)
 
+            # Evaluate all content in feed and recommendations
             for content in all_content:
-                if self.evaluate_content(content):
-                    self.share_content(content)
+                self.evaluate_content(content)
 
             self.feed = []
             self.recommended_content = []
@@ -101,23 +99,35 @@ class UserAgent(Agent):
 
     def evaluate_content(self, content):
         """Evaluate if content is interesting enough to share."""
-        # Base interest based on topic similarity and credibility
-        belief_probability = cosine_similarity(self.preference_vector, content.topic_vector) * self.credibility_level
-        
-        # Adjust probability based on content engagement
-        engagement_factor = min(1.5, content.engagement)  # Cap the boost at 1.5x
-        adjusted_probability = belief_probability * engagement_factor
-        
-        believe_content = evaluate_content_interest(adjusted_probability)
-
-        # Update agent state based on content
+        # If content is fake, update agent state
         if content.isFake:
             if self.state == "S":
                 self.state = "E"
+
+        # Base interest based on topic similarity and credibility
+        user_evaluation = cosine_similarity(self.preference_vector, content.topic_vector) * self.naivety_level
         
-        return believe_content
+        # Adjust probability based on content engagement
+        engagement_factor = min(1.5, content.engagement)  # Cap the boost at 1.5x
+        adjusted_evaluation = user_evaluation * engagement_factor
+        
+        # Like content but not share
+        if adjusted_evaluation > 0.6 and adjusted_evaluation < 0.8:
+            self.model.social_media_platform.recommender.add_interaction(
+                self.pos,
+                content.content,
+                user_evaluation
+            )
+            if content.isFake:
+                if self.state == "E":
+                    self.state = "I"
+                    self.infection_start_step = self.model.steps  # Record when infection started
+
+        # Share content
+        elif adjusted_evaluation > 0.8:
+            self.share_content(content, user_evaluation)
     
-    def share_content(self, content):
+    def share_content(self, content, user_evaluation):
         """Share content with followers."""
         # Update state if sharing fake content
         if content.isFake:
@@ -126,29 +136,18 @@ class UserAgent(Agent):
                 self.infection_start_step = self.model.steps  # Record when infection started
 
         followers = self.get_followers()
-
-        # Record interaction even if no followers (for CF)
-        # Calculate base rating from content similarity
-        base_rating = cosine_similarity(self.preference_vector, content.topic_vector)
-        
-        # Adjust rating based on content engagement (normalized to 0-1 range)
-        engagement_factor = min(1.0, content.engagement / 1.5)  # Normalize by max possible engagement
-        
-        # Combine ratings (70% similarity, 30% engagement)
-        final_rating = 0.7 * base_rating + 0.3 * engagement_factor
         
         # Record interaction for collaborative filtering
         self.model.social_media_platform.recommender.add_interaction(
             self.pos, 
             content.content, 
-            final_rating
+            user_evaluation
         )
-        '''
         # Only share with followers if we have any
         if followers:
             for follower in followers:
                 if content not in follower.feed:
-                    follower.feed.append(content)'''
+                    follower.feed.append(content)
 
     def get_followers(self):
         """Get list of agents that follow this agent."""
@@ -168,14 +167,14 @@ class UserAgent(Agent):
 
 class BotAgent(UserAgent):
     def __init__(self, model, preference_vector):
-        super().__init__(model, preference_vector, influence_level=0.3, credibility_level=0.9)
+        super().__init__(model, preference_vector, naivety_level=0.9)
         # Bots are more consistently active
         self.activity_probability = min(max(random.gauss(0.7, 0.15), 0.4), 0.9)
         self.activity_pattern = [random.uniform(0.7, 1.0) for _ in range(8)]  # More consistent
 
 class InfluencerAgent(UserAgent):
     def __init__(self, model, preference_vector):
-        super().__init__(model, preference_vector, influence_level=0.8, credibility_level=0.7)
+        super().__init__(model, preference_vector, naivety_level=0.7)
         # Influencers are more active than regular users
         self.activity_probability = min(max(random.gauss(0.5, 0.15), 0.3), 0.8)
         # Influencers might have more strategic posting times
