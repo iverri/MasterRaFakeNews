@@ -3,16 +3,14 @@ import networkx as nx
 from mesa.space import NetworkGrid
 from agents.user_agent import BotAgent, InfluencerAgent, UserAgent
 from recommender.recommender import Recommender
-from objects.news_content import NewsContent
 import random
-from objects.news_content import NewsContent, initialize_news_content
+from objects.news_content import NewsContent, generate_news_content
 from objects.social_network import Social_Network
 from utils.visualization import project_info
 from utils.model_utils import (
     distribute_news,
     random_preferences,
     setup_datacollector,
-    generate_new_content,
     get_agent_types
 )
 from objects.social_media_platform import SocialMediaPlatform
@@ -26,7 +24,7 @@ class FakeNewsModel(Model):
     The process repeats over multiple timesteps, influencing network dynamics. 
     '''
     #Initialize agents
-    def __init__(self, N=100, m_links=10, news_amount=400, fake_news_percentage=10, 
+    def __init__(self, N=100, m_links=10, news_amount=500, fake_news_percentage=10, 
                  recommender_type="random", bot_percentage=5, influencer_percentage=5, 
                  diversity_lambda=0.1, increase_diversity=False, num_recommendations=10, 
                  seed: int = None):
@@ -45,6 +43,7 @@ class FakeNewsModel(Model):
         self.bot_percentage = bot_percentage / 100
         self.influencer_percentage = influencer_percentage / 100
         self.diversity_lambda = diversity_lambda
+        self.news_amount = news_amount
         self.increase_diversity = increase_diversity
         self.num_recommendations = num_recommendations
         # Generate preference vectors first
@@ -59,9 +58,9 @@ class FakeNewsModel(Model):
         self._create_agents()
 
         # Initialize news content
-        self.news_content = initialize_news_content(self, news_amount)
+        self.news_content = generate_news_content(self.fake_news_percentage, self.news_amount)
 
-        # Distribute news to agents based on social network
+        # Distribute news to agents based on social network to get initial engagement
         distribute_news(self)
 
         # Initialize datacollector
@@ -75,10 +74,18 @@ class FakeNewsModel(Model):
         """Advance the model by one step."""
         # Update the current hour
         self.current_hour = (self.current_hour + self.hours_per_step) % 24
+
+        # Update network
+        self.social_media_platform.social_network.update_network()
         
         # Generate new content
-        generate_new_content(self)
+        # TODO: remove when added functionality for users to post content
+        self.news_content.extend(generate_news_content(self.fake_news_percentage, 50))
+
+        self.news_content = [content for content in self.news_content if content.engagement > 0.2]
         
+        fake_news_items = [item for item in self.news_content if item.isFake]
+        print(f"Fake news items: {len(fake_news_items)} of {len(self.news_content)}, percentage: {len(fake_news_items) / len(self.news_content)}")
         # Update recommendations for all agents
         self.social_media_platform.recommender.update_recommendations(self.agents)
         
@@ -119,9 +126,8 @@ class FakeNewsModel(Model):
         elif index < int(self.influencer_percentage * self.num_agents + self.bot_percentage * self.num_agents):  # Bots
             return BotAgent(self, self.preference_vectors[index])
         else:  # Regular users
-            credibility_level = min(max(random.gauss(0.5, 0.15), 0), 1)
-            influence_level = min(max(random.gauss(0.3, 0.1), 0), 1)
-            return UserAgent(self, self.preference_vectors[index], credibility_level, influence_level)
+            naivety_level = min(max(random.gauss(0.5, 0.15), 0), 1)
+            return UserAgent(self, self.preference_vectors[index], naivety_level)
 
     def visualize_network(self):
         """Visualize the current state of the network"""

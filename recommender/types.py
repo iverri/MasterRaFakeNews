@@ -6,4 +6,4 @@ class RecommenderType(Enum):
     ITEM_KNN = "item_knn"
     USER_KNN = "user_knn"
     CONTENT_BASED = "content_based"
-    HYBRID = "hybrid"
+    POPULAR = "popular"

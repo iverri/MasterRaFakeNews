@@ -10,8 +10,14 @@ import numpy as np
 
 def random_preferences(model=None):
     """Generate random normalized preference vector."""
-    # TODO: How should we generate preferences?
-    preferences = [random.random() for i in range(10)] 
+    # Generate random preferences with 15 dimensions
+    preferences = [random.random() for i in range(15)]
+    
+    # Normalize the vector (convert to unit vector)
+    magnitude = sum(x**2 for x in preferences)**0.5
+    if magnitude > 0:  # Avoid division by zero
+        preferences = [x/magnitude for x in preferences]
+    
     return preferences
 
 def generate_new_content(model):
@@ -58,7 +64,7 @@ def distribute_news(model):
     # Distribute content to all agents
     for agent in model.agents:
         # Determine a random number of content pieces for this agent
-        content_sample_size = model.random.randint(5, min(10, len(model.news_content)))
+        content_sample_size = model.random.randint(10, min(15, len(model.news_content)))
         
         # Select random content from the content pool
         content_sample = model.random.sample(

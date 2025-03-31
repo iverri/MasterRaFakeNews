@@ -181,7 +181,7 @@ model_params = {
     },
     "news_amount": {
         "type": "SliderInt",
-        "value": 400,
+        "value": 500,
         "label": "Number of news items",
         "min": 100,
         "max": 1000,
