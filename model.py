@@ -58,7 +58,7 @@ class FakeNewsModel(Model):
         self._create_agents()
 
         # Initialize news content
-        self.news_content = generate_news_content(self.fake_news_percentage, self.news_amount)
+        self.news_content = generate_news_content(self.fake_news_percentage, self.news_amount, self.steps)
 
         # Distribute news to agents based on social network to get initial engagement
         distribute_news(self)
@@ -80,7 +80,11 @@ class FakeNewsModel(Model):
         
         # Generate new content
         # TODO: remove when added functionality for users to post content
-        self.news_content.extend(generate_news_content(self.fake_news_percentage, 50))
+        self.news_content.extend(generate_news_content(self.fake_news_percentage, 50, self.steps))
+
+        # Update engagement for all news content
+        for content in self.news_content:
+            content.update_engagement(self.steps)
 
         self.news_content = [content for content in self.news_content if content.engagement > 0.2]
         
