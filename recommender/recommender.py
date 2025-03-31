@@ -174,7 +174,7 @@ class Recommender():
 
                     if self.increase_diversity:
                         rec_vectors = [recommendations[i].topic_vector for i in range(len(recommendations)//2)]
-                        print(f"Diversity score before reranking: {calculate_diversity(rec_vectors)}")
+                        # print(f"Diversity score before reranking: {calculate_diversity(rec_vectors)}")
                         recommendations = diversity_reranking(agent.preference_vector, recommendations, self.diversity_lambda, k=(len(recommendations)//2))
                     
                     agent.recommended_content.extend(recommendations)
