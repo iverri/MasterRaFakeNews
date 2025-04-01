@@ -3,11 +3,11 @@
 import numpy as np
 
 class NewsContent:
-    def __init__(self, content_id, isFake, topic_vector):
+    def __init__(self, content_id, isFake, topic_vector, creation_step):
         self.content = content_id
         self.isFake = isFake
         self.topic_vector = topic_vector
-        self.creation_step = 0  # Will be set when added to the model
+        self.creation_step = creation_step  # Will be set when added to the model
         # Fake news starts with higher engagement
         self.engagement = 1.5 if isFake else 1.0
 
@@ -18,14 +18,14 @@ class NewsContent:
         self.engagement = (1.5 if self.isFake else 1.0) * np.exp(-decay_rate * age)
         # Set a minimum engagement level
         self.engagement = max(0.05, self.engagement)
-        return self.engagement
+     
     
 def topic_likely_to_be_fake(topic_vector):
     """Determine if a topic vector is likely to be fake news."""
     sum_of_first_three_elements = sum(topic_vector[:3])
     return sum_of_first_three_elements > 0.3
 
-def generate_news_content(fake_news_percentage, news_amount):
+def generate_news_content(fake_news_percentage, news_amount, creation_step):
     """Create a mix of real and fake news content based on the model's fake_news_percentage."""
     from utils.model_utils import random_preferences
 
@@ -38,7 +38,7 @@ def generate_news_content(fake_news_percentage, news_amount):
         else:
             is_fake = np.random.random() < fake_news_percentage
         
-        news_items.append(NewsContent(i, is_fake, topic_vectors[i]))
+        news_items.append(NewsContent(i, is_fake, topic_vectors[i], creation_step))
         
 
     return news_items
