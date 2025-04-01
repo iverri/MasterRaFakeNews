@@ -222,8 +222,12 @@ model_params = {
         "type": "Checkbox",
         "value": False,
         "label": "Increase diversity"
+    },
+    "use_stored_network": {
+        "type": "Checkbox",
+        "value": False,
+        "label": "Use stored network"
     }
-    
 }
 
 def create_visualization(model_class):
