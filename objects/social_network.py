@@ -5,10 +5,11 @@ from utils.objects_utils import (
     adjust_node_connectivity,
 )
 from utils.metrics import get_clustering_metrics
+from utils.network_storage import NetworkStorage
 
 class Social_Network:
 
-    def __init__(self, model, num_agents, m_links, preference_vectors=None):
+    def __init__(self, model, num_agents, m_links, preference_vectors=None, use_stored_network=False):
         self.model = model
         self.num_agents = num_agents
         self.m_links = m_links
@@ -18,25 +19,41 @@ class Social_Network:
         self.num_bots = int(model.bot_percentage * num_agents)
         self.num_regular = num_agents - (self.num_influencers + self.num_bots)
         
-        # Create network with community structure based on preferences
-        if preference_vectors is not None:
-            self.network = create_preference_based_network(model, num_agents, m_links, preference_vectors)
-        else:
-            # Fallback to simpler network if no preferences provided
-            self.network = create_basic_network(num_agents, m_links)
-            
-        # Ensure minimum connectivity for bots and high connectivity for influencers
-        adjust_node_connectivity(self.network, self.num_agents, self.num_influencers, self.num_bots)
+        # Check if we should use a stored network
+        storage = NetworkStorage()
+        
+        if use_stored_network and storage.has_stored_network():
+            # Use the stored network
+            self.network = storage.get_network()
+            # If we're using a stored network, we might want to use stored preference vectors too
+            stored_preferences = storage.get_preference_vectors()
+            if stored_preferences is not None and len(stored_preferences) == num_agents:
+                # Replace the model's preference vectors with stored ones
+                model.preference_vectors = stored_preferences
 
+        else:
+            # Create a new network
+            if preference_vectors is not None:
+                self.network = create_preference_based_network(model, num_agents, m_links, preference_vectors)
+            else:
+                # Fallback to simpler network if no preferences provided
+                self.network = create_basic_network(num_agents, m_links)
+                
+            # Ensure minimum connectivity for bots and high connectivity for influencers
+            adjust_node_connectivity(self.network, self.num_agents, self.num_influencers, self.num_bots)
+            
+            # Always store the network for future use
+            storage.store_network(self.network, model.preference_vectors)
+            
 
     def update_network(self, probability=0.1):
         """
         Update network structure to simulate real social network dynamics.
         
         Args:
-            G (nx.Graph): The network graph
             probability (float): Probability of network change
         """
+            
         if np.random.random() < probability:  # Default 10% chance of network change
             if np.random.random() < 0.5:
                 # Add edge between nodes

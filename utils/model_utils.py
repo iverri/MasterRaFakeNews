@@ -3,6 +3,7 @@ import random
 from utils.metrics import get_community_modularity
 import networkx as nx
 import numpy as np
+from utils.network_storage import NetworkStorage
 
 #------------------------------------------------------------------------------
 # PREFERENCE AND CONTENT GENERATION FUNCTIONS
@@ -129,3 +130,8 @@ def setup_datacollector(model):
             "Diversity_Score": lambda a: getattr(a, "diversity_score", 0),
         }
     )
+
+def clear_stored_network():
+    """Clear any stored network"""
+    NetworkStorage().clear()
+    print("Cleared stored network")

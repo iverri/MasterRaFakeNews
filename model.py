@@ -26,7 +26,7 @@ class FakeNewsModel(Model):
     #Initialize agents
     def __init__(self, N=100, m_links=10, news_amount=500, fake_news_percentage=10, 
                  recommender_type="random", bot_percentage=5, influencer_percentage=5, 
-                 diversity_lambda=0.1, increase_diversity=False, num_recommendations=10, 
+                 diversity_lambda=0.1, increase_diversity=False, num_recommendations=10, use_stored_network=False, 
                  seed: int = None):
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
@@ -46,10 +46,16 @@ class FakeNewsModel(Model):
         self.news_amount = news_amount
         self.increase_diversity = increase_diversity
         self.num_recommendations = num_recommendations
-        # Generate preference vectors first
+        self.use_stored_network = use_stored_network
+        
+        # Generate preference vectors first (these might be replaced if using stored network)
         self.preference_vectors = [random_preferences() for _ in range(self.num_agents)]
 
-        self.social_media_platform = SocialMediaPlatform(self, self.num_agents, self.m_links, self.preference_vectors, self.recommender_type, self.diversity_lambda, self.increase_diversity, self.num_recommendations)
+        self.social_media_platform = SocialMediaPlatform(
+            self, self.num_agents, self.m_links, self.preference_vectors, 
+            self.recommender_type, self.increase_diversity, 
+            self.num_recommendations, self.use_stored_network
+        )
         
         # Setup grid for Mesa
         self._setup_grid()
@@ -76,7 +82,7 @@ class FakeNewsModel(Model):
         self.current_hour = (self.current_hour + self.hours_per_step) % 24
 
         # Update network
-        self.social_media_platform.social_network.update_network()
+        # self.social_media_platform.social_network.update_network()
         
         # Generate new content
         # TODO: remove when added functionality for users to post content
