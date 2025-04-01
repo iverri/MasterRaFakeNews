@@ -24,7 +24,7 @@ def calculate_diversity(topic_vectors):
     
     return diversity_score
 
-def diversity_reranking(user_preferences, recs, lambda_param, k=10):
+def diversity_reranking__MMR(user_preferences, recs, lambda_param, k=10):
     """
     Rerank the recommendations based on diversity using Maximal Marginal Relevance (MMR).
     
@@ -75,4 +75,42 @@ def diversity_reranking(user_preferences, recs, lambda_param, k=10):
     
     return reranked_recs
 
+def diversity_reranking(user_preferences, recs, k=10):
+    """
+    Rerank recommendations using Determinantal Point Process (DPP).
     
+    Parameters:
+    - user_preferences: vector representing user preferences
+    - recs: list of NewsContent objects to be reranked
+    - k: number of recommendations to select
+    Returns:
+    - reranked list of NewsContent objects
+    """
+    from dppy.finite_dpps import FiniteDPP
+    
+    # Extract topic vectors from recommendations
+    rec_topic_vectors = [rec.topic_vector for rec in recs]
+    
+    # Calculate relevance scores (similarity between user preferences and recommendations)
+    relevance_scores = cosine_similarity([user_preferences], rec_topic_vectors)[0]
+    
+    # Create quality vector (relevance scores)
+    quality = np.array(relevance_scores)
+    
+    # Create similarity kernel
+    similarity = cosine_similarity(rec_topic_vectors)
+    
+    # Create L-ensemble kernel: L = diag(quality) * similarity * diag(quality)
+    L = np.diag(quality) @ similarity @ np.diag(quality)
+    
+    # Initialize DPP with L-ensemble
+    dpp = FiniteDPP('likelihood', **{'L': L})
+    
+    # Sample from DPP
+    dpp.sample_exact_k_dpp(size=min(k, len(recs)))
+    selected_indices = list(dpp.list_of_samples[0])
+    
+    # Create the reranked list
+    reranked_recs = [recs[i] for i in selected_indices]
+    
+    return reranked_recs
