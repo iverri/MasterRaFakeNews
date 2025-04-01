@@ -18,6 +18,7 @@ class UserAgent(Agent):
         self.infection_start_step = 0  # Track when infection started
         self.feed = [] # feed with NewsContent
         self.recommended_content = []
+        self.shared_content = []  # Track content this agent has shared
         self.social_network = model.social_media_platform.social_network
         self.social_media_platform = model.social_media_platform
         self.diversity_score = 0
@@ -143,6 +144,15 @@ class UserAgent(Agent):
             content.content, 
             user_evaluation
         )
+        
+        # Track this content as shared by this agent
+        self.shared_content.append({
+            'content': content,
+            'step': self.model.steps,
+            'followers_received': len(followers),
+            'evaluation': user_evaluation
+        })
+        
         # Only share with followers if we have any
         if followers:
             for follower in followers:
@@ -163,7 +173,13 @@ class UserAgent(Agent):
         for content in self.feed:
             content.update_engagement(self.model.steps)
         
-        
+        # Clean up old shared content (keep only last 50 items or last 20 steps)
+        if len(self.shared_content) > 50:
+            current_step = self.model.steps
+            self.shared_content = [
+                item for item in self.shared_content 
+                if (current_step - item['step'] <= 20) or (len(self.shared_content) <= 50)
+            ]
 
 class BotAgent(UserAgent):
     def __init__(self, model, preference_vector):

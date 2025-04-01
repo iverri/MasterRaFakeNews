@@ -17,9 +17,8 @@ from recommender.types import RecommenderType
 
 
 class Recommender():
-    def __init__(self, recommender_type, diversity_lambda, increase_diversity, num_recommendations):
+    def __init__(self, recommender_type, increase_diversity, num_recommendations):
         self.type = recommender_type
-        self.diversity_lambda = diversity_lambda
         self.increase_diversity = increase_diversity
         self.num_recommendations = num_recommendations
         self.user_interactions = []  # List to store user-content interactions
@@ -281,6 +280,7 @@ class Recommender():
             num_recommendations = min(self.num_recommendations * 3 if self.increase_diversity else self.num_recommendations, len(available_content))
             recommendations = random.sample(available_content, num_recommendations)
             
+            '''
             # Apply diversity reranking if enabled
             if self.increase_diversity and len(recommendations) > 1:
                 recommendations = diversity_reranking(
@@ -288,7 +288,7 @@ class Recommender():
                     recommendations,
                     k=num_recommendations
                 )
-            
+            '''
             agent.recommended_content.extend(recommendations)
 
     def popular_recommendation(self, agent):
