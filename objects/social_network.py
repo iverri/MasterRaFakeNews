@@ -30,7 +30,7 @@ class Social_Network:
             if stored_preferences is not None and len(stored_preferences) == num_agents:
                 # Replace the model's preference vectors with stored ones
                 model.preference_vectors = stored_preferences
-            print("Using stored network")
+
         else:
             # Create a new network
             if preference_vectors is not None:
@@ -44,7 +44,7 @@ class Social_Network:
             
             # Always store the network for future use
             storage.store_network(self.network, model.preference_vectors)
-            print("Stored network for future use")
+            
 
     def update_network(self, probability=0.1):
         """
