@@ -23,7 +23,7 @@ class Recommender():
         self.num_recommendations = num_recommendations
         self.user_interactions = []  # List to store user-content interactions
         self._last_training_count = 0  # Add this line to track when retraining is needed
-        
+        print(f"Recommender type: {self.type}")
         # Configure ItemKNN with new API
         ItemKNNconfig = ItemKNNConfig(
             max_nbrs=20,  # Maximum number of neighbors
@@ -46,7 +46,7 @@ class Recommender():
         
     def update_recommendations(self, agents):
         """Update recommendations for all agents"""
-        print(f"Recommender type: {self.type}")
+        
         for agent in agents:
             if self.type == RecommenderType.RANDOM.value:
                 self.random_recommendation(agent)
@@ -323,7 +323,7 @@ class Recommender():
                     content_counts[item_id] = 1
             
             # Calculate recency-adjusted popularity
-            current_step = agent.model.schedule.steps
+            current_step = agent.model.steps
             recency_adjusted_scores = {}
             
             for content in available_content:

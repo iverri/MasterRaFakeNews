@@ -53,6 +53,9 @@ def visualize_network(network, agent_types=None):
     # Detect communities using Louvain method on undirected graph
     communities = community.best_partition(undirected_network)
     
+    # Count the number of communities
+    num_communities = len(set(communities.values()))
+    
     # Get position layout that groups communities together
     pos = nx.spring_layout(network)
     
@@ -114,7 +117,7 @@ def visualize_network(network, agent_types=None):
     # Add title with metrics
     clustering_coef = nx.average_clustering(undirected_network)
     modularity = community.modularity(communities, undirected_network)
-    plt.title(f'Network Communities\nClustering Coefficient: {clustering_coef:.3f}\n'
+    plt.title(f'Network Communities (Total: {num_communities})\nClustering Coefficient: {clustering_coef:.3f}\n'
              f'Modularity: {modularity:.3f}\n'
              f'Total Connections: {network.number_of_edges()}')
     
@@ -257,9 +260,9 @@ def EchoChamberDashboard(model):
                             solara.Markdown("*How much content stays within network communities*")
                     
                     # Add a visualization of the echo chamber distribution
-                    if preference_scores:
-                        # Use FigureMatplotlib instead of FigureContainer
-                        solara.FigureMatplotlib(create_echo_chamber_histogram(preference_scores))
+                    # if preference_scores:
+                    # Use FigureMatplotlib instead of FigureContainer
+                    # solara.FigureMatplotlib(create_echo_chamber_histogram(preference_scores))
             else:
                 solara.Markdown("No data points collected yet. Run the simulation to see metrics.")
         else:
@@ -288,6 +291,9 @@ def visualize_echo_chamber_network(model):
     
     # Detect communities using Louvain method
     communities = community.best_partition(undirected_network)
+    
+    # Count the number of communities
+    num_communities = len(set(communities.values()))
     
     # Get position layout that groups communities together
     pos = nx.spring_layout(network, seed=42)  # Fixed seed for consistent layout
@@ -367,8 +373,7 @@ def visualize_echo_chamber_network(model):
     echo_effect = calculate_echo_chamber_effect(model)
     propagation_score = calculate_content_propagation_clustering(model)
     plt.title(f'Echo Chamber Network Visualization\n'
-             f'Overall Echo Chamber Effect: {echo_effect:.2f}\n'
-             f'Content Propagation Clustering: {propagation_score:.2f}')
+             f'number of communities: {num_communities}')
     
     plt.axis('off')
     plt.tight_layout()
@@ -386,13 +391,13 @@ def MetricsTrendDashboard(model):
         # Get the metrics we want to track
         metrics = {
             "Misinformation Metrics": [
-                "Misinformation_Spread_Percentage",
                 "Misinformation_Ratio_Difference",
-                "Misinformation_Count_In_Recommendations"
+                "Misinformation_Count_In_Recommendations",
             ],
             "Echo Chamber Metrics": [
                 "Echo_Chamber_Effect",
-                "Average_Diversity_Score"
+                "Preference_Similarity",
+                "Content_Propagation_Clustering",
             ]
         }
         
@@ -430,7 +435,7 @@ def MetricsTrendDashboard(model):
 
 def create_metrics_line_chart(model, metric_names, title):
     """Create a line chart for the given metrics"""
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(8, 4))
     
     # Get the data for each metric
     x = list(range(len(model.datacollector.model_vars[metric_names[0]])))
@@ -466,8 +471,8 @@ def create_metrics_line_chart(model, metric_names, title):
     # Set y-axis limits appropriately based on the chart type
     if "Misinformation" in title:
         # For misinformation metrics, ensure we can see small values clearly
-        y_max = max(max(model.datacollector.model_vars[metric_names[0]]) * 100 * 1.1, 100)
-        ax.set_ylim(bottom=0, top=y_max)
+        y_max = max(max(model.datacollector.model_vars[metric_names[0]]) * 100 * 1.1, 20)
+        ax.set_ylim(bottom=-10, top=y_max)
     elif "Echo Chamber" in title:
         # For echo chamber metrics, use a 0-1 scale unless values exceed it
         y_values = []
@@ -483,7 +488,7 @@ def create_metrics_line_chart(model, metric_names, title):
 model_params = {
     "N": {
         "type": "SliderInt",
-        "value": 100,
+        "value": 200,
         "label": "Number of agents",
         "min": 50,
         "max": 500,
@@ -572,13 +577,13 @@ def create_visualization(model_class):
         model=model,
         components=[
             #ProjectInfo,
-            MisinformationDashboard,
-            EchoChamberDashboard,
-            MetricsTrendDashboard,
+            # MisinformationDashboard,
+            #EchoChamberDashboard,
+            make_plot_component(["Number_of_Infected", "Number_of_Susceptible", "Number_of_Exposed"]),
             EchoChamberNetwork,
-            # make_plot_component(["Number_of_Infected", "Number_of_Susceptible", "Number_of_Exposed"]),
+            MetricsTrendDashboard,
             # make_plot_component(["Average_Diversity_Score"]),
-            #make_plot_component(["Average_Feed_Size"]),
+            # make_plot_component(["Average_Feed_Size"]),
 
         ],
         model_params=model_params

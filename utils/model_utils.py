@@ -122,10 +122,14 @@ def setup_datacollector(model):
             "Misinformation_Ratio_Difference": lambda m: calculate_misinformation_ratio_difference(m),
             "Misinformation_Spread_Percentage": lambda m: calculate_misinformation_spread(m),
             "Echo_Chamber_Effect": lambda m: calculate_echo_chamber_effect(m),
+            "Preference_Similarity": lambda m: sum([calculate_agent_echo_chamber(a) 
+                                    for a in m.agents if hasattr(a, "recommended_content") and len(a.recommended_content) > 0]) / 
+                                    sum(1 for a in m.agents if hasattr(a, "recommended_content") and len(a.recommended_content) > 0) 
+                                    if sum(1 for a in m.agents if hasattr(a, "recommended_content") and len(a.recommended_content) > 0) > 0 else 0,
+            "Content_Propagation_Clustering": lambda m: calculate_content_propagation_clustering(m),
         },
         agent_reporters={
             "State": lambda a: getattr(a, "state", None),
-            "Influence": lambda a: getattr(a, "influence_level", 0),
             "Followers": lambda a: a.social_media_platform.social_network.network.in_degree(a.pos),
             "Following": lambda a: a.social_media_platform.social_network.network.out_degree(a.pos),
             "Is_Active": lambda a: getattr(a, "is_active", False),
@@ -183,7 +187,7 @@ def calculate_misinformation_ratio_difference(model):
 
 def calculate_misinformation_spread(model):
     """Calculate the percentage of agents who have been exposed to fake news."""
-    exposed_agents = sum(1 for a in model.agents if hasattr(a, "state") and (a.state == "E" or a.state == "I"))
+    exposed_agents = sum(1 for a in model.agents if hasattr(a, "state") and ( a.state == "I"))
     return exposed_agents / len(model.agents) if len(model.agents) > 0 else 0
 
 def calculate_echo_chamber_effect(model):
