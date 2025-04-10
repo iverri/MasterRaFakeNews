@@ -58,7 +58,6 @@ class UserAgent(Agent):
         
         # Only process feed if the agent is active
         if self.is_active:
-         
             # Process both feed and recommendations
             all_content = self.feed + self.recommended_content
 
@@ -74,6 +73,9 @@ class UserAgent(Agent):
             self.feed = []
             self.recommended_content = []
             self.last_active_step = self.model.steps
+
+            # Attempt to post new content
+            self.post_content()
 
         else:
             # Inactive users still accumulate content in their feed
@@ -167,17 +169,33 @@ class UserAgent(Agent):
         """Generate and post new content."""
         # Determine if the agent decides to post content
         if random.random() < self.activity_probability:
+            # Create a topic vector similar to the preference vector
+            topic_vector = self._generate_similar_topic_vector()
+
             # Create new content
             from objects.news_content import NewsContent
             is_fake = random.random() < self.model.fake_news_percentage * self.naivety_level
             new_content = NewsContent(
                 len(self.model.news_content),
                 is_fake,
-                self.preference_vector,
-                self.model.steps
+                topic_vector,
+                self.model.steps  # Add creation_step here
             )
             # Add the new content to the model's news content
             self.model.news_content.append(new_content)
+
+    def _generate_similar_topic_vector(self):
+        """Generate a topic vector similar to the agent's preference vector."""
+        # Add small random noise to the preference vector
+        noise = np.random.normal(0, 0.05, len(self.preference_vector))
+        topic_vector = np.array(self.preference_vector) + noise
+
+        # Normalize the topic vector to maintain it as a unit vector
+        magnitude = np.linalg.norm(topic_vector)
+        if magnitude > 0:
+            topic_vector = topic_vector / magnitude
+
+        return topic_vector
 
 class BotAgent(UserAgent):
     def __init__(self, model, preference_vector):
@@ -188,14 +206,15 @@ class BotAgent(UserAgent):
 
     def post_content(self):
         """Bots post more frequently and are more likely to post fake content."""
-        if random.random() < self.activity_probability * 1.5:  # Bots are more active
+        if random.random() < self.activity_probability:  # Bots are more active
+            topic_vector = self._generate_similar_topic_vector()
             from objects.news_content import NewsContent
             is_fake = random.random() < self.model.fake_news_percentage * 1.5  # Higher chance of fake content
             new_content = NewsContent(
                 len(self.model.news_content),
                 is_fake,
-                self.preference_vector,
-                self.model.steps
+                topic_vector,
+                self.model.steps  # Add creation_step here
             )
             self.model.news_content.append(new_content)
 
@@ -220,14 +239,15 @@ class InfluencerAgent(UserAgent):
    
     def post_content(self):
         """Influencers post strategically and have a moderate chance of posting fake content."""
-        if random.random() < self.activity_probability * 1.2:  # Influencers are active
+        if random.random() < self.activity_probability:  # Influencers are active
+            topic_vector = self._generate_similar_topic_vector()
             from objects.news_content import NewsContent
             is_fake = random.random() < self.model.fake_news_percentage * 0.8  # Lower chance of fake content
             new_content = NewsContent(
                 len(self.model.news_content),
                 is_fake,
-                self.preference_vector,
-                self.model.steps
+                topic_vector,
+                self.model.steps  # Add creation_step here
             )
             self.model.news_content.append(new_content)
 

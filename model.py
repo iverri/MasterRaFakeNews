@@ -81,9 +81,6 @@ class FakeNewsModel(Model):
         # Update the current hour
         self.current_hour = (self.current_hour + self.hours_per_step) % 24
 
-        # Allow agents to post new content
-        self.agents_post_content()
-
         # Update network
         # self.social_media_platform.social_network.update_network()
         
