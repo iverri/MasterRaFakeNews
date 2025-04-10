@@ -163,7 +163,21 @@ class UserAgent(Agent):
         for content in self.feed:
             content.update_engagement(self.model.steps)
         
-        
+    def post_content(self):
+        """Generate and post new content."""
+        # Determine if the agent decides to post content
+        if random.random() < self.activity_probability:
+            # Create new content
+            from objects.news_content import NewsContent
+            is_fake = random.random() < self.model.fake_news_percentage * self.naivety_level
+            new_content = NewsContent(
+                len(self.model.news_content),
+                is_fake,
+                self.preference_vector,
+                self.model.steps
+            )
+            # Add the new content to the model's news content
+            self.model.news_content.append(new_content)
 
 class BotAgent(UserAgent):
     def __init__(self, model, preference_vector):
@@ -171,6 +185,19 @@ class BotAgent(UserAgent):
         # Bots are more consistently active
         self.activity_probability = min(max(random.gauss(0.7, 0.15), 0.4), 0.9)
         self.activity_pattern = [random.uniform(0.7, 1.0) for _ in range(8)]  # More consistent
+
+    def post_content(self):
+        """Bots post more frequently and are more likely to post fake content."""
+        if random.random() < self.activity_probability * 1.5:  # Bots are more active
+            from objects.news_content import NewsContent
+            is_fake = random.random() < self.model.fake_news_percentage * 1.5  # Higher chance of fake content
+            new_content = NewsContent(
+                len(self.model.news_content),
+                is_fake,
+                self.preference_vector,
+                self.model.steps
+            )
+            self.model.news_content.append(new_content)
 
 class InfluencerAgent(UserAgent):
     def __init__(self, model, preference_vector):
@@ -191,4 +218,16 @@ class InfluencerAgent(UserAgent):
             pattern[peak_time] = random.uniform(0.8, 1.0)  # Very high activity during peak times
         return pattern
    
+    def post_content(self):
+        """Influencers post strategically and have a moderate chance of posting fake content."""
+        if random.random() < self.activity_probability * 1.2:  # Influencers are active
+            from objects.news_content import NewsContent
+            is_fake = random.random() < self.model.fake_news_percentage * 0.8  # Lower chance of fake content
+            new_content = NewsContent(
+                len(self.model.news_content),
+                is_fake,
+                self.preference_vector,
+                self.model.steps
+            )
+            self.model.news_content.append(new_content)
 

@@ -81,6 +81,9 @@ class FakeNewsModel(Model):
         # Update the current hour
         self.current_hour = (self.current_hour + self.hours_per_step) % 24
 
+        # Allow agents to post new content
+        self.agents_post_content()
+
         # Update network
         # self.social_media_platform.social_network.update_network()
         
@@ -153,6 +156,11 @@ class FakeNewsModel(Model):
     def get_network_metrics(self):
         """Get detailed network metrics"""
         return self.social_media_platform.social_network.get_clustering_metrics()
+
+    def agents_post_content(self):
+        """Allow agents to generate and post new content."""
+        for agent in self.agents:
+            agent.post_content()
 
 if __name__ == "__main__":
     from utils.visualization import create_visualization
