@@ -17,14 +17,13 @@ from recommender.types import RecommenderType
 
 
 class Recommender():
-    def __init__(self, recommender_type, diversity_lambda, increase_diversity, num_recommendations):
+    def __init__(self, recommender_type, increase_diversity, num_recommendations):
         self.type = recommender_type
-        self.diversity_lambda = diversity_lambda
         self.increase_diversity = increase_diversity
         self.num_recommendations = num_recommendations
         self.user_interactions = []  # List to store user-content interactions
         self._last_training_count = 0  # Add this line to track when retraining is needed
-        
+        print(f"Recommender type: {self.type}")
         # Configure ItemKNN with new API
         ItemKNNconfig = ItemKNNConfig(
             max_nbrs=20,  # Maximum number of neighbors
@@ -47,7 +46,7 @@ class Recommender():
         
     def update_recommendations(self, agents):
         """Update recommendations for all agents"""
-        print(f"Recommender type: {self.type}")
+        
         for agent in agents:
             if self.type == RecommenderType.RANDOM.value:
                 self.random_recommendation(agent)
@@ -281,6 +280,7 @@ class Recommender():
             num_recommendations = min(self.num_recommendations * 3 if self.increase_diversity else self.num_recommendations, len(available_content))
             recommendations = random.sample(available_content, num_recommendations)
             
+            '''
             # Apply diversity reranking if enabled
             if self.increase_diversity and len(recommendations) > 1:
                 recommendations = diversity_reranking(
@@ -288,7 +288,7 @@ class Recommender():
                     recommendations,
                     k=num_recommendations
                 )
-            
+            '''
             agent.recommended_content.extend(recommendations)
 
     def popular_recommendation(self, agent):
@@ -323,7 +323,7 @@ class Recommender():
                     content_counts[item_id] = 1
             
             # Calculate recency-adjusted popularity
-            current_step = agent.model.schedule.steps
+            current_step = agent.model.steps
             recency_adjusted_scores = {}
             
             for content in available_content:

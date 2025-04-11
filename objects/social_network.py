@@ -25,6 +25,7 @@ class Social_Network:
         if use_stored_network and storage.has_stored_network():
             # Use the stored network
             self.network = storage.get_network()
+            print("Using stored network")
             # If we're using a stored network, we might want to use stored preference vectors too
             stored_preferences = storage.get_preference_vectors()
             if stored_preferences is not None and len(stored_preferences) == num_agents:
