@@ -82,9 +82,6 @@ class FakeNewsModel(Model):
         print(f"Step: {self.steps}")
         # Update the current hour
         self.current_hour = (self.current_hour + self.hours_per_step) % 24
-
-        # Update network
-        # self.social_media_platform.social_network.update_network()
         
         # Generate new content
         # TODO: remove when added functionality for users to post content
@@ -122,7 +119,7 @@ class FakeNewsModel(Model):
         undirected_edges = list(self.social_media_platform.social_network.network.to_undirected().edges())
         G.add_edges_from(undirected_edges)
         self.grid = NetworkGrid(G)
-        
+
     def _create_agents(self):
         """Create and place agents in the grid."""
  
@@ -140,7 +137,8 @@ class FakeNewsModel(Model):
         else:  # Regular users
             naivety_level = min(max(random.gauss(0.5, 0.15), 0), 1)
             return UserAgent(self, self.preference_vectors[index], naivety_level)
-
+    
+    # Not in use
     def visualize_network(self):
         """Visualize the current state of the network"""
         # Create agent_types dictionary
@@ -152,6 +150,7 @@ class FakeNewsModel(Model):
         # Visualize the network
         visualize_network(self.social_media_platform.social_network.network, agent_types)
 
+    # Not in use
     def get_network_metrics(self):
         """Get detailed network metrics"""
         return self.social_media_platform.social_network.get_clustering_metrics()

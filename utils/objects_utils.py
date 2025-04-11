@@ -18,8 +18,9 @@ def create_preference_based_network(model, num_agents, m_links, preference_vecto
     Create directed network with communities based on preference similarity.
     
     Args:
+        model: The simulation model
         num_agents (int): Number of agents in the network
-        m_links (int): Base number of links per node
+        m_links (int): Base number of links per node (average)
         preference_vectors (list): List of preference vectors for each agent
         
     Returns:
@@ -29,6 +30,11 @@ def create_preference_based_network(model, num_agents, m_links, preference_vecto
     G = nx.DiGraph()
     G.add_nodes_from(range(num_agents))
     
+    # Calculate number of each agent type
+    num_influencers = int(model.influencer_percentage * num_agents)
+    num_bots = int(model.bot_percentage * num_agents)
+    num_regular_users = num_agents - num_influencers - num_bots
+    
     # Calculate similarity matrix between all pairs of nodes
     similarity_matrix = np.zeros((num_agents, num_agents))
     for i in range(num_agents):
@@ -36,84 +42,90 @@ def create_preference_based_network(model, num_agents, m_links, preference_vecto
             sim = np.dot(preference_vectors[i], preference_vectors[j])
             similarity_matrix[i,j] = similarity_matrix[j,i] = sim
     
-    # Calculate number of each agent type
-    num_influencers = int(model.influencer_percentage * num_agents)
-    num_bots = int(model.bot_percentage * num_agents)
+    # Define BASE target outgoing connections (following) for each agent type
+    outgoing_targets = {
+        'influencer': max(int(m_links * 0.5), 2),      # Influencers follow fewer
+        'regular': m_links,                            # Regular users follow average
+        'bot': min(int(m_links * 3), num_agents-1)     # Bots follow many more
+    }
     
-    # First, handle regular users and bots following others
+    # Define follower attractiveness multipliers (how likely to be followed)
+    follower_multipliers = {
+        'influencer': 6.0,    # Influencers are much more likely to be followed
+        'regular': 1.0,        # Regular users have normal follow probability
+        'bot': 0.001          # Bots are extremely unlikely to be followed
+    }
+    
+    # Create edges based on agent type and preference similarity
     for i in range(num_agents):
+        # Determine agent type and outgoing connection target
         if i < num_influencers:
-            continue  # Handle influencers' connections separately
-        
-        # Number of outgoing connections for this node
-        if i >= num_agents - num_bots:
-            k = min(int(m_links * 3), num_agents-1)  # More outgoing for bots
+            agent_type = 'influencer'
+        elif i >= num_agents - num_bots:
+            agent_type = 'bot'
         else:
-            k = m_links  # Regular users
+            agent_type = 'regular'
+            
+        # Number of outgoing connections for this node - ADD RANDOMNESS HERE
+        base_k_out = outgoing_targets[agent_type]
         
-        # Get potential nodes to follow based on preference similarity
+        # Add randomness to connection count (±30% variation)
+        variation_factor = np.random.uniform(0.7, 1.3)
+        k_out = max(1, int(base_k_out * variation_factor))
+        
+        # For bots, ensure they still follow many accounts
+        if agent_type == 'bot':
+            k_out = max(k_out, base_k_out)
+        
+        # Calculate weighted probabilities for all potential connections
         potential_edges = []
         
-        # Higher probability to follow influencers, but not overwhelmingly so
-        for j in range(num_influencers):
-            sim = similarity_matrix[i,j] * 1.2  # Reduced boost for influencers
-            potential_edges.append((j, sim))
+        for j in range(num_agents):
+            if i == j:
+                continue  # Skip self-connections
+                
+            # Determine target agent type
+            if j < num_influencers:
+                target_type = 'influencer'
+            elif j >= num_agents - num_bots:
+                target_type = 'bot'
+            else:
+                target_type = 'regular'
+                
+            # Base similarity with reduced impact (mix with constant)
+            base_sim = 0.3 * similarity_matrix[i,j] + 0.2
+            
+            # Apply follower multiplier based on target type using nonlinear transformation
+            if follower_multipliers[target_type] >= 1.0:
+                # For high multipliers (influencers), use power function to amplify
+                adjusted_sim = base_sim ** (1 / follower_multipliers[target_type])
+            else:
+                # For low multipliers (bots), use power function to reduce
+                adjusted_sim = base_sim ** (1 / (follower_multipliers[target_type] * 0.01))
+            
+            # Special case: Influencers almost never follow bots
+            if agent_type == 'influencer' and target_type == 'bot':
+                adjusted_sim = 0.001  # Extremely low probability
+                
+            # Special case: Regular users rarely follow bots
+            if agent_type == 'regular' and target_type == 'bot':
+                adjusted_sim = 0.01  # Very low probability
+            
+            # Hard caps based on agent types
+            if target_type == 'bot':
+                adjusted_sim = min(adjusted_sim, 0.001)  # Hard cap on bot follow probability
+            elif target_type == 'influencer':
+                adjusted_sim = min(adjusted_sim, 0.90)  # Cap for influencers too
+                
+            potential_edges.append((j, adjusted_sim))
         
-        # Regular preference-based edges for other users and reduced probability for bots
-        for j in range(num_influencers, num_agents):
-            if j != i:
-                sim = similarity_matrix[i,j]
-                # Boost for regular users to increase their followers
-                if j < num_agents - num_bots:
-                    sim *= 1.1  # Slight boost for regular users
-                # Reduction for bots
-                else:
-                    sim *= 0.3  # Less extreme reduction for bots
-                potential_edges.append((j, sim))
-        
+        # Sort by adjusted similarity
         potential_edges.sort(key=lambda x: x[1], reverse=True)
         
         # Add directed edges (i follows j)
         edges_added = 0
         for j, sim in potential_edges:
-            if edges_added >= k:
-                break
-            
-            if not G.has_edge(i, j):
-                # Higher probability for bots to follow others
-                if i >= num_agents - num_bots:
-                    prob = min(sim * 1.5, 1.0)
-                else:
-                    prob = sim
-                
-                if np.random.random() < prob:
-                    G.add_edge(i, j)
-                    edges_added += 1
-    
-    # Now handle influencers' outgoing connections
-    for i in range(num_influencers):
-        k = max(int(m_links * 0.7), 2)  # Slightly more outgoing for influencers
-        
-        # Influencers follow other influencers and some regular users
-        potential_edges = []
-        
-        # Follow other influencers
-        for j in range(num_influencers):
-            if i != j:
-                sim = similarity_matrix[i,j] * 1.2
-                potential_edges.append((j, sim))
-        
-        # Follow some regular users too
-        for j in range(num_influencers, num_agents - num_bots):
-            sim = similarity_matrix[i,j] * 0.8  # Reduced but still significant
-            potential_edges.append((j, sim))
-            
-        potential_edges.sort(key=lambda x: x[1], reverse=True)
-        
-        # Add edges
-        edges_added = 0
-        for j, sim in potential_edges:
-            if edges_added >= k:
+            if edges_added >= k_out:
                 break
                 
             if not G.has_edge(i, j) and np.random.random() < sim:
@@ -124,11 +136,18 @@ def create_preference_based_network(model, num_agents, m_links, preference_vecto
     if not nx.is_weakly_connected(G):
         components = list(nx.weakly_connected_components(G))
         for i in range(len(components)-1):
-            node1 = list(components[i])[0]
-            node2 = list(components[i+1])[0]
-            G.add_edge(node1, node2)
+            # Try to connect components through non-bot nodes if possible
+            component1 = [n for n in components[i] if n < num_agents - num_bots]
+            component2 = [n for n in components[i+1] if n < num_agents - num_bots]
             
-    # PHASE 2: Balance follower distribution
+            # If no non-bot nodes available, use any nodes
+            node1 = list(components[i])[0] if not component1 else component1[0]
+            node2 = list(components[i+1])[0] if not component2 else component2[0]
+            
+            G.add_edge(node1, node2)
+    
+    # VERIFICATION AND ADJUSTMENT PHASE - More aggressive to ensure proper ratios
+    # Group nodes by type
     bot_indices = list(range(num_agents - num_bots, num_agents))
     user_indices = list(range(num_influencers, num_agents - num_bots))
     influencer_indices = list(range(num_influencers))
@@ -142,34 +161,116 @@ def create_preference_based_network(model, num_agents, m_links, preference_vecto
     avg_bot_followers = sum(bot_followers) / len(bot_followers) if bot_followers else 0
     avg_influencer_followers = sum(influencer_followers) / len(influencer_followers) if influencer_followers else 0
     
-    # Target ratios: influencers should have ~8x more followers than users, bots ~0.7x of users
-    target_user_followers = max(avg_user_followers, m_links * 1.5)  # Ensure users have decent followers
-    target_bot_followers = target_user_followers * 1.5
-    target_influencer_followers = target_user_followers * 8
+    # Define target follower ratios with randomness
+    target_user_followers = max(avg_user_followers, m_links)
+    target_bot_followers = max(int(target_user_followers * 0.3), 1)  # Bots have 10% of user followers
+    target_influencer_followers = max(int(target_user_followers * 6), m_links * 6)  # Influencers have 8x user followers
     
-    # Adjust bot followers (reduce if needed)
-    if avg_bot_followers > target_bot_followers:
+    # 1. RESET bot followers but with some randomness
+    for bot in bot_indices:
+        # Remove ALL followers
+        followers = list(G.predecessors(bot))
+        for follower in followers:
+            G.remove_edge(follower, bot)
+        
+        # Add back a very small number of followers with randomness
+        potential_followers = list(range(num_agents))
+        np.random.shuffle(potential_followers)
+        
+        # Random number of followers between 0 and max_bot_followers
+        max_bot_followers = min(4, target_bot_followers)
+        random_followers = np.random.randint(0, max_bot_followers + 1)
+        
+        for follower in potential_followers[:random_followers]:
+            if follower != bot:
+                G.add_edge(follower, bot)
+    
+    # 2. Boost influencer followers with randomness
+    for influencer in influencer_indices:
+        current_followers = G.in_degree(influencer)
+        
+        # Much greater variation for influencers (±70%)
+        # This creates a more realistic power-law distribution
+        random_factor = np.random.uniform(0.3, 1.7)
+        
+        # Apply a power-law-like distribution where some influencers get much more followers
+        # Use rank within influencers to create a natural hierarchy
+        rank_factor = 1.0 - (influencer / max(1, len(influencer_indices) - 1)) * 0.7
+        combined_factor = random_factor * (0.3 + 0.7 * rank_factor)
+        
+        random_target = int(target_influencer_followers * combined_factor)
+        
+        if current_followers < random_target:
+            needed_followers = random_target - current_followers
+            
+            # Try to add followers from regular users first
+            potential_followers = [u for u in user_indices if not G.has_edge(u, influencer)]
+            np.random.shuffle(potential_followers)
+            
+            for follower in potential_followers[:needed_followers]:
+                G.add_edge(follower, influencer)
+    
+    # 3. Boost regular user followers with randomness
+    if avg_user_followers < target_user_followers:
+        for user in user_indices:
+            current_followers = G.in_degree(user)
+            
+            # Random target (±40% variation)
+            random_factor = np.random.uniform(0.4, 1.6)
+            random_target = target_user_followers * random_factor
+            
+            if current_followers < random_target * 0.8:
+                needed_followers = int(random_target * 0.8) - current_followers
+                
+                # Try to add followers from other regular users
+                potential_followers = [u for u in user_indices if u != user and not G.has_edge(u, user)]
+                np.random.shuffle(potential_followers)
+                
+                for follower in potential_followers[:needed_followers]:
+                    G.add_edge(follower, user)
+    
+    # 4. Final verification - ensure bots have MUCH fewer followers than regular users
+    bot_followers = [G.in_degree(i) for i in bot_indices]
+    user_followers = [G.in_degree(i) for i in user_indices]
+    
+    avg_bot_followers = sum(bot_followers) / len(bot_followers) if bot_followers else 0
+    avg_user_followers = sum(user_followers) / len(user_followers) if user_followers else 0
+    
+    # If bots still have too many followers, RESET them again
+    if avg_bot_followers > avg_user_followers * 0.1:
         for bot in bot_indices:
+            # Remove ALL followers again
             followers = list(G.predecessors(bot))
-            np.random.shuffle(followers)
+            for follower in followers:
+                G.remove_edge(follower, bot)
             
-            current_followers = len(followers)
-            target_followers = int(target_bot_followers)
+            # Add back at most 0-2 followers (random)
+            potential_followers = list(range(num_agents))
+            np.random.shuffle(potential_followers)
             
-            if current_followers > target_followers:
-                edges_to_remove = followers[:current_followers - target_followers]
-                for follower in edges_to_remove:
-                    if G.has_edge(follower, bot):
-                        G.remove_edge(follower, bot)
+            random_followers = np.random.randint(0, 4)  # 0, 1, or 2 followers
+            for follower in potential_followers[:random_followers]:
+                if follower != bot:
+                    G.add_edge(follower, bot)
     
-    # Boost influencer followers if needed
-    if avg_influencer_followers < target_influencer_followers:
-        # Add more followers to influencers from regular users
-        for i in user_indices:
-            for j in influencer_indices:
-                # Add edge with probability based on how far we are from target
-                if not G.has_edge(i, j) and np.random.random() < 0.3:
-                    G.add_edge(i, j)
+    # Final verification - print actual follower counts
+    bot_followers = [G.in_degree(i) for i in bot_indices]
+    user_followers = [G.in_degree(i) for i in user_indices]
+    influencer_followers = [G.in_degree(i) for i in influencer_indices]
+    
+    avg_bot_followers = sum(bot_followers) / len(bot_followers) if bot_followers else 0
+    avg_user_followers = sum(user_followers) / len(user_followers) if user_followers else 0
+    avg_influencer_followers = sum(influencer_followers) / len(influencer_followers) if influencer_followers else 0
+    
+    # Calculate standard deviations to show the spread
+    std_bot_followers = np.std(bot_followers) if bot_followers else 0
+    std_user_followers = np.std(user_followers) if user_followers else 0
+    std_influencer_followers = np.std(influencer_followers) if influencer_followers else 0
+    
+    print(f"NETWORK CREATION - FINAL FOLLOWER COUNTS:")
+    print(f"Influencers: {avg_influencer_followers:.1f} ± {std_influencer_followers:.1f}")
+    print(f"Regular Users: {avg_user_followers:.1f} ± {std_user_followers:.1f}")
+    print(f"Bots: {avg_bot_followers:.1f} ± {std_bot_followers:.1f}")
     
     return G
 
