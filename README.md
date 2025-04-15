@@ -74,6 +74,23 @@ This will launch a Solara visualization interface where you can:
   - Average clustering
   - Community modularity
 
+### Run experiments
+
+```bash
+python3 experiments.py
+```
+You can modify the parameters in the `experiments.py` file.
+
+Experiment results are saved in the `experiment_results` folder.
+
+### Plotting results
+After running experiments, you can generate plots to visualize the results:
+
+```bash
+python3 plot.py experiment_results/{experiment_name}.csv --output-dir plots
+```
+Remember to replace `{experiment_name}` with the name of the experiment file you want to plot, along with the correct timestamp.
+
 ## Project Structure
 
 - `model.py`: Main simulation model

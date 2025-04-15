@@ -6,6 +6,7 @@ scikit-learn
 # Social network
 networkx
 python-louvain
+dppy
 
 # ABM
 mesa

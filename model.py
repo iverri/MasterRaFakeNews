@@ -24,7 +24,7 @@ class FakeNewsModel(Model):
     The process repeats over multiple timesteps, influencing network dynamics. 
     '''
     #Initialize agents
-    def __init__(self, N=100, m_links=10, news_amount=500, fake_news_percentage=10, 
+    def __init__(self, N=200, m_links=10, news_amount=500, fake_news_percentage=10, 
                  recommender_type="random", bot_percentage=5, influencer_percentage=5, 
                  diversity_lambda=0.1, increase_diversity=False, num_recommendations=10, use_stored_network=False, 
                  seed: int = None):
@@ -78,6 +78,8 @@ class FakeNewsModel(Model):
 
     def step(self):
         """Advance the model by one step."""
+
+        print(f"Step: {self.steps}")
         # Update the current hour
         self.current_hour = (self.current_hour + self.hours_per_step) % 24
 
@@ -95,7 +97,7 @@ class FakeNewsModel(Model):
         self.news_content = [content for content in self.news_content if content.engagement > 0.2]
         
         fake_news_items = [item for item in self.news_content if item.isFake]
-        print(f"Fake news items: {len(fake_news_items)} of {len(self.news_content)}, percentage: {len(fake_news_items) / len(self.news_content)}")
+        # print(f"Fake news items: {len(fake_news_items)} of {len(self.news_content)}, percentage: {len(fake_news_items) / len(self.news_content)}")
         # Update recommendations for all agents
         self.social_media_platform.recommender.update_recommendations(self.agents)
         
@@ -153,11 +155,6 @@ class FakeNewsModel(Model):
     def get_network_metrics(self):
         """Get detailed network metrics"""
         return self.social_media_platform.social_network.get_clustering_metrics()
-
-    def agents_post_content(self):
-        """Allow agents to generate and post new content."""
-        for agent in self.agents:
-            agent.post_content()
 
 if __name__ == "__main__":
     from utils.visualization import create_visualization

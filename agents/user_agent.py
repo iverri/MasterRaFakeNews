@@ -18,6 +18,7 @@ class UserAgent(Agent):
         self.infection_start_step = 0  # Track when infection started
         self.feed = [] # feed with NewsContent
         self.recommended_content = []
+        self.shared_content = []  # Track content this agent has shared
         self.social_network = model.social_media_platform.social_network
         self.social_media_platform = model.social_media_platform
         self.diversity_score = 0
@@ -145,6 +146,15 @@ class UserAgent(Agent):
             content.content, 
             user_evaluation
         )
+        
+        # Track this content as shared by this agent
+        self.shared_content.append({
+            'content': content,
+            'step': self.model.steps,
+            'followers_received': len(followers),
+            'evaluation': user_evaluation
+        })
+        
         # Only share with followers if we have any
         if followers:
             for follower in followers:
@@ -171,10 +181,17 @@ class UserAgent(Agent):
         if random.random() < self.activity_probability:
             # Create a topic vector similar to the preference vector
             topic_vector = self._generate_similar_topic_vector()
+            # Determine the fake news percentage based on the agent type
+            if self.isinstance(self, BotAgent):
+                fake_news_percentage = self.model.fake_news_percentage * 1.5
+            elif self.isinstance(self, InfluencerAgent):
+                fake_news_percentage = self.model.fake_news_percentage * 0.8
+            else:
+                fake_news_percentage = self.model.fake_news_percentage * self.naivety_level
 
             # Create new content
             from objects.news_content import NewsContent
-            is_fake = random.random() < self.model.fake_news_percentage * self.naivety_level
+            is_fake = random.random() < fake_news_percentage
             new_content = NewsContent(
                 len(self.model.news_content),
                 is_fake,
@@ -204,20 +221,6 @@ class BotAgent(UserAgent):
         self.activity_probability = min(max(random.gauss(0.7, 0.15), 0.4), 0.9)
         self.activity_pattern = [random.uniform(0.7, 1.0) for _ in range(8)]  # More consistent
 
-    def post_content(self):
-        """Bots post more frequently and are more likely to post fake content."""
-        if random.random() < self.activity_probability:  # Bots are more active
-            topic_vector = self._generate_similar_topic_vector()
-            from objects.news_content import NewsContent
-            is_fake = random.random() < self.model.fake_news_percentage * 1.5  # Higher chance of fake content
-            new_content = NewsContent(
-                len(self.model.news_content),
-                is_fake,
-                topic_vector,
-                self.model.steps  # Add creation_step here
-            )
-            self.model.news_content.append(new_content)
-
 class InfluencerAgent(UserAgent):
     def __init__(self, model, preference_vector):
         super().__init__(model, preference_vector, naivety_level=0.7)
@@ -236,18 +239,4 @@ class InfluencerAgent(UserAgent):
             peak_time = random.choices(range(8), weights=[0.1, 0.15, 0.2, 0.15, 0.1, 0.1, 0.1, 0.1])[0]
             pattern[peak_time] = random.uniform(0.8, 1.0)  # Very high activity during peak times
         return pattern
-   
-    def post_content(self):
-        """Influencers post strategically and have a moderate chance of posting fake content."""
-        if random.random() < self.activity_probability:  # Influencers are active
-            topic_vector = self._generate_similar_topic_vector()
-            from objects.news_content import NewsContent
-            is_fake = random.random() < self.model.fake_news_percentage * 0.8  # Lower chance of fake content
-            new_content = NewsContent(
-                len(self.model.news_content),
-                is_fake,
-                topic_vector,
-                self.model.steps  # Add creation_step here
-            )
-            self.model.news_content.append(new_content)
 
