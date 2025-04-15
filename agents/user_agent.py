@@ -177,14 +177,22 @@ class UserAgent(Agent):
         
     def post_content(self):
         """Generate and post new content."""
+        # Clean up old shared content (keep only last 50 items or last 20 steps)
+        if len(self.shared_content) > 50:
+            current_step = self.model.steps
+            self.shared_content = [
+                item for item in self.shared_content 
+                if (current_step - item['step'] <= 20) or (len(self.shared_content) <= 50)
+            ]
+
         # Determine if the agent decides to post content
         if random.random() < self.activity_probability:
             # Create a topic vector similar to the preference vector
             topic_vector = self._generate_similar_topic_vector()
             # Determine the fake news percentage based on the agent type
-            if self.isinstance(self, BotAgent):
+            if isinstance(self, BotAgent):
                 fake_news_percentage = self.model.fake_news_percentage * 1.5
-            elif self.isinstance(self, InfluencerAgent):
+            elif isinstance(self, InfluencerAgent):
                 fake_news_percentage = self.model.fake_news_percentage * 0.8
             else:
                 fake_news_percentage = self.model.fake_news_percentage * self.naivety_level
