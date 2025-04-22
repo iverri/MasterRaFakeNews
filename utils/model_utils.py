@@ -260,7 +260,7 @@ def calculate_content_propagation_clustering(model):
     
     # For each agent, check where they shared content
     for agent in model.agents:
-        if not hasattr(agent, "shared_content") or not agent.shared_content:
+        if not hasattr(agent, "shared_content") or not len(agent.shared_content) > 0:
             continue
             
         # Get agent's community

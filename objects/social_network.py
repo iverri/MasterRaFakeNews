@@ -39,14 +39,42 @@ class Social_Network:
             else:
                 # Fallback to simpler network if no preferences provided
                 self.network = create_basic_network(num_agents, m_links)
-                
-            # Ensure minimum connectivity for bots and high connectivity for influencers
-            adjust_node_connectivity(self.network, self.num_agents, self.num_influencers, self.num_bots)
             
             # Always store the network for future use
             storage.store_network(self.network, model.preference_vectors)
-            
 
+    def _debug_network(self, stage):
+        """Debug helper to print network stats at different stages"""
+        # Calculate number of each agent type
+        num_influencers = self.num_influencers
+        num_bots = self.num_bots
+        num_agents = self.num_agents
+        
+        # Group nodes by type
+        bot_indices = list(range(num_agents - num_bots, num_agents))
+        user_indices = list(range(num_influencers, num_agents - num_bots))
+        influencer_indices = list(range(num_influencers))
+        
+        # Calculate follower counts
+        bot_followers = [self.network.in_degree(i) for i in bot_indices]
+        user_followers = [self.network.in_degree(i) for i in user_indices]
+        influencer_followers = [self.network.in_degree(i) for i in influencer_indices]
+        
+        avg_bot_followers = sum(bot_followers) / len(bot_followers) if bot_followers else 0
+        avg_user_followers = sum(user_followers) / len(user_followers) if user_followers else 0
+        avg_influencer_followers = sum(influencer_followers) / len(influencer_followers) if influencer_followers else 0
+        
+        print(f"\n{stage} - FOLLOWER COUNTS:")
+        print(f"Influencers: {avg_influencer_followers:.1f}")
+        print(f"Regular Users: {avg_user_followers:.1f}")
+        print(f"Bots: {avg_bot_followers:.1f}")
+        
+        # Print individual bot followers
+        print(f"Individual bot followers: {bot_followers}")
+        print(f"Individual user followers: {user_followers}")
+        print(f"Individual influencer followers: {influencer_followers}")
+    
+    # Not in use
     def update_network(self, probability=0.1):
         """
         Update network structure to simulate real social network dynamics.

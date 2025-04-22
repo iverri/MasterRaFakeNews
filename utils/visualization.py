@@ -281,22 +281,23 @@ def visualize_echo_chamber_network(model):
     """
     Visualize the network with communities and echo chamber effects highlighted
     """
-    network = model.social_media_platform.social_network.network
+    # Get the directed network
+    directed_network = model.social_media_platform.social_network.network
     agent_types = get_agent_types(model)
     
     plt.figure(figsize=(12, 8))
     
-    # Convert to undirected graph for community detection
-    undirected_network = network.to_undirected()
+    # Convert to undirected graph ONLY for community detection
+    undirected_network = directed_network.to_undirected()
     
-    # Detect communities using Louvain method
+    # Detect communities using Louvain method on undirected network
     communities = community.best_partition(undirected_network)
     
     # Count the number of communities
     num_communities = len(set(communities.values()))
     
     # Get position layout that groups communities together
-    pos = nx.spring_layout(network, seed=42)  # Fixed seed for consistent layout
+    pos = nx.spring_layout(directed_network, seed=42)  # Fixed seed for consistent layout
     
     # Calculate echo chamber scores for each agent
     echo_scores = {}
@@ -317,7 +318,7 @@ def visualize_echo_chamber_network(model):
     node_colors = []
     node_sizes = []
     
-    for node in network.nodes():
+    for node in directed_network.nodes():
         # Base color on agent type
         node_colors.append(type_colors[agent_types[node]])
         
@@ -326,8 +327,8 @@ def visualize_echo_chamber_network(model):
         echo_factor = echo_scores.get(node, 0) * 2  # Scale up for visibility
         node_sizes.append(base_size * (1 + echo_factor))
     
-    # Draw the network
-    nx.draw_networkx_nodes(network, pos, 
+    # Draw nodes
+    nx.draw_networkx_nodes(directed_network, pos, 
                          node_color=node_colors, 
                          node_size=node_sizes,
                          alpha=0.8)
@@ -336,7 +337,7 @@ def visualize_echo_chamber_network(model):
     edge_colors = []
     edge_widths = []
     
-    for edge in network.edges():
+    for edge in directed_network.edges():
         source, target = edge
         # Check if nodes are in the same community
         if communities[source] == communities[target]:
@@ -349,35 +350,54 @@ def visualize_echo_chamber_network(model):
             edge_widths.append(0.5)
     
     # Draw edges
-    nx.draw_networkx_edges(network, pos, 
+    nx.draw_networkx_edges(directed_network, pos, 
                           edge_color=edge_colors,
                           width=edge_widths,
                           alpha=0.6,
                           arrows=True,
                           arrowsize=10)
     
-    # Add legend
+    # Calculate average followers for each agent type DIRECTLY from the network
+    # This is the critical part that's likely causing the issue
+    num_influencers = int(model.influencer_percentage * model.num_agents)
+    num_bots = int(model.bot_percentage * model.num_agents)
+    num_agents = model.num_agents
+    
+    # Group nodes by type
+    bot_indices = list(range(num_agents - num_bots, num_agents))
+    user_indices = list(range(num_influencers, num_agents - num_bots))
+    influencer_indices = list(range(num_influencers))
+    
+    # Calculate follower counts using in_degree on the DIRECTED network
+    bot_followers = [directed_network.in_degree(i) for i in bot_indices]
+    user_followers = [directed_network.in_degree(i) for i in user_indices]
+    influencer_followers = [directed_network.in_degree(i) for i in influencer_indices]
+    
+    avg_bot_followers = sum(bot_followers) / len(bot_followers) if bot_followers else 0
+    avg_user_followers = sum(user_followers) / len(user_followers) if user_followers else 0
+    avg_influencer_followers = sum(influencer_followers) / len(influencer_followers) if influencer_followers else 0
+    
+    # Add legend with average followers information
     legend_elements = [
         plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=type_colors['influencer'], 
-                  markersize=10, label='Influencer'),
+                  markersize=10, label=f'Influencer (avg followers: {avg_influencer_followers:.1f})'),
         plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=type_colors['bot'], 
-                  markersize=10, label='Bot'),
+                  markersize=10, label=f'Bot (avg followers: {avg_bot_followers:.1f})'),
         plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=type_colors['user'], 
-                  markersize=10, label='Regular User'),
+                  markersize=10, label=f'Regular User (avg followers: {avg_user_followers:.1f})'),
         plt.Line2D([0], [0], color='#ff9999', lw=2, label='Same Community'),
         plt.Line2D([0], [0], color='#cccccc', lw=1, label='Cross Community')
     ]
     plt.legend(handles=legend_elements, loc='upper left')
     
     # Add title with metrics
-    echo_effect = calculate_echo_chamber_effect(model)
-    propagation_score = calculate_content_propagation_clustering(model)
     plt.title(f'Echo Chamber Network Visualization\n'
-             f'number of communities: {num_communities}')
+             f'Number of communities: {num_communities}\n')
     
     plt.axis('off')
     plt.tight_layout()
     plt.show()
+    
 
 @solara.component
 def MetricsTrendDashboard(model):
