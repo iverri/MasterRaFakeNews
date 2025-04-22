@@ -175,16 +175,16 @@ class UserAgent(Agent):
         for content in self.feed:
             content.update_engagement(self.model.steps)
         
-    def post_content(self):
-        """Generate and post new content."""
-        # Clean up old shared content (keep only last 50 items or last 20 steps)
+         # Clean up old shared content (keep only last 50 items or last 20 steps)
         if len(self.shared_content) > 50:
             current_step = self.model.steps
             self.shared_content = [
                 item for item in self.shared_content 
                 if (current_step - item['step'] <= 20) or (len(self.shared_content) <= 50)
             ]
-
+        
+    def post_content(self):
+        """Generate and post new content."""
         # Determine if the agent decides to post content
         if random.random() < self.activity_probability:
             # Create a topic vector similar to the preference vector
@@ -208,6 +208,9 @@ class UserAgent(Agent):
             )
             # Add the new content to the model's news content
             self.model.news_content.append(new_content)
+            # Add the new content to followers' feed
+            for follower in self.get_followers():
+                follower.feed.append(new_content)
 
     def _generate_similar_topic_vector(self):
         """Generate a topic vector similar to the agent's preference vector."""
