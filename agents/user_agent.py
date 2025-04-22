@@ -59,7 +59,6 @@ class UserAgent(Agent):
         
         # Only process feed if the agent is active
         if self.is_active:
-         
             # Process both feed and recommendations
             all_content = self.feed + self.recommended_content
 
@@ -75,6 +74,9 @@ class UserAgent(Agent):
             self.feed = []
             self.recommended_content = []
             self.last_active_step = self.model.steps
+
+            # Attempt to post new content
+            self.post_content()
 
         else:
             # Inactive users still accumulate content in their feed
@@ -173,13 +175,55 @@ class UserAgent(Agent):
         for content in self.feed:
             content.update_engagement(self.model.steps)
         
-        # Clean up old shared content (keep only last 50 items or last 20 steps)
+         # Clean up old shared content (keep only last 50 items or last 20 steps)
         if len(self.shared_content) > 50:
             current_step = self.model.steps
             self.shared_content = [
                 item for item in self.shared_content 
                 if (current_step - item['step'] <= 20) or (len(self.shared_content) <= 50)
             ]
+        
+    def post_content(self):
+        """Generate and post new content."""
+        # Determine if the agent decides to post content
+        if random.random() < self.activity_probability:
+            # Create a topic vector similar to the preference vector
+            topic_vector = self._generate_similar_topic_vector()
+            # Determine the fake news percentage based on the agent type
+            if isinstance(self, BotAgent):
+                fake_news_percentage = self.model.fake_news_percentage * 1.5
+            elif isinstance(self, InfluencerAgent):
+                fake_news_percentage = self.model.fake_news_percentage * 0.8
+            else:
+                fake_news_percentage = self.model.fake_news_percentage * self.naivety_level
+
+            # Create new content
+            from objects.news_content import NewsContent
+            is_fake = random.random() < fake_news_percentage
+            new_content = NewsContent(
+                len(self.model.news_content),
+                is_fake,
+                topic_vector,
+                self.model.steps  # Add creation_step here
+            )
+            # Add the new content to the model's news content
+            self.model.news_content.append(new_content)
+            # Add the new content to followers' feed
+            for follower in self.get_followers():
+                follower.feed.append(new_content)
+
+    def _generate_similar_topic_vector(self):
+        """Generate a topic vector similar to the agent's preference vector."""
+        # Add small random noise to the preference vector
+        noise = np.random.normal(0, 0.05, len(self.preference_vector))
+        topic_vector = np.array(self.preference_vector) + noise
+
+        # Normalize the topic vector to maintain it as a unit vector
+        magnitude = np.linalg.norm(topic_vector)
+        if magnitude > 0:
+            topic_vector = topic_vector / magnitude
+
+        return topic_vector
 
 class BotAgent(UserAgent):
     def __init__(self, model, preference_vector):
@@ -206,5 +250,4 @@ class InfluencerAgent(UserAgent):
             peak_time = random.choices(range(8), weights=[0.1, 0.15, 0.2, 0.15, 0.1, 0.1, 0.1, 0.1])[0]
             pattern[peak_time] = random.uniform(0.8, 1.0)  # Very high activity during peak times
         return pattern
-   
 
