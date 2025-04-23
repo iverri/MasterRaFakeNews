@@ -75,7 +75,7 @@ def diversity_reranking__MMR(user_preferences, recs, lambda_param, k=10):
     
     return reranked_recs
 
-def diversity_reranking(user_preferences, recs, k=10):
+def diversity_reranking(user_preferences, recs, k=10, pre_calculated=None):
     """
     Rerank recommendations using Determinantal Point Process (DPP).
     
@@ -83,16 +83,28 @@ def diversity_reranking(user_preferences, recs, k=10):
     - user_preferences: vector representing user preferences
     - recs: list of NewsContent objects to be reranked
     - k: number of recommendations to select
+    - pre_calculated: optional dict with pre-calculated data (topic_vectors, relevance_scores)
     Returns:
     - reranked list of NewsContent objects
     """
     from dppy.finite_dpps import FiniteDPP
     
-    # Extract topic vectors from recommendations
-    rec_topic_vectors = [rec.topic_vector for rec in recs]
+    # Use pre-calculated data if provided, otherwise calculate
+    if pre_calculated and 'topic_vectors' in pre_calculated and 'relevance_scores' in pre_calculated:
+        rec_topic_vectors = pre_calculated['topic_vectors']
+        relevance_scores = pre_calculated['relevance_scores']
+    else:
+        # Extract topic vectors from recommendations
+        rec_topic_vectors = [rec.topic_vector for rec in recs]
+        
+        # Calculate relevance scores (similarity between user preferences and recommendations)
+        relevance_scores = cosine_similarity([user_preferences], rec_topic_vectors)[0]
     
-    # Calculate relevance scores (similarity between user preferences and recommendations)
-    relevance_scores = cosine_similarity([user_preferences], rec_topic_vectors)[0]
+    # Handle edge cases
+    if len(recs) <= 1 or k <= 1:
+        # Sort by relevance and return top-k
+        indices = np.argsort(-np.array(relevance_scores))
+        return [recs[i] for i in indices[:k]]
     
     # Create quality vector (relevance scores)
     quality = np.array(relevance_scores)

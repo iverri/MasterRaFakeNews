@@ -23,6 +23,8 @@ class Recommender():
         self.num_recommendations = num_recommendations
         self.user_interactions = []  # List to store user-content interactions
         self._last_training_count = 0  # Add this line to track when retraining is needed
+        self.content_dict_cache = {}  # Add cache for content dictionaries
+        self.last_content_update = -1  # Track when content was last updated
         print(f"Recommender type: {self.type}")
         # Configure ItemKNN with new API
         ItemKNNconfig = ItemKNNConfig(
@@ -91,6 +93,10 @@ class Recommender():
         if not self.user_interactions:
             return None
         
+        # Convert interactions to DataFrame - only if needed
+        if hasattr(self, '_cached_dataset') and len(self.user_interactions) == self._last_dataset_size:
+            return self._cached_dataset
+        
         # Convert interactions to DataFrame
         df = pd.DataFrame(self.user_interactions)
         
@@ -105,6 +111,9 @@ class Recommender():
         # Create dataset using from_interactions_df
         try:
             dataset = from_interactions_df(df)
+            # Cache the dataset
+            self._cached_dataset = dataset
+            self._last_dataset_size = len(self.user_interactions)
             return dataset
         except Exception as e:
             print(f"Error creating dataset: {e}")
@@ -118,17 +127,18 @@ class Recommender():
             return
 
         # Check if this specific user has enough interactions (at least 2)
-        user_interactions = [inter for inter in self.user_interactions if inter['user_id'] == agent.pos]
+        # Use dictionary comprehension instead of list comprehension for filtering
+        user_interactions_count = sum(1 for inter in self.user_interactions if inter['user_id'] == agent.pos)
         
         # Check if the system as a whole has enough interactions
         min_interactions = max(150, agent.model.num_agents // 2)  # Minimum total interactions needed
-        if len(self.user_interactions) < min_interactions or len(user_interactions) < 3:
+        if len(self.user_interactions) < min_interactions or user_interactions_count < 3:
             # Fall back to random recommendations if not enough data overall
             self.random_recommendation(agent)
             return
         
         try:
-            # Create dataset
+            # Create dataset only if needed
             dataset = self._create_dataset()
             if dataset is None:
                 self.random_recommendation(agent)
@@ -141,8 +151,20 @@ class Recommender():
                 self.pipeline.train(dataset)
                 self._last_training_count = len(self.user_interactions)
             
-            # Get all available content IDs
-            all_content_ids = {c.content for c in agent.model.news_content}
+            # Cache content IDs if model content has changed
+            current_step = agent.model.steps
+            if current_step != self.last_content_update or agent.pos not in self.content_dict_cache:
+                # Get all available content IDs - do this once and cache
+                all_content_ids = {c.content for c in agent.model.news_content}
+                self.content_dict_cache[agent.pos] = {
+                    'all_content_ids': all_content_ids,
+                    'content_dict': {c.content: c for c in agent.model.news_content}
+                }
+                self.last_content_update = current_step
+            
+            # Use cached values
+            all_content_ids = self.content_dict_cache[agent.pos]['all_content_ids']
+            content_dict = self.content_dict_cache[agent.pos]['content_dict']
             
             # Get items already in user's feed
             feed_ids = {c.content for c in agent.feed}
@@ -160,8 +182,6 @@ class Recommender():
                 num_recommendations = self.num_recommendations * 3 if self.increase_diversity else self.num_recommendations
                 
                 recs = recommend(self.pipeline, agent.pos, n=num_recommendations, items=candidates)
-                # Convert to NewsContent objects
-                content_dict = {c.content: c for c in agent.model.news_content}
                 recommendations = []
                 
                 rec_ids = recs.ids()
@@ -179,31 +199,12 @@ class Recommender():
                         # Calculate diversity before reranking on the same number of items that will be in final set
                         num_final_recs = min(len(recommendations)//3, self.num_recommendations)
                         
-                        # Sort by relevance first to simulate what would be selected without diversity
-                        relevance_scores = []
-                        for rec in recommendations:
-                            # Calculate similarity directly without wrapping in lists
-                            sim = cosine_similarity(agent.preference_vector, rec.topic_vector)
-                            relevance_scores.append(sim)
-                        
-                        # Sort recommendations by relevance score
-                        relevance_sorted = [rec for _, rec in sorted(zip(relevance_scores, recommendations), 
-                                                                    key=lambda pair: pair[0], reverse=True)]
-                        
-                        # Calculate diversity of top-k most relevant items (what would be recommended without reranking)
-                        top_relevant_vectors = [relevance_sorted[i].topic_vector for i in range(min(num_final_recs, len(relevance_sorted)))]
-                        before_diversity = calculate_diversity(top_relevant_vectors)
-                        # print(f"Diversity score before reranking: {before_diversity}")
-                        
-                        # Apply diversity reranking
-                        recommendations = diversity_reranking(agent.preference_vector, recommendations, k=num_final_recs)
-                        
-                        # Calculate diversity after reranking
-                        after_vectors = [rec.topic_vector for rec in recommendations]
-                        after_diversity = calculate_diversity(after_vectors)
-                        # print(f"Diversity score after reranking: {after_diversity}")
-                        # print(f"Diversity improvement: {after_diversity - before_diversity:.4f} " +
-                             # f"({(after_diversity - before_diversity) / before_diversity * 100:.1f}%)")
+                        # Apply diversity reranking with optimized implementation
+                        recommendations = self._optimized_diversity_reranking(
+                            agent.preference_vector, 
+                            recommendations, 
+                            k=num_final_recs
+                        )
                     
                     agent.recommended_content.extend(recommendations)
                 else:
@@ -225,43 +226,63 @@ class Recommender():
         # Clear previous recommendations
         agent.recommended_content = []
         
-        # Get content not already in agent's feed
-        available_content = [c for c in agent.model.news_content if c not in agent.feed]
+        # Cache content if needed
+        current_step = agent.model.steps
+        if current_step != self.last_content_update or agent.pos not in self.content_dict_cache:
+            self.content_dict_cache[agent.pos] = {
+                'all_content': agent.model.news_content,
+                'content_dict': {c.content: c for c in agent.model.news_content}
+            }
+            self.last_content_update = current_step
+        
+        # Get content not already in agent's feed - use set operations for efficiency
+        feed_set = set(agent.feed)
+        available_content = [c for c in self.content_dict_cache[agent.pos]['all_content'] if c not in feed_set]
         
         if not available_content:
-            print("No new content available for recommendation")
             return
         
         # Calculate similarity scores for each content item
         scores = []
+        topic_vectors = []
+        
         for content in available_content:
-            # Calculate cosine similarity between agent's preference vector and content's topic vector
+            # Calculate cosine similarity
             similarity = cosine_similarity(agent.preference_vector, content.topic_vector)
-            
             scores.append((content, similarity))
+            topic_vectors.append(content.topic_vector)
+            
+        relevance_scores = [score for _, score in scores]
         
         # Sort by score and get top recommendations
         scores.sort(key=lambda x: x[1], reverse=True)
-        recommendations = [content for content, _ in scores[:self.num_recommendations * 3 if self.increase_diversity else self.num_recommendations]]
+        num_to_select = self.num_recommendations * 3 if self.increase_diversity else self.num_recommendations
+        recommendations = [content for content, _ in scores[:num_to_select]]
         
-        # Apply diversity reranking if enabled
+        # Apply diversity reranking with pre-calculated data
         if self.increase_diversity and len(recommendations) > 1:
-            recommendations = diversity_reranking(
+            pre_calculated = {
+                'topic_vectors': np.array(topic_vectors),
+                'relevance_scores': np.array(relevance_scores)
+            }
+            recommendations = self._optimized_diversity_reranking(
                 agent.preference_vector, 
                 recommendations,
-                k=self.num_recommendations
+                k=self.num_recommendations,
+                pre_calculated=pre_calculated
             )
         
         # Add recommendations to agent's recommended_content
         agent.recommended_content.extend(recommendations)
         
-    def hybrid(self, agent):
-        pass
-        
-    def random_recommendation(self, agent, num_recommendations=10):
+    def random_recommendation(self, agent, num_recommendations=None):
         """Recommend random news content to an agent"""
         # Clear previous recommendations
         agent.recommended_content = []
+        
+        # Use provided num_recommendations or default to self.num_recommendations
+        if num_recommendations is None:
+            num_recommendations = self.num_recommendations
         
         # Get content pool from model and ensure it exists
         if not hasattr(agent.model, 'news_content'):
@@ -270,25 +291,18 @@ class Recommender():
         if not agent.model.news_content:
             return
             
-        content_pool = agent.model.news_content
+        # Cache feed set for faster lookups
+        feed_set = set(agent.feed)
         
-        # Get content that isn't in the agent's current feed
-        available_content = [c for c in content_pool if c not in agent.feed]
+        # Get content that isn't in the agent's current feed - use set difference for efficiency
+        available_content = [c for c in agent.model.news_content if c not in feed_set]
         
         if available_content:
             # Always recommend 3 items if possible
-            num_recommendations = min(self.num_recommendations * 3 if self.increase_diversity else self.num_recommendations, len(available_content))
-            recommendations = random.sample(available_content, num_recommendations)
+            num_to_select = min(num_recommendations * 3 if self.increase_diversity else num_recommendations, len(available_content))
+            recommendations = random.sample(available_content, num_to_select)
             
-            '''
-            # Apply diversity reranking if enabled
-            if self.increase_diversity and len(recommendations) > 1:
-                recommendations = diversity_reranking(
-                    agent.preference_vector, 
-                    recommendations,
-                    k=num_recommendations
-                )
-            '''
+            # Apply diversity reranking if enabled (commented out in original)
             agent.recommended_content.extend(recommendations)
 
     def popular_recommendation(self, agent):
@@ -306,86 +320,87 @@ class Recommender():
             return
         
         try:
+            # Cache content if needed
+            current_step = agent.model.steps
+            if current_step != self.last_content_update or 'popularity_scores' not in self.content_dict_cache:
+                # Calculate content counts once per step
+                content_counts = {}
+                for interaction in self.user_interactions:
+                    item_id = interaction['item_id']
+                    content_counts[item_id] = content_counts.get(item_id, 0) + 1
+                
+                # Store in cache
+                self.content_dict_cache['popularity_scores'] = {
+                    'content_counts': content_counts,
+                    'step': current_step
+                }
+                self.last_content_update = current_step
+            
+            # Get cached values
+            content_counts = self.content_dict_cache['popularity_scores']['content_counts']
+            
             # Get content that isn't in the agent's current feed
-            content_pool = agent.model.news_content
-            available_content = [c for c in content_pool if c not in agent.feed]
+            feed_set = set(agent.feed)
+            available_content = [c for c in agent.model.news_content if c not in feed_set]
             
             if not available_content:
                 return
             
-            # Calculate base popularity scores
-            content_counts = {}
-            for interaction in self.user_interactions:
-                item_id = interaction['item_id']
-                if item_id in content_counts:
-                    content_counts[item_id] += 1
-                else:
-                    content_counts[item_id] = 1
+            # Prepare arrays for vectorized operations
+            content_ids = [c.content for c in available_content]
+            topic_vectors = np.array([c.topic_vector for c in available_content])
+            creation_steps = np.array([c.creation_step for c in available_content])
+            engagement_factors = np.array([c.engagement for c in available_content])
             
-            # Calculate recency-adjusted popularity
-            current_step = agent.model.steps
-            recency_adjusted_scores = {}
+            # Calculate base popularity for all content at once
+            base_popularity = np.array([content_counts.get(cid, 0) for cid in content_ids])
             
-            for content in available_content:
-                # Base popularity (number of interactions)
-                base_popularity = content_counts.get(content.content, 0)
-                
-                # Recency factor - newer content gets a boost
-                content_age = current_step - content.creation_step
-                recency_boost = np.exp(-0.05 * content_age)  # Exponential decay with age
-                
-                # Engagement factor - more engaging content (like fake news) gets a boost
-                engagement_factor = content.engagement
-                
-                # Combine factors - this balances popularity with recency and engagement
-                score = (base_popularity + 1) * recency_boost * engagement_factor
-                
-                recency_adjusted_scores[content.content] = score
+            # Calculate recency factors
+            content_age = current_step - creation_steps
+            recency_boost = np.exp(-0.05 * content_age)
             
-            # Add personalization and exploration components
-            final_scores = {}
-            for content in available_content:
-                # 1. Base score from popularity and recency
-                base_score = recency_adjusted_scores[content.content]
-                
-                # 2. Personalization component - similarity to user preferences
-                preference_similarity = cosine_similarity(agent.preference_vector, content.topic_vector)
-                
-                # 3. Exploration component - random factor to discover new content
-                exploration_factor = np.random.random() * 0.2  # 20% randomness
-                
-                # 4. Novelty boost - give extra weight to content with fewer interactions
-                interaction_count = content_counts.get(content.content, 0)
-                novelty_boost = 1.0 + (0.5 * np.exp(-0.1 * interaction_count))
-                
-                # Combine all factors - weighted sum
-                # Adjust these weights to control the balance between popularity, personalization and exploration
-                popularity_weight = 0.5
-                personalization_weight = 0.3
-                exploration_weight = 0.2
-                
-                final_score = (
-                    (popularity_weight * base_score) + 
-                    (personalization_weight * preference_similarity * novelty_boost) + 
-                    (exploration_weight * exploration_factor)
-                )
-                
-                final_scores[content.content] = final_score
+            # Calculate base scores
+            base_scores = (base_popularity + 1) * recency_boost * engagement_factors
             
-            # Sort content by final score
-            scored_content = [(c, final_scores[c.content]) for c in available_content]
-            scored_content.sort(key=lambda x: x[1], reverse=True)
+            # Calculate personalization component
+            preference_similarities = np.array([cosine_similarity(agent.preference_vector, tv) for tv in topic_vectors])
             
-            # Take top recommendations
-            num_to_recommend = min(self.num_recommendations*3 if self.increase_diversity else self.num_recommendations, len(scored_content))
-            recommendations = [content for content, _ in scored_content[:num_to_recommend]]
+            # Calculate novelty boost
+            interaction_counts = np.array([content_counts.get(cid, 0) for cid in content_ids])
+            novelty_boost = 1.0 + (0.5 * np.exp(-0.1 * interaction_counts))
+            
+            # Generate exploration factors
+            exploration_factors = np.random.random(len(available_content)) * 0.2
+            
+            # Combine all factors with weights
+            popularity_weight = 0.5
+            personalization_weight = 0.3
+            exploration_weight = 0.2
+            
+            final_scores = (
+                (popularity_weight * base_scores) + 
+                (personalization_weight * preference_similarities * novelty_boost) + 
+                (exploration_weight * exploration_factors)
+            )
+            
+            # Get indices of top scores
+            num_to_recommend = min(self.num_recommendations*3 if self.increase_diversity else self.num_recommendations, len(available_content))
+            top_indices = np.argsort(-final_scores)[:num_to_recommend]
+            recommendations = [available_content[i] for i in top_indices]
             
             # Apply diversity reranking if enabled
             if self.increase_diversity and len(recommendations) > 1:
-                recommendations = diversity_reranking(
+                # Pass pre-calculated data to diversity reranking
+                pre_calculated = {
+                    'topic_vectors': topic_vectors[top_indices],
+                    'relevance_scores': preference_similarities[top_indices]
+                }
+                
+                recommendations = self._optimized_diversity_reranking(
                     agent.preference_vector, 
                     recommendations,
-                    k=self.num_recommendations
+                    k=self.num_recommendations,
+                    pre_calculated=pre_calculated
                 )
             
             # Add recommendations to agent
@@ -396,4 +411,21 @@ class Recommender():
             traceback.print_exc()
             # Fall back to random recommendations
             self.random_recommendation(agent)
+        
+    def _optimized_diversity_reranking(self, preference_vector, recommendations, k=10):
+        """Optimized version of diversity reranking that avoids redundant calculations"""
+        # Pre-calculate all topic vectors and relevance scores at once
+        topic_vectors = np.array([rec.topic_vector for rec in recommendations])
+        
+        # Calculate relevance scores (similarity between user preferences and recommendations)
+        relevance_scores = np.array([cosine_similarity(preference_vector, tv) for tv in topic_vectors])
+        
+        # Use the enhanced diversity reranking function with pre-calculated data
+        from recommender.diversity import diversity_reranking
+        pre_calculated = {
+            'topic_vectors': topic_vectors,
+            'relevance_scores': relevance_scores
+        }
+        
+        return diversity_reranking(preference_vector, recommendations, k=k, pre_calculated=pre_calculated)
         
