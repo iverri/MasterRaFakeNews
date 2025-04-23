@@ -289,7 +289,8 @@ def plot_echo_chamber_effect(data, output_path=None):
 
 def plot_recommender_summary(data, output_path=None):
     """
-    Create a summary plot comparing recommenders across multiple metrics.
+    Create a summary plot comparing recommenders across multiple metrics,
+    showing the average values over the entire simulation period.
     
     Parameters:
     -----------
@@ -298,12 +299,7 @@ def plot_recommender_summary(data, output_path=None):
     output_path : str, optional
         Path to save the plot. If None, the plot is not saved.
     """
-    # Get the final step for each run
-    final_steps = data.groupby(["RunId", "iteration", "recommender_type"])["Step"].max().reset_index()
-    final_data = pd.merge(data, final_steps, 
-                         on=["RunId", "iteration", "recommender_type", "Step"])
-    
-    # Calculate metrics for each recommender type
+    # Define metrics to plot
     metrics = ["Misinformation_Spread_Percentage", 
                "Misinformation_Ratio_Difference", 
                "Misinformation_Count_In_Recommendations",
@@ -318,12 +314,12 @@ def plot_recommender_summary(data, output_path=None):
     fig, axes = plt.subplots(len(metrics), 1, figsize=(12, 4 * len(metrics)))
     
     # Get unique recommender types
-    recommender_types = final_data["recommender_type"].unique()
+    recommender_types = data["recommender_type"].unique()
     
     # Process each metric
     for i, (metric, label) in enumerate(zip(metrics, metric_labels)):
-        # Calculate mean and std for the metric by recommender type
-        metric_data = final_data.groupby("recommender_type")[metric].agg(
+        # Calculate mean and std for the metric by recommender type across all steps
+        metric_data = data.groupby("recommender_type")[metric].agg(
             ["mean", "std"]).reset_index()
         metric_data.columns = ["recommender_type", "value", "std"]
         
@@ -333,26 +329,35 @@ def plot_recommender_summary(data, output_path=None):
         # Create horizontal bar chart
         bar_colors = [RECOMMENDER_COLORS.get(r, '#999999') for r in metric_data["recommender_type"]]
         bars = axes[i].barh(metric_data["recommender_type"], metric_data["value"], 
-                xerr=metric_data["std"], capsize=5, color=bar_colors)
+                xerr=metric_data["std"], capsize=3, color=bar_colors)
         
-        # Add value labels
+        # Add value labels with improved visibility
         for bar in bars:
             width = bar.get_width()
+            # Position the label at the end of the bar
             label_x = width + (0.01 * max(metric_data["value"]))
-            axes[i].text(label_x, bar.get_y() + bar.get_height()/2, 
-                        f'{width:.3f}', va='center')
+
+            label_y = bar.get_y() - 0.04
+            # Add a white background to the text for better visibility
+            axes[i].text(label_x, label_y, 
+                        f'{width:.3f}', va='center', fontsize=10, fontweight='bold',
+                        bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=1))
         
         # Add a vertical line at x=0 for metrics where it makes sense
         if metric == "Misinformation_Ratio_Difference":
             axes[i].axvline(x=0, color='gray', linestyle='--', alpha=0.7)
         
         # Set title and labels
-        axes[i].set_title(f"{label} by Recommender Type", fontsize=14)
+        axes[i].set_title(f"Average {label} by Recommender Type (Across All Steps)", fontsize=14)
         axes[i].set_xlabel(label, fontsize=12)
         axes[i].set_ylabel("")
         
         # Add grid
         axes[i].grid(True, linestyle='--', alpha=0.7, axis='x')
+        
+        # Adjust x-axis limits to make room for the labels
+        x_max = max(metric_data["value"] + metric_data["std"]) * 1.2
+        axes[i].set_xlim(right=x_max)
     
     plt.tight_layout()
     
@@ -421,7 +426,8 @@ def generate_comparison_dashboard(data, output_path=None):
 
 def create_recommender_ranking_table(data, output_path=None):
     """
-    Create a table ranking recommenders by different metrics.
+    Create a table ranking recommenders by different metrics,
+    using average values across all simulation steps.
     
     Parameters:
     -----------
@@ -430,11 +436,6 @@ def create_recommender_ranking_table(data, output_path=None):
     output_path : str, optional
         Path to save the table. If None, the table is not saved.
     """
-    # Get the final step for each run
-    final_steps = data.groupby(["RunId", "iteration", "recommender_type"])["Step"].max().reset_index()
-    final_data = pd.merge(data, final_steps, 
-                         on=["RunId", "iteration", "recommender_type", "Step"])
-    
     # Define metrics and whether lower is better
     metrics = {
         "Misinformation_Spread_Percentage": {"label": "Misinfo Spread", "lower_better": True},
@@ -443,11 +444,11 @@ def create_recommender_ranking_table(data, output_path=None):
         "Echo_Chamber_Effect": {"label": "Echo Chamber", "lower_better": True}
     }
     
-    # Calculate average for each metric and recommender
+    # Calculate average for each metric and recommender across all steps
     summary = {}
     for metric, info in metrics.items():
-        # Group by recommender type and calculate mean
-        metric_summary = final_data.groupby("recommender_type")[metric].mean().reset_index()
+        # Group by recommender type and calculate mean across all steps
+        metric_summary = data.groupby("recommender_type")[metric].mean().reset_index()
         
         # Sort based on whether lower is better
         metric_summary = metric_summary.sort_values(metric, ascending=info["lower_better"])
@@ -499,7 +500,7 @@ def create_recommender_ranking_table(data, output_path=None):
             color_val = rank / len(recommender_types)
             cell.set_facecolor((color_val, 1 - color_val, 0, 0.3))
     
-    plt.title("Recommender Algorithm Rankings by Metric", fontsize=16, pad=20)
+    plt.title("Recommender Algorithm Rankings by Metric (Across All Steps)", fontsize=16, pad=20)
     plt.tight_layout()
     
     if output_path:
