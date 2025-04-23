@@ -208,15 +208,14 @@ def analyze_results(model_data, summary_df):
 if __name__ == "__main__":
     # Run the experiment
     results_df, model_data, summary_df = run_recommender_comparison_experiment(
-        iterations=5,       # Number of runs per recommender type
-        max_steps=600,       # Steps per run
+        iterations=2,       # Number of runs per recommender type
+        max_steps=300,       # Steps per run
         n_agents=200,       # Number of agents
         m_links=6,         # Links per new node
         news_amount=400,    # Initial news items
         fake_news_percentage=10,  # Percentage of fake news
         bot_percentage=7,   # Percentage of bots
         influencer_percentage=3,  # Percentage of influencers
-        diversity_lambda=0.1,     # Diversity parameter
         increase_diversity=False, # Whether to increase diversity
         num_recommendations=10,   # Number of recommendations
     )
