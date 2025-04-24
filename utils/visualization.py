@@ -4,9 +4,9 @@ import solara
 import matplotlib.pyplot as plt
 import networkx as nx
 import community  # python-louvain package
-from utils.model_utils import calculate_agent_echo_chamber, calculate_content_propagation_clustering, calculate_echo_chamber_effect, get_agent_types
+from utils.metrics import calculate_agent_echo_chamber, calculate_content_propagation_clustering
+from utils.model_utils import get_agent_types
 from recommender.types import RecommenderType
-
 
 project_info = """
     # Recommender systems and fake news
@@ -596,14 +596,10 @@ def create_visualization(model_class):
     viz = SolaraViz(
         model=model,
         components=[
-            #ProjectInfo,
-            # MisinformationDashboard,
-            #EchoChamberDashboard,
+            ProjectInfo,
             make_plot_component(["Number_of_Infected", "Number_of_Susceptible", "Number_of_Exposed"]),
             EchoChamberNetwork,
             MetricsTrendDashboard,
-            # make_plot_component(["Average_Diversity_Score"]),
-            # make_plot_component(["Average_Feed_Size"]),
 
         ],
         model_params=model_params

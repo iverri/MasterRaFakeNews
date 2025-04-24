@@ -9,9 +9,9 @@ from lenskit.knn import ItemKNNScorer, ItemKNNConfig, UserKNNScorer, UserKNNConf
 from lenskit.data import ItemList, from_interactions_df
 from lenskit.pipeline import topn_pipeline
 from lenskit import recommend
+from sklearn.metrics.pairwise import cosine_similarity
 
 # Local imports
-from utils.common import cosine_similarity
 from recommender.diversity import calculate_diversity, diversity_reranking
 from recommender.types import RecommenderType
 
@@ -223,9 +223,6 @@ class Recommender():
     def content_based(self, agent):
         """Recommend content based on topic vector similarity."""
         
-        # Clear previous recommendations
-        agent.recommended_content = []
-        
         # Cache content if needed
         current_step = agent.model.steps
         if current_step != self.last_content_update or agent.pos not in self.content_dict_cache:
@@ -246,13 +243,17 @@ class Recommender():
         scores = []
         topic_vectors = []
         
-        for content in available_content:
-            # Calculate cosine similarity
-            similarity = cosine_similarity(agent.preference_vector, content.topic_vector)
-            scores.append((content, similarity))
-            topic_vectors.append(content.topic_vector)
-            
-        relevance_scores = [score for _, score in scores]
+        # Prepare arrays for vectorized cosine similarity
+        user_preference = np.array(agent.preference_vector).reshape(1, -1)
+        content_topics = np.array([content.topic_vector for content in available_content])
+        
+        # Calculate all similarities at once using cosine_similarity
+        similarities = cosine_similarity(user_preference, content_topics)[0]
+        
+        # Create scores list with content and similarity pairs
+        scores = list(zip(available_content, similarities))
+        topic_vectors = content_topics.tolist()
+        relevance_scores = similarities.tolist()
         
         # Sort by score and get top recommendations
         scores.sort(key=lambda x: x[1], reverse=True)
@@ -277,8 +278,6 @@ class Recommender():
         
     def random_recommendation(self, agent, num_recommendations=None):
         """Recommend random news content to an agent"""
-        # Clear previous recommendations
-        agent.recommended_content = []
         
         # Use provided num_recommendations or default to self.num_recommendations
         if num_recommendations is None:
@@ -307,8 +306,6 @@ class Recommender():
 
     def popular_recommendation(self, agent):
         """Recommend popular news content to an agent with personalization and exploration"""
-        # Clear previous recommendations
-        agent.recommended_content = []
         
         # Get content pool from model and ensure it exists
         if not hasattr(agent.model, 'news_content') or not agent.model.news_content:
@@ -362,8 +359,9 @@ class Recommender():
             # Calculate base scores
             base_scores = (base_popularity + 1) * recency_boost * engagement_factors
             
-            # Calculate personalization component
-            preference_similarities = np.array([cosine_similarity(agent.preference_vector, tv) for tv in topic_vectors])
+            # Calculate personalization component using cosine_similarity
+            user_preference = np.array(agent.preference_vector).reshape(1, -1)
+            preference_similarities = cosine_similarity(user_preference, topic_vectors)[0]
             
             # Calculate novelty boost
             interaction_counts = np.array([content_counts.get(cid, 0) for cid in content_ids])
@@ -412,20 +410,23 @@ class Recommender():
             # Fall back to random recommendations
             self.random_recommendation(agent)
         
-    def _optimized_diversity_reranking(self, preference_vector, recommendations, k=10):
+    def _optimized_diversity_reranking(self, preference_vector, recommendations, k=10, pre_calculated=None):
         """Optimized version of diversity reranking that avoids redundant calculations"""
-        # Pre-calculate all topic vectors and relevance scores at once
-        topic_vectors = np.array([rec.topic_vector for rec in recommendations])
-        
-        # Calculate relevance scores (similarity between user preferences and recommendations)
-        relevance_scores = np.array([cosine_similarity(preference_vector, tv) for tv in topic_vectors])
+        if pre_calculated is None:
+            # Pre-calculate all topic vectors and relevance scores at once
+            topic_vectors = np.array([rec.topic_vector for rec in recommendations])
+            
+            # Calculate relevance scores using cosine_similarity
+            user_preference = np.array(preference_vector).reshape(1, -1)
+            relevance_scores = cosine_similarity(user_preference, topic_vectors)[0]
+            
+            pre_calculated = {
+                'topic_vectors': topic_vectors,
+                'relevance_scores': relevance_scores
+            }
         
         # Use the enhanced diversity reranking function with pre-calculated data
         from recommender.diversity import diversity_reranking
-        pre_calculated = {
-            'topic_vectors': topic_vectors,
-            'relevance_scores': relevance_scores
-        }
         
         return diversity_reranking(preference_vector, recommendations, k=k, pre_calculated=pre_calculated)
         

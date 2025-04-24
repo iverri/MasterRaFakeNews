@@ -1,7 +1,6 @@
 from mesa import Agent
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from utils.common import cosine_similarity
 from utils.agents_utils import (
     get_network_neighbors
 )
@@ -108,7 +107,9 @@ class UserAgent(Agent):
                 self.state = "E"
 
         # Base interest based on topic similarity and credibility
-        user_evaluation = cosine_similarity(self.preference_vector, content.topic_vector) * self.naivety_level
+        user_preference = np.array(self.preference_vector).reshape(1, -1)
+        content_topic = np.array(content.topic_vector).reshape(1, -1)
+        user_evaluation = cosine_similarity(user_preference, content_topic)[0][0] * self.naivety_level
         
         # Adjust probability based on content engagement
         engagement_factor = min(1.5, content.engagement)  # Cap the boost at 1.5x

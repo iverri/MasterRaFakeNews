@@ -1,16 +1,5 @@
 import numpy as np
 
-
-#------------------------------------------------------------------------------
-# AGENT STATE MANAGEMENT FUNCTIONS
-#------------------------------------------------------------------------------
-
-def update_agent_state(agent, content, belief_probability):
-    """Update agent state based on content evaluation."""
-    # TODO: Implement this
-
-       
-
 #------------------------------------------------------------------------------
 # NETWORK TRAVERSAL FUNCTIONS
 #------------------------------------------------------------------------------
