@@ -26,7 +26,7 @@ class FakeNewsModel(Model):
     #Initialize agents
     def __init__(self, N=200, m_links=10, news_amount=500, fake_news_percentage=10, 
                  recommender_type="random", bot_percentage=5, influencer_percentage=5, 
-                 diversity_lambda=0.1, increase_diversity=False, num_recommendations=10, use_stored_network=False, 
+                 increase_diversity=False, num_recommendations=10, use_stored_network=False, 
                  seed: int = None):
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
@@ -42,7 +42,6 @@ class FakeNewsModel(Model):
         self.recommender_type = recommender_type
         self.bot_percentage = bot_percentage / 100
         self.influencer_percentage = influencer_percentage / 100
-        self.diversity_lambda = diversity_lambda
         self.news_amount = news_amount
         self.increase_diversity = increase_diversity
         self.num_recommendations = num_recommendations

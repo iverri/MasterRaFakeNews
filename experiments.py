@@ -15,7 +15,6 @@ def run_recommender_comparison_experiment(
     fake_news_percentage,
     bot_percentage,
     influencer_percentage,
-    diversity_lambda,
     increase_diversity,
     num_recommendations,
 ):
@@ -69,7 +68,6 @@ def run_recommender_comparison_experiment(
         fake_news_percentage=fake_news_percentage,
         bot_percentage=bot_percentage,
         influencer_percentage=influencer_percentage,
-        diversity_lambda=diversity_lambda,
         increase_diversity=increase_diversity,
         num_recommendations=num_recommendations,
         use_stored_network=False,  # Force creation of new network
@@ -88,7 +86,6 @@ def run_recommender_comparison_experiment(
         "fake_news_percentage": fake_news_percentage,
         "bot_percentage": bot_percentage,
         "influencer_percentage": influencer_percentage,
-        "diversity_lambda": diversity_lambda,
         "increase_diversity": increase_diversity,
         "num_recommendations": num_recommendations,
         "use_stored_network": True,  # Now use the stored network for all runs
@@ -112,17 +109,20 @@ def run_recommender_comparison_experiment(
     # Convert results to DataFrame
     results_df = pd.DataFrame(results)
     
+    # Removed complete results for version 1.0 due to large file size
+    '''
     # Save the complete results
     complete_results_file = f"{output_dir}/recommender_comparison_complete_{timestamp}.csv"
     results_df.to_csv(complete_results_file, index=False)
     print(f"Complete results saved to {complete_results_file}")
+    '''
     
     # Create separate files for model-level and agent-level data
     model_vars = [
         "RunId", "iteration", "Step", "recommender_type",
         "Number_of_Infected", "Number_of_Susceptible", "Number_of_Exposed",
         "Network_Density", "Average_Clustering", "Community_Modularity",
-        "Active_Users", "Active_Percentage", "Active_Infected", "Average_Diversity_Score",
+        "Active_Users", "Active_Percentage", "Active_Infected",
         "Misinformation_Count_In_Recommendations", "Misinformation_Ratio_Difference",
         "Misinformation_Spread_Percentage", "Echo_Chamber_Effect"
     ]
@@ -154,7 +154,7 @@ def run_recommender_comparison_experiment(
             "avg_infected_pct": recommender_data["Number_of_Infected"].mean() / n_agents * 100,
             "avg_misinformation_spread": recommender_data["Misinformation_Spread_Percentage"].mean() * 100,
             "avg_echo_chamber_effect": recommender_data["Echo_Chamber_Effect"].mean(),
-            "avg_diversity_score": recommender_data["Average_Diversity_Score"].mean(),
+            #"avg_diversity_score": recommender_data["Average_Diversity_Score"].mean(),
             "avg_misinfo_in_recs": recommender_data["Misinformation_Count_In_Recommendations"].mean(),
             "avg_misinfo_ratio_diff": recommender_data["Misinformation_Ratio_Difference"].mean() * 100
         }
@@ -186,7 +186,7 @@ def analyze_results(model_data, summary_df):
     # Print summary table
     print("\nFinal state comparison:")
     print(summary_df[["recommender_type", "avg_infected_pct", "avg_misinformation_spread", 
-                     "avg_echo_chamber_effect", "avg_diversity_score"]].to_string(index=False))
+                     "avg_echo_chamber_effect"]].to_string(index=False))
     
     # Find the recommender with lowest misinformation spread
     best_for_misinfo = summary_df.loc[summary_df["avg_misinformation_spread"].idxmin()]
@@ -198,11 +198,13 @@ def analyze_results(model_data, summary_df):
     print(f"Lowest echo chamber effect: {best_for_echo['recommender_type']} "
           f"({best_for_echo['avg_echo_chamber_effect']:.2f})")
     
+    # Removed diversity analysis for version 1.0
+    '''
     # Find the recommender with highest diversity
     best_for_diversity = summary_df.loc[summary_df["avg_diversity_score"].idxmax()]
     print(f"Highest content diversity: {best_for_diversity['recommender_type']} "
           f"({best_for_diversity['avg_diversity_score']:.2f})")
-    
+    '''
     print("\nNote: For detailed analysis and visualization, load the saved CSV files into your analysis tools.")
 
 if __name__ == "__main__":
@@ -216,7 +218,6 @@ if __name__ == "__main__":
         fake_news_percentage=10,  # Percentage of fake news
         bot_percentage=7,   # Percentage of bots
         influencer_percentage=3,  # Percentage of influencers
-        diversity_lambda=0.1,     # Diversity parameter
         increase_diversity=False, # Whether to increase diversity
         num_recommendations=10,   # Number of recommendations
     )
