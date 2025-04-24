@@ -109,10 +109,13 @@ def run_recommender_comparison_experiment(
     # Convert results to DataFrame
     results_df = pd.DataFrame(results)
     
+    # Removed complete results for version 1.0 due to large file size
+    '''
     # Save the complete results
     complete_results_file = f"{output_dir}/recommender_comparison_complete_{timestamp}.csv"
-    # results_df.to_csv(complete_results_file, index=False)
-    #print(f"Complete results saved to {complete_results_file}")
+    results_df.to_csv(complete_results_file, index=False)
+    print(f"Complete results saved to {complete_results_file}")
+    '''
     
     # Create separate files for model-level and agent-level data
     model_vars = [
@@ -194,6 +197,8 @@ def analyze_results(model_data, summary_df):
     best_for_echo = summary_df.loc[summary_df["avg_echo_chamber_effect"].idxmin()]
     print(f"Lowest echo chamber effect: {best_for_echo['recommender_type']} "
           f"({best_for_echo['avg_echo_chamber_effect']:.2f})")
+    
+    # Removed diversity analysis for version 1.0
     '''
     # Find the recommender with highest diversity
     best_for_diversity = summary_df.loc[summary_df["avg_diversity_score"].idxmax()]
