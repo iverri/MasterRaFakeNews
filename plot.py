@@ -50,8 +50,8 @@ def plot_misinformation_spread(data, output_path=None):
                  hue="recommender_type", errorbar="sd", palette=RECOMMENDER_COLORS,
                  linewidth=2.5, marker="o", markersize=6, markevery=10)
     
-    plt.title("Misinformation Infection by Recommender Type", fontsize=16)
-    plt.ylabel("Percentage of Population Infected/Exposed", fontsize=14)
+    plt.title("Misinformation Infection Rate by Recommender Type", fontsize=16)
+    plt.ylabel("Infection Rate", fontsize=14)
     plt.xlabel("Simulation Step", fontsize=14)
     
     # Improve legend
@@ -91,106 +91,6 @@ def plot_misinformation_ratio_difference(data, output_path=None):
     
     return plt.gcf()
 
-def plot_final_mrd_bar(data, output_path=None):
-    """
-    Create a bar plot of final MRD values for each recommender type.
-    
-    Parameters:
-    -----------
-    data : pandas.DataFrame
-        DataFrame containing experiment results
-    output_path : str, optional
-        Path to save the plot. If None, the plot is not saved.
-    """
-    # Get the final step for each run
-    final_steps = data.groupby(["RunId", "iteration", "recommender_type"])["Step"].max().reset_index()
-    final_data = pd.merge(data, final_steps, 
-                         on=["RunId", "iteration", "recommender_type", "Step"])
-
-    # Calculate average final MRD for each recommender type
-    mrd_summary = final_data.groupby("recommender_type")["Misinformation_Ratio_Difference"].agg(
-        ["mean", "std"]).reset_index()
-
-    # Sort by mean MRD
-    mrd_summary = mrd_summary.sort_values("mean")
-    
-    # Create bar plot
-    plt.figure(figsize=(14, 8))
-    
-    # Create a list of colors matching the order of recommender types in mrd_summary
-    bar_colors = []
-    for rec_type in mrd_summary["recommender_type"]:
-        if rec_type in RECOMMENDER_COLORS:
-            bar_colors.append(RECOMMENDER_COLORS[rec_type])
-        else:
-            # Use a default color if the recommender type is not in the color mapping
-            bar_colors.append('#999999')  # Gray as fallback
-    
-    bars = plt.bar(mrd_summary["recommender_type"], mrd_summary["mean"], 
-            yerr=mrd_summary["std"], capsize=10, 
-            color=bar_colors)
-
-    # Add a horizontal line at y=0
-    plt.axhline(y=0, color='gray', linestyle='--', alpha=0.7)
-
-    # Add value labels on top of bars
-    for bar in bars:
-        height = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width()/2., 
-                 height + (0.01 if height >= 0 else -0.03),
-                 f'{height:.3f}', 
-                 ha='center', va='bottom' if height >= 0 else 'top')
-
-    plt.title("Final Misinformation Ratio Difference by Recommender Type", fontsize=16)
-    plt.ylabel("MRD (positive = amplifying misinformation)", fontsize=14)
-    plt.xlabel("Recommender Type", fontsize=14)
-    plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
-    
-    if output_path:
-        plt.savefig(output_path)
-    
-    return plt.gcf(), mrd_summary
-
-def plot_mrd_boxplot(data, output_path=None):
-    """
-    Create a boxplot showing the distribution of MRD values for each recommender type.
-    
-    Parameters:
-    -----------
-    data : pandas.DataFrame
-        DataFrame containing experiment results
-    output_path : str, optional
-        Path to save the plot. If None, the plot is not saved.
-    """
-    # Get the final step for each run
-    final_steps = data.groupby(["RunId", "iteration", "recommender_type"])["Step"].max().reset_index()
-    final_data = pd.merge(data, final_steps, 
-                         on=["RunId", "iteration", "recommender_type", "Step"])
-
-    # Calculate average final MRD for each recommender type to determine order
-    mrd_summary = final_data.groupby("recommender_type")["Misinformation_Ratio_Difference"].mean().reset_index()
-    mrd_summary = mrd_summary.sort_values("Misinformation_Ratio_Difference")
-
-    # Create a palette that handles missing recommender types
-    boxplot_palette = {rec: RECOMMENDER_COLORS.get(rec, '#999999') 
-                      for rec in mrd_summary["recommender_type"]}
-    
-    # Create boxplot
-    plt.figure(figsize=(14, 8))
-    sns.boxplot(data=final_data, x="recommender_type", y="Misinformation_Ratio_Difference",
-               order=mrd_summary["recommender_type"], palette=boxplot_palette)
-    plt.axhline(y=0, color='gray', linestyle='--', alpha=0.7)
-    plt.title("Distribution of Misinformation Ratio Difference by Recommender Type", fontsize=16)
-    plt.ylabel("MRD (positive = amplifying misinformation)", fontsize=14)
-    plt.xlabel("Recommender Type", fontsize=14)
-    plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
-    
-    if output_path:
-        plt.savefig(output_path)
-    
-    return plt.gcf()
 
 def plot_misinformation_count(data, output_path=None):
     """
@@ -206,8 +106,8 @@ def plot_misinformation_count(data, output_path=None):
     plt.figure(figsize=(12, 8))
     sns.lineplot(data=data, x="Step", y="Misinformation_Count_In_Recommendations", 
                  hue="recommender_type", errorbar="sd", palette=RECOMMENDER_COLORS)
-    plt.title("Average Fake News Items in Recommendations by Recommender Type")
-    plt.ylabel("Average Number of Fake News Items")
+    plt.title("Average Misinformation Count in Recommendations by Recommender Type")
+    plt.ylabel("Average Number of Misinformation Items")
     
     if output_path:
         plt.savefig(output_path)
@@ -254,8 +154,8 @@ def plot_final_misinfo_count_bar(data, output_path=None):
                  f'{height:.2f}', 
                  ha='center', va='bottom')
 
-    plt.title("Average Fake News Items in Recommendations by Recommender Type", fontsize=16)
-    plt.ylabel("Number of Fake News Items", fontsize=14)
+    plt.title("Average Misinformation Count in Recommendations by Recommender Type", fontsize=16)
+    plt.ylabel("Number of Misinformation Items", fontsize=14)
     plt.xlabel("Recommender Type", fontsize=14)
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
@@ -305,9 +205,9 @@ def plot_recommender_summary(data, output_path=None):
                "Misinformation_Count_In_Recommendations",
                "Echo_Chamber_Effect"]
     
-    metric_labels = ["Misinformation Spread (%)", 
+    metric_labels = ["Infection Rate", 
                     "Misinformation Ratio Difference", 
-                    "Fake News in Recommendations",
+                    "Misinformation Count",
                     "Echo Chamber Effect"]
     
     # Create a figure with subplots for each metric
@@ -384,8 +284,8 @@ def generate_comparison_dashboard(data, output_path=None):
     sns.lineplot(data=data, x="Step", y="Misinformation_Spread_Percentage", 
                  hue="recommender_type", errorbar="sd", ax=axes[0, 0],
                  palette=RECOMMENDER_COLORS)
-    axes[0, 0].set_title("Misinformation Infection by Recommender Type", fontsize=14)
-    axes[0, 0].set_ylabel("Percentage of Population Infected", fontsize=12)
+    axes[0, 0].set_title("Infection Rate by Recommender Type", fontsize=14)
+    axes[0, 0].set_ylabel("Infection Rate", fontsize=12)
     
     # Plot 2: Misinformation Ratio Difference
     sns.lineplot(data=data, x="Step", y="Misinformation_Ratio_Difference", 
@@ -399,8 +299,8 @@ def generate_comparison_dashboard(data, output_path=None):
     sns.lineplot(data=data, x="Step", y="Misinformation_Count_In_Recommendations", 
                  hue="recommender_type", errorbar="sd", ax=axes[1, 0],
                  palette=RECOMMENDER_COLORS)
-    axes[1, 0].set_title("Fake News Items in Recommendations", fontsize=14)
-    axes[1, 0].set_ylabel("Average Number of Fake News Items", fontsize=12)
+    axes[1, 0].set_title("Misinformation Count in Recommendations", fontsize=14)
+    axes[1, 0].set_ylabel("Average Number of Misinformation Items", fontsize=12)
     
     # Plot 4: Echo Chamber Effect
     sns.lineplot(data=data, x="Step", y="Echo_Chamber_Effect", 
@@ -438,10 +338,10 @@ def create_recommender_ranking_table(data, output_path=None):
     """
     # Define metrics and whether lower is better
     metrics = {
-        "Misinformation_Spread_Percentage": {"label": "Misinfo Spread", "lower_better": True},
+        "Misinformation_Spread_Percentage": {"label": "Infection Rate", "lower_better": True},
         "Misinformation_Ratio_Difference": {"label": "MRD", "lower_better": True},
-        "Misinformation_Count_In_Recommendations": {"label": "Fake News Count", "lower_better": True},
-        "Echo_Chamber_Effect": {"label": "Echo Chamber", "lower_better": True}
+        "Misinformation_Count_In_Recommendations": {"label": "Misinformation Count", "lower_better": True},
+        # "Echo_Chamber_Effect": {"label": "Echo Chamber", "lower_better": True}
     }
     
     # Calculate average for each metric and recommender across all steps
@@ -533,11 +433,7 @@ def generate_all_plots(csv_path, output_dir=None):
     plot_misinformation_ratio_difference(data, os.path.join(output_dir, "misinformation_ratio_difference_comparison.png"))
     plot_misinformation_count(data, os.path.join(output_dir, "misinformation_count_comparison.png"))
     plot_echo_chamber_effect(data, os.path.join(output_dir, "echo_chamber_effect_comparison.png"))
-    
-    # Generate bar plots
-    plot_final_mrd_bar(data, os.path.join(output_dir, "final_mrd_bar.png"))
-    plot_final_misinfo_count_bar(data, os.path.join(output_dir, "final_misinfo_count_bar.png"))
-    
+  
     # Generate summary plots
     plot_recommender_summary(data, os.path.join(output_dir, "recommender_summary.png"))
     
