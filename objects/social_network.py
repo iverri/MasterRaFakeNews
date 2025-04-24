@@ -4,7 +4,6 @@ from utils.objects_utils import (
     create_basic_network,
     adjust_node_connectivity,
 )
-from utils.metrics import get_clustering_metrics
 from utils.network_storage import NetworkStorage
 
 class Social_Network:
@@ -101,6 +100,4 @@ class Social_Network:
                     edge = edges[random_index]
                     self.network.remove_edge(*edge)
 
-    def get_clustering_metrics(self):
-        """Return detailed clustering metrics"""
-        return get_clustering_metrics(self.network)
+    

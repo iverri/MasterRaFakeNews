@@ -2,17 +2,15 @@ from mesa import Model
 import networkx as nx
 from mesa.space import NetworkGrid
 from agents.user_agent import BotAgent, InfluencerAgent, UserAgent
-from recommender.recommender import Recommender
 import random
-from objects.news_content import NewsContent, generate_news_content
-from objects.social_network import Social_Network
+from objects.news_content import generate_news_content
 from utils.visualization import project_info
 from utils.model_utils import (
     distribute_news,
     random_preferences,
-    setup_datacollector,
     get_agent_types
 )
+from utils.datacollector import setup_datacollector
 from objects.social_media_platform import SocialMediaPlatform
 
 # Create a model class
