@@ -16,11 +16,11 @@ project_info = """
     
     ## Agent Types:
     - **Regular users** (blue): Standard network participants
-    - **Bot agents** (red): Automated accounts that spread content
-    - **Influencer agents** (green): Users with high influence levels
+    - **Bot agents** (green): Automated accounts that spread content
+    - **Influencer agents** (pink): Users with high influence levels
     
     ## States:
-    Agents transition through SIR-like states: Susceptible → Exposed → Infected
+    Agents transition through SIR-like states: Susceptible → Exposed → Infected, but they can go back to susceptible after a certain amount of time.
     
     *Created by Anna Holden Jacobsen and Lise Jakobsen - NTNU Trondheim*
     
@@ -285,7 +285,7 @@ def visualize_echo_chamber_network(model):
     directed_network = model.social_media_platform.social_network.network
     agent_types = get_agent_types(model)
     
-    plt.figure(figsize=(12, 8))
+    plt.figure(figsize=(8, 4))
     
     # Convert to undirected graph ONLY for community detection
     undirected_network = directed_network.to_undirected()
@@ -388,7 +388,7 @@ def visualize_echo_chamber_network(model):
         plt.Line2D([0], [0], color='#ff9999', lw=2, label='Same Community'),
         plt.Line2D([0], [0], color='#cccccc', lw=1, label='Cross Community')
     ]
-    plt.legend(handles=legend_elements, loc='upper left')
+    plt.legend(handles=legend_elements, loc='upper left', fontsize=6)
     
     # Add title with metrics
     plt.title(f'Echo Chamber Network Visualization\n'
@@ -414,16 +414,11 @@ def MetricsTrendDashboard(model):
                 "Misinformation_Ratio_Difference",
                 "Misinformation_Count_In_Recommendations",
             ],
-            "Echo Chamber Metrics": [
-                "Echo_Chamber_Effect",
-                "Preference_Similarity",
-                "Content_Propagation_Clustering",
-            ]
         }
         
         # Check if we have enough data points
         if all(metric in model.datacollector.model_vars for metric in 
-               metrics["Misinformation Metrics"] + metrics["Echo Chamber Metrics"]):
+               metrics["Misinformation Metrics"]):
             
             # Get the number of steps
             steps = len(model.datacollector.model_vars[metrics["Misinformation Metrics"][0]])
@@ -439,12 +434,6 @@ def MetricsTrendDashboard(model):
                         "Misinformation Metrics Over Time"
                     ))
                     
-                    # Create echo chamber metrics chart
-                    solara.FigureMatplotlib(create_metrics_line_chart(
-                        model, 
-                        metrics["Echo Chamber Metrics"], 
-                        "Echo Chamber Metrics Over Time"
-                    ))
             else:
                 solara.Markdown("Not enough data points yet. Run the simulation longer to see trends.")
         else:
@@ -569,14 +558,6 @@ model_params = {
         "max": 20,
         "step": 1
     },
-    "diversity_lambda": {
-        "type": "SliderInt",
-        "value": 0.1,
-        "label": "Diversity lambda",
-        "min": 0,
-        "max": 1,
-        "step": 0.01
-    },
     "increase_diversity": {
         "type": "Checkbox",
         "value": False,
@@ -593,15 +574,36 @@ def create_visualization(model_class):
     """Create a visualization for the given model class"""
     model = model_class()
     
+    # Create a custom layout component that organizes the dashboard in a grid
+    @solara.component
+    def DashboardLayout(model):
+        # Apply some basic styling with inline styles
+        container_style = {"max-width": "100%", "margin": "0 auto", "padding": "20px"}
+        row_style = {"display": "flex", "margin-bottom": "20px", "width": "100%"}
+        column_style = {"min-width": "100%"}
+        
+        with solara.Column(style=container_style):
+            with solara.Row(style=row_style):
+                with solara.Column(style=column_style):
+                    with solara.Card(title="Project Information", style={"width": "fit-content", "height": "100%"}):
+                        ProjectInfo(model)
+                with solara.Column(style=column_style):
+                    with solara.Card(style={"width": "100%", "height": "100%"}):
+                        EchoChamberNetwork(model)
+            with solara.Row(style=row_style):
+                with solara.Column(style=column_style):
+                    with solara.Card():
+                        MetricsTrendDashboard(model)
+                
+                with solara.Column(style=column_style):
+                    with solara.Card(title="Agent States"):
+                        make_plot_component(["Number_of_Infected", "Number_of_Susceptible", "Number_of_Exposed"])(model)
+            
+    
+    # Use the custom layout component
     viz = SolaraViz(
         model=model,
-        components=[
-            ProjectInfo,
-            make_plot_component(["Number_of_Infected", "Number_of_Susceptible", "Number_of_Exposed"]),
-            EchoChamberNetwork,
-            MetricsTrendDashboard,
-
-        ],
+        components=[DashboardLayout],
         model_params=model_params
     )
     return viz
