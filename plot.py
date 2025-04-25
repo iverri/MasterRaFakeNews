@@ -48,15 +48,14 @@ def plot_misinformation_spread(data, output_path=None):
     # Use the global color mapping
     sns.lineplot(data=data, x="Step", y="Misinformation_Spread_Percentage", 
                  hue="recommender_type", errorbar="sd", palette=RECOMMENDER_COLORS,
-                 linewidth=2.5, marker="o", markersize=6, markevery=10)
+                 linewidth=2.5)
     
     plt.title("Misinformation Infection Rate by Recommender Type", fontsize=16)
     plt.ylabel("Infection Rate", fontsize=14)
     plt.xlabel("Simulation Step", fontsize=14)
     
-    # Improve legend
-    plt.legend(title="Recommender Type", title_fontsize=12, fontsize=10, 
-               bbox_to_anchor=(1.05, 1), loc='upper left')
+    # Move legend to bottom of plot as a single line
+    plt.legend(bbox_to_anchor=(0.5, -0.07), loc='upper center', ncol=5, fontsize=10)
     
     # Add grid for easier reading
     plt.grid(True, linestyle='--', alpha=0.7)
@@ -80,14 +79,27 @@ def plot_misinformation_ratio_difference(data, output_path=None):
         Path to save the plot. If None, the plot is not saved.
     """
     plt.figure(figsize=(12, 8))
+    
+    # Use the global color mapping and add markers like in the infection rate plot
     sns.lineplot(data=data, x="Step", y="Misinformation_Ratio_Difference", 
-                 hue="recommender_type", errorbar="sd", palette=RECOMMENDER_COLORS)
-    plt.title("Misinformation Ratio Difference by Recommender Type")
-    plt.ylabel("MRD (positive = amplifying misinformation)")
+                 hue="recommender_type", errorbar="sd", palette=RECOMMENDER_COLORS,
+                 linewidth=2.5)
+    
+    plt.title("Misinformation Ratio Difference by Recommender Type", fontsize=16)
+    plt.ylabel("MRD (positive = amplifying misinformation)", fontsize=14)
+    plt.xlabel("Simulation Step", fontsize=14)
+    
+    # Move legend to bottom of plot as a single line
+    plt.legend(bbox_to_anchor=(0.5, -0.07), loc='upper center', ncol=5, fontsize=10)
+    
+    # Add grid for easier reading
+    plt.grid(True, linestyle='--', alpha=0.7)
     plt.axhline(y=0, color='gray', linestyle='--', alpha=0.7)  # Add a reference line at y=0
     
+    plt.tight_layout()
+    
     if output_path:
-        plt.savefig(output_path)
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
     
     return plt.gcf()
 
@@ -360,7 +372,7 @@ def create_recommender_ranking_table(data, output_path=None):
         summary[metric] = metric_summary
     
     # Create a figure for the table
-    fig, ax = plt.subplots(figsize=(12, len(summary[list(metrics.keys())[0]]) * 0.5 + 2))
+    fig, ax = plt.subplots(figsize=(8, len(summary[list(metrics.keys())[0]]) * 0.5 + 2))
     ax.axis('tight')
     ax.axis('off')
     
