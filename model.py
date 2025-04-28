@@ -89,9 +89,7 @@ class FakeNewsModel(Model):
             content.update_engagement(self.steps)
 
         self.news_content = [content for content in self.news_content if content.engagement > 0.2]
-        
-        fake_news_items = [item for item in self.news_content if item.isFake]
-        # print(f"Fake news items: {len(fake_news_items)} of {len(self.news_content)}, percentage: {len(fake_news_items) / len(self.news_content)}")
+
         # Update recommendations for all agents
         self.social_media_platform.recommender.update_recommendations(self.agents)
         
@@ -134,23 +132,6 @@ class FakeNewsModel(Model):
         else:  # Regular users
             naivety_level = min(max(random.gauss(0.5, 0.15), 0), 1)
             return UserAgent(self, self.preference_vectors[index], naivety_level)
-    
-    # Not in use
-    def visualize_network(self):
-        """Visualize the current state of the network"""
-        # Create agent_types dictionary
-        agent_types = get_agent_types(self)
-        
-        # Import the visualization function from utils.visualization
-        from utils.visualization import visualize_network
-        
-        # Visualize the network
-        visualize_network(self.social_media_platform.social_network.network, agent_types)
-
-    # Not in use
-    def get_network_metrics(self):
-        """Get detailed network metrics"""
-        return self.social_media_platform.social_network.get_clustering_metrics()
 
 if __name__ == "__main__":
     from utils.visualization import create_visualization
