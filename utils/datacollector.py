@@ -1,7 +1,6 @@
-
 from mesa import DataCollector
 import networkx as nx
-from utils.metrics import calculate_agent_echo_chamber, calculate_content_propagation_clustering, calculate_echo_chamber_effect, calculate_misinformation_count, calculate_misinformation_ratio_difference, calculate_misinformation_spread
+from utils.metrics import calculate_agent_echo_chamber, calculate_content_propagation_clustering, calculate_echo_chamber_effect, calculate_misinformation_count, calculate_misinformation_ratio_difference, calculate_misinformation_spread, calculate_cluster_content_similarity
 
 def setup_datacollector(model):
     """Initialize the datacollector with metrics."""
@@ -24,7 +23,14 @@ def setup_datacollector(model):
                                     for a in m.agents if hasattr(a, "recommended_content") and len(a.recommended_content) > 0]) / 
                                     sum(1 for a in m.agents if hasattr(a, "recommended_content") and len(a.recommended_content) > 0) 
                                     if sum(1 for a in m.agents if hasattr(a, "recommended_content") and len(a.recommended_content) > 0) > 0 else 0,
-            "Content_Propagation_Clustering": lambda m: calculate_content_propagation_clustering(m),
+            "Within_Cluster_Content_Similarity": lambda m: calculate_cluster_content_similarity(m)[0],
+            "Between_Cluster_Content_Similarity": lambda m: calculate_cluster_content_similarity(m)[1],
+            "Echo_Chamber_Strength_Diff": lambda m: (
+                (calculate_cluster_content_similarity(m)[0] or 0) - (calculate_cluster_content_similarity(m)[1] or 0)
+            ),
+            "Echo_Chamber_Strength_Ratio": lambda m: (
+                (calculate_cluster_content_similarity(m)[0] or 0) / (calculate_cluster_content_similarity(m)[1] or 1e-6)
+            ),
         },
         agent_reporters={
             "State": lambda a: getattr(a, "state", None),
