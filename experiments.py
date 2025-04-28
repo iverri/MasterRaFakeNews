@@ -15,7 +15,6 @@ def run_recommender_comparison_experiment(
     fake_news_percentage,
     bot_percentage,
     influencer_percentage,
-    increase_diversity,
     num_recommendations,
 ):
     """
@@ -68,7 +67,7 @@ def run_recommender_comparison_experiment(
         fake_news_percentage=fake_news_percentage,
         bot_percentage=bot_percentage,
         influencer_percentage=influencer_percentage,
-        increase_diversity=increase_diversity,
+        increase_diversity=False,
         num_recommendations=num_recommendations,
         use_stored_network=False,  # Force creation of new network
         recommender_type=RecommenderType.RANDOM.value  # Use any recommender for initial setup
@@ -86,7 +85,7 @@ def run_recommender_comparison_experiment(
         "fake_news_percentage": fake_news_percentage,
         "bot_percentage": bot_percentage,
         "influencer_percentage": influencer_percentage,
-        "increase_diversity": increase_diversity,
+        "increase_diversity": [False, True],
         "num_recommendations": num_recommendations,
         "use_stored_network": True,  # Now use the stored network for all runs
         "recommender_type": [type.value for type in RecommenderType]
@@ -121,8 +120,10 @@ def run_recommender_comparison_experiment(
     model_vars = [
         "RunId", "iteration", "Step", "recommender_type",
         "Number_of_Infected", "Number_of_Susceptible", "Number_of_Exposed",
+        "increase_diversity",
         "Network_Density", "Average_Clustering", "Community_Modularity",
         "Active_Users", "Active_Percentage", "Active_Infected",
+        "Average_Diversity_Score",
         "Misinformation_Count_In_Recommendations", "Misinformation_Ratio_Difference",
         "Misinformation_Spread_Percentage", "Echo_Chamber_Effect"
     ]
@@ -210,15 +211,14 @@ def analyze_results(model_data, summary_df):
 if __name__ == "__main__":
     # Run the experiment
     results_df, model_data, summary_df = run_recommender_comparison_experiment(
-        iterations=5,       # Number of runs per recommender type
-        max_steps=600,       # Steps per run
-        n_agents=200,       # Number of agents
+        iterations=1,       # Number of runs per recommender type
+        max_steps=100,       # Steps per run
+        n_agents=100,       # Number of agents
         m_links=6,         # Links per new node
         news_amount=400,    # Initial news items
         fake_news_percentage=10,  # Percentage of fake news
         bot_percentage=7,   # Percentage of bots
         influencer_percentage=3,  # Percentage of influencers
-        increase_diversity=False, # Whether to increase diversity
         num_recommendations=10,   # Number of recommendations
     )
     
