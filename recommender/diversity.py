@@ -91,8 +91,14 @@ def diversity_reranking(user_preferences, recs, k=10, pre_calculated=None):
     
     # Use pre-calculated data if provided, otherwise calculate
     if pre_calculated and 'topic_vectors' in pre_calculated and 'relevance_scores' in pre_calculated:
-        rec_topic_vectors = pre_calculated['topic_vectors']
-        relevance_scores = pre_calculated['relevance_scores']
+        # Make sure pre-calculated data matches the recommendations list
+        if len(pre_calculated['topic_vectors']) == len(recs):
+            rec_topic_vectors = pre_calculated['topic_vectors']
+            relevance_scores = pre_calculated['relevance_scores']
+        else:
+            # If lengths don't match, we need to recalculate
+            rec_topic_vectors = [rec.topic_vector for rec in recs]
+            relevance_scores = cosine_similarity([user_preferences], rec_topic_vectors)[0]
     else:
         # Extract topic vectors from recommendations
         rec_topic_vectors = [rec.topic_vector for rec in recs]

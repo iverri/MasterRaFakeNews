@@ -25,7 +25,7 @@ class Recommender():
         self._last_training_count = 0  # Add this line to track when retraining is needed
         self.content_dict_cache = {}  # Add cache for content dictionaries
         self.last_content_update = -1  # Track when content was last updated
-        print(f"Recommender type: {self.type}")
+        print(f"Recommender type: {self.type}, increase_diversity: {self.increase_diversity}, num_recommendations: {self.num_recommendations}")
         # Configure ItemKNN with new API
         ItemKNNconfig = ItemKNNConfig(
             max_nbrs=20,  # Maximum number of neighbors
@@ -297,9 +297,8 @@ class Recommender():
         available_content = [c for c in agent.model.news_content if c not in feed_set]
         
         if available_content:
-            # Always recommend 3 items if possible
-            num_to_select = min(num_recommendations * 3 if self.increase_diversity else num_recommendations, len(available_content))
-            recommendations = random.sample(available_content, num_to_select)
+          
+            recommendations = random.sample(available_content, num_recommendations)
             
             # Apply diversity reranking if enabled (commented out in original)
             agent.recommended_content.extend(recommendations)

@@ -8,10 +8,10 @@ import random
 
 class UserAgent(Agent):
     # Initialize the agent
-    def __init__(self, model, preference_vector, naivety_level):
+    def __init__(self, model, preference_vector ):
         super().__init__(model)
         self.preference_vector = preference_vector
-        self.naivety_level = naivety_level
+        self.naivety_level = min(max(random.gauss(0.5, 0.15), 0), 1)
         # whatto do with this
         self.state = "S"  # S: Susceptible, E: Exposed, I: Infected
         self.infection_start_step = 0  # Track when infection started
@@ -63,7 +63,7 @@ class UserAgent(Agent):
 
             import recommender.diversity as diversity
             
-            topic_vectors = [content.topic_vector for content in all_content]
+            topic_vectors = [content.topic_vector for content in self.recommended_content]
             self.diversity_score = diversity.calculate_diversity(topic_vectors)
 
             # Evaluate all content in feed and recommendations
@@ -116,7 +116,7 @@ class UserAgent(Agent):
         adjusted_evaluation = user_evaluation * engagement_factor
         
         # Like content but not share
-        if adjusted_evaluation > 0.6 and adjusted_evaluation < 0.8:
+        if adjusted_evaluation > 0.6:
             self.model.social_media_platform.recommender.add_interaction(
                 self.pos,
                 content.content,
@@ -128,25 +128,12 @@ class UserAgent(Agent):
                     self.infection_start_step = self.model.steps  # Record when infection started
 
         # Share content
-        elif adjusted_evaluation > 0.8:
+        if adjusted_evaluation > 0.8:
             self.share_content(content, user_evaluation)
     
     def share_content(self, content, user_evaluation):
         """Share content with followers."""
-        # Update state if sharing fake content
-        if content.isFake:
-            if self.state == "E":
-                self.state = "I"
-                self.infection_start_step = self.model.steps  # Record when infection started
-
         followers = self.get_followers()
-        
-        # Record interaction for collaborative filtering
-        self.model.social_media_platform.recommender.add_interaction(
-            self.pos, 
-            content.content, 
-            user_evaluation
-        )
         
         # Track this content as shared by this agent
         self.shared_content.append({
@@ -193,8 +180,6 @@ class UserAgent(Agent):
             # Determine the fake news percentage based on the agent type
             if isinstance(self, BotAgent):
                 fake_news_percentage = self.model.fake_news_percentage * 1.5
-            elif isinstance(self, InfluencerAgent):
-                fake_news_percentage = self.model.fake_news_percentage * 0.8
             else:
                 fake_news_percentage = self.model.fake_news_percentage * self.naivety_level
 
@@ -228,14 +213,16 @@ class UserAgent(Agent):
 
 class BotAgent(UserAgent):
     def __init__(self, model, preference_vector):
-        super().__init__(model, preference_vector, naivety_level=0.9)
+        super().__init__(model, preference_vector)
+        self.naivety_level = min(max(random.gauss(0.9, 0.05), 0), 1)
         # Bots are more consistently active
         self.activity_probability = min(max(random.gauss(0.7, 0.15), 0.4), 0.9)
         self.activity_pattern = [random.uniform(0.7, 1.0) for _ in range(8)]  # More consistent
 
 class InfluencerAgent(UserAgent):
     def __init__(self, model, preference_vector):
-        super().__init__(model, preference_vector, naivety_level=0.7)
+        super().__init__(model, preference_vector)
+        self.naivety_level = min(max(random.gauss(0.5, 0.15), 0), 1)
         # Influencers are more active than regular users
         self.activity_probability = min(max(random.gauss(0.5, 0.15), 0.3), 0.8)
         # Influencers might have more strategic posting times
