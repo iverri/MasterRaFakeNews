@@ -8,10 +8,10 @@ import random
 
 class UserAgent(Agent):
     # Initialize the agent
-    def __init__(self, model, preference_vector, naivety_level):
+    def __init__(self, model, preference_vector ):
         super().__init__(model)
         self.preference_vector = preference_vector
-        self.naivety_level = naivety_level
+        self.naivety_level = min(max(random.gauss(0.5, 0.15), 0), 1)
         # whatto do with this
         self.state = "S"  # S: Susceptible, E: Exposed, I: Infected
         self.infection_start_step = 0  # Track when infection started
@@ -63,7 +63,7 @@ class UserAgent(Agent):
 
             import recommender.diversity as diversity
             
-            topic_vectors = [content.topic_vector for content in all_content]
+            topic_vectors = [content.topic_vector for content in self.recommended_content]
             self.diversity_score = diversity.calculate_diversity(topic_vectors)
 
             # Evaluate all content in feed and recommendations

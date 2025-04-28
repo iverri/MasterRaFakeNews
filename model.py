@@ -130,8 +130,7 @@ class FakeNewsModel(Model):
         elif index < int(self.influencer_percentage * self.num_agents + self.bot_percentage * self.num_agents):  # Bots
             return BotAgent(self, self.preference_vectors[index])
         else:  # Regular users
-            naivety_level = min(max(random.gauss(0.5, 0.15), 0), 1)
-            return UserAgent(self, self.preference_vectors[index], naivety_level)
+            return UserAgent(self, self.preference_vectors[index])
 
 if __name__ == "__main__":
     from utils.visualization import create_visualization
