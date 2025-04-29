@@ -493,6 +493,93 @@ def create_metrics_line_chart(model, metric_names, title):
     plt.tight_layout()
     return fig
 
+def create_content_propagation_plot(model):
+    """Create a line plot for Content Propagation Clustering over time."""
+    if not hasattr(model, "datacollector"):
+        return None
+    df = model.datacollector.get_model_vars_dataframe()
+    if "Content_Propagation_Clustering" not in df:
+        return None
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(df["Content_Propagation_Clustering"], marker='o', color='#ff9999')
+    ax.set_title("Content Propagation Clustering Over Time")
+    ax.set_xlabel("Step")
+    ax.set_ylabel("Within-Community Share Ratio")
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    return fig
+
+@solara.component
+def ContentPropagationClusteringDashboard(model):
+    """Dashboard component for Content Propagation Clustering metric."""
+    from mesa.visualization.utils import update_counter
+    update_counter.get()
+    fig = create_content_propagation_plot(model)
+    if fig is not None:
+        solara.FigureMatplotlib(fig)
+    else:
+        solara.Markdown("No data available yet. Run the simulation to see Content Propagation Clustering.")
+
+def create_cluster_content_similarity_plot(model):
+    """Plot within- and between-cluster content similarity over time."""
+    if not hasattr(model, "datacollector"):
+        return None
+    df = model.datacollector.get_model_vars_dataframe()
+    if "Within_Cluster_Content_Similarity" not in df or "Between_Cluster_Content_Similarity" not in df:
+        return None
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(df["Within_Cluster_Content_Similarity"], label="Within-Cluster Similarity", color="blue")
+    ax.plot(df["Between_Cluster_Content_Similarity"], label="Between-Cluster Similarity", color="orange")
+    ax.set_title("Cluster Content Similarity Over Time")
+    ax.set_xlabel("Step")
+    ax.set_ylabel("Cosine Similarity")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    return fig
+
+@solara.component
+def ClusterContentSimilarityDashboard(model):
+    from mesa.visualization.utils import update_counter
+    update_counter.get()
+    fig = create_cluster_content_similarity_plot(model)
+    if fig is not None:
+        solara.FigureMatplotlib(fig)
+    else:
+        solara.Markdown("No data available yet. Run the simulation to see cluster content similarity.")
+
+def create_echo_chamber_strength_plot(model):
+    """Plot echo chamber strength (difference and ratio) over time."""
+    if not hasattr(model, "datacollector"):
+        return None
+    df = model.datacollector.get_model_vars_dataframe()
+    if "Echo_Chamber_Strength_Diff" not in df or "Echo_Chamber_Strength_Ratio" not in df:
+        return None
+    fig, ax1 = plt.subplots(figsize=(8, 4))
+    ax1.plot(df["Echo_Chamber_Strength_Diff"], label="Difference (Within - Between)", color="purple")
+    ax1.set_xlabel("Step")
+    ax1.set_ylabel("Difference", color="purple")
+    ax1.tick_params(axis='y', labelcolor="purple")
+    ax1.set_title("Echo Chamber Strength Over Time")
+    ax1.grid(True, alpha=0.3)
+    ax2 = ax1.twinx()
+    ax2.plot(df["Echo_Chamber_Strength_Ratio"], label="Ratio (Within / Between)", color="green")
+    ax2.set_ylabel("Ratio", color="green")
+    ax2.tick_params(axis='y', labelcolor="green")
+    fig.legend(loc="upper right", bbox_to_anchor=(1,1), bbox_transform=ax1.transAxes)
+    plt.tight_layout()
+    return fig
+
+@solara.component
+def EchoChamberStrengthDashboard(model):
+    from mesa.visualization.utils import update_counter
+    update_counter.get()
+    fig = create_echo_chamber_strength_plot(model)
+    if fig is not None:
+        solara.FigureMatplotlib(fig)
+    else:
+        solara.Markdown("No data available yet. Run the simulation to see echo chamber strength.")
+
 # Model parameters for the UI controls
 model_params = {
     "N": {
@@ -594,13 +681,17 @@ def create_visualization(model_class):
                 with solara.Column(style=column_style):
                     with solara.Card():
                         MetricsTrendDashboard(model)
-                
+                    with solara.Card(title="Content Propagation Clustering"):
+                        ContentPropagationClusteringDashboard(model)
                 with solara.Column(style=column_style):
                     with solara.Card(title="Agent States"):
                         make_plot_component(["Number_of_Infected", "Number_of_Susceptible", "Number_of_Exposed"])(model)
             
+            with solara.Card(title="Cluster Content Similarity"):
+                ClusterContentSimilarityDashboard(model)
+            with solara.Card(title="Echo Chamber Strength"):
+                EchoChamberStrengthDashboard(model)
     
-    # Use the custom layout component
     viz = SolaraViz(
         model=model,
         components=[DashboardLayout],
