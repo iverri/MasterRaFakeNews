@@ -67,7 +67,7 @@ def run_recommender_comparison_experiment(
         fake_news_percentage=fake_news_percentage, 
         bot_percentage=bot_percentage,
         influencer_percentage=influencer_percentage,
-        increase_diversity=False,
+        diversity_level=0,
         num_recommendations=num_recommendations,
         use_stored_network=False,  # Force creation of new network
         recommender_type=RecommenderType.RANDOM.value  # Use any recommender for initial setup
@@ -82,11 +82,11 @@ def run_recommender_comparison_experiment(
         "N": n_agents,
         "m_links": m_links,
         "news_amount": news_amount,
-        "fake_news_percentage": [5, 10, 20],
+        "fake_news_percentage": fake_news_percentage,
         "bot_percentage": bot_percentage,
         "influencer_percentage": influencer_percentage,
-        "increase_diversity": [False, True],
-        "num_recommendations": [5, 10, 20],
+        "diversity_level": [0, 0.5, 0.75, 1.0],
+        "num_recommendations": num_recommendations,
         "use_stored_network": True,  # Now use the stored network for all runs
         "recommender_type": [type.value for type in RecommenderType]
     }
@@ -118,9 +118,8 @@ def run_recommender_comparison_experiment(
     
     # Create separate files for model-level and agent-level data
     model_vars = [
-        "RunId", "iteration", "Step", "recommender_type",
+        "RunId", "iteration", "Step", "recommender_type", "num_recommendations", "fake_news_percentage","diversity_level",
         "Number_of_Infected", "Number_of_Susceptible", "Number_of_Exposed",
-        "increase_diversity",
         "Network_Density", "Average_Clustering", "Community_Modularity",
         "Active_Users", "Active_Percentage", "Active_Infected",
         "Average_Diversity_Score",
@@ -215,7 +214,7 @@ if __name__ == "__main__":
         max_steps=100,       # Steps per run
         n_agents=100,       # Number of agents
         m_links=6,         # Links per new node
-        news_amount=400,    # Initial news items
+        news_amount=200,    # Initial news items
         fake_news_percentage=10,  # Percentage of fake news
         bot_percentage=7,   # Percentage of bots
         influencer_percentage=3,  # Percentage of influencers

@@ -23,8 +23,7 @@ class FakeNewsModel(Model):
     '''
     #Initialize agents
     def __init__(self, N=200, m_links=10, news_amount=500, fake_news_percentage=10, 
-                 recommender_type="random", bot_percentage=5, influencer_percentage=5, 
-                 increase_diversity=False, num_recommendations=10, use_stored_network=False, 
+                 recommender_type="random", bot_percentage=5, influencer_percentage=5, diversity_level=0, num_recommendations=10, use_stored_network=False, 
                  seed: int = None):
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
@@ -41,7 +40,7 @@ class FakeNewsModel(Model):
         self.bot_percentage = bot_percentage / 100
         self.influencer_percentage = influencer_percentage / 100
         self.news_amount = news_amount
-        self.increase_diversity = increase_diversity
+        self.diversity_level = diversity_level
         self.num_recommendations = num_recommendations
         self.use_stored_network = use_stored_network
         
@@ -50,7 +49,7 @@ class FakeNewsModel(Model):
 
         self.social_media_platform = SocialMediaPlatform(
             self, self.num_agents, self.m_links, self.preference_vectors, 
-            self.recommender_type, self.increase_diversity, 
+            self.recommender_type, self.diversity_level, 
             self.num_recommendations, self.use_stored_network
         )
         
@@ -80,8 +79,7 @@ class FakeNewsModel(Model):
         # Update the current hour
         self.current_hour = (self.current_hour + self.hours_per_step) % 24
         
-        # Generate new content
-        # TODO: remove when added functionality for users to post content
+        # Generate new content to ensure enough content for generating recommendations
         self.news_content.extend(generate_news_content(self.fake_news_percentage, 50, self.steps))
 
         # Update engagement for all news content

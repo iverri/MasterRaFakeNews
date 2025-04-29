@@ -650,6 +650,14 @@ model_params = {
         "value": False,
         "label": "Increase diversity"
     },
+    "diversity_level": {
+        "type": "SliderFloat",
+        "value": 0.5,
+        "label": "Diversity level",
+        "min": 0,
+        "max": 1.0,
+        "step": 0.01
+    },
     "use_stored_network": {
         "type": "Checkbox",
         "value": False,

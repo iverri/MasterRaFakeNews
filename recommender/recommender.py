@@ -17,15 +17,15 @@ from recommender.types import RecommenderType
 
 
 class Recommender():
-    def __init__(self, recommender_type, increase_diversity, num_recommendations):
+    def __init__(self, recommender_type, diversity_level, num_recommendations):
         self.type = recommender_type
-        self.increase_diversity = increase_diversity
+        self.diversity_level = diversity_level
         self.num_recommendations = num_recommendations
         self.user_interactions = []  # List to store user-content interactions
         self._last_training_count = 0  # Add this line to track when retraining is needed
         self.content_dict_cache = {}  # Add cache for content dictionaries
         self.last_content_update = -1  # Track when content was last updated
-        print(f"Recommender type: {self.type}, increase_diversity: {self.increase_diversity}, num_recommendations: {self.num_recommendations}")
+        print(f"Recommender type: {self.type}, diversity_level: {self.diversity_level}, num_recommendations: {self.num_recommendations}")
         # Configure ItemKNN with new API
         ItemKNNconfig = ItemKNNConfig(
             max_nbrs=20,  # Maximum number of neighbors
@@ -179,7 +179,7 @@ class Recommender():
             
             # Get recommendations using the recommend function
             try:
-                num_recommendations = self.num_recommendations * 3 if self.increase_diversity else self.num_recommendations
+                num_recommendations = self.num_recommendations * 3 if self.diversity_level > 0 else self.num_recommendations
                 
                 recs = recommend(self.pipeline, agent.pos, n=num_recommendations, items=candidates)
                 recommendations = []
@@ -195,7 +195,7 @@ class Recommender():
                     if len(recommendations) < num_recommendations:
                         self.random_recommendation(agent, num_recommendations - len(recommendations))
 
-                    if self.increase_diversity:
+                    if self.diversity_level > 0:
                         # Calculate diversity before reranking on the same number of items that will be in final set
                         num_final_recs = min(len(recommendations)//3, self.num_recommendations)
                         
@@ -257,11 +257,11 @@ class Recommender():
         
         # Sort by score and get top recommendations
         scores.sort(key=lambda x: x[1], reverse=True)
-        num_to_select = self.num_recommendations * 3 if self.increase_diversity else self.num_recommendations
+        num_to_select = self.num_recommendations * 3 if self.diversity_level > 0 else self.num_recommendations
         recommendations = [content for content, _ in scores[:num_to_select]]
         
         # Apply diversity reranking with pre-calculated data
-        if self.increase_diversity and len(recommendations) > 1:
+        if self.diversity_level > 0 and len(recommendations) > 1:
             pre_calculated = {
                 'topic_vectors': np.array(topic_vectors),
                 'relevance_scores': np.array(relevance_scores)
@@ -381,12 +381,12 @@ class Recommender():
             )
             
             # Get indices of top scores
-            num_to_recommend = min(self.num_recommendations*3 if self.increase_diversity else self.num_recommendations, len(available_content))
+            num_to_recommend = min(self.num_recommendations*3 if self.diversity_level > 0 else self.num_recommendations, len(available_content))
             top_indices = np.argsort(-final_scores)[:num_to_recommend]
             recommendations = [available_content[i] for i in top_indices]
             
             # Apply diversity reranking if enabled
-            if self.increase_diversity and len(recommendations) > 1:
+            if self.diversity_level > 0 and len(recommendations) > 1:
                 # Pass pre-calculated data to diversity reranking
                 pre_calculated = {
                     'topic_vectors': topic_vectors[top_indices],
@@ -427,5 +427,5 @@ class Recommender():
         # Use the enhanced diversity reranking function with pre-calculated data
         from recommender.diversity import diversity_reranking
         
-        return diversity_reranking(preference_vector, recommendations, k=k, pre_calculated=pre_calculated)
+        return diversity_reranking(preference_vector, recommendations, k=k, pre_calculated=pre_calculated, diversity_level=self.diversity_level)
         
