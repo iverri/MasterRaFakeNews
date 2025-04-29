@@ -143,3 +143,67 @@ def calculate_content_propagation_clustering(model):
     # Echo chamber score: proportion of content shared within same community
     # Higher values indicate stronger echo chambers
     return within_community_shares / total_shares
+
+def calculate_cluster_content_similarity(model):
+    """
+    Use Louvain to detect communities, then compute:
+    - Average pairwise similarity of shared content within each community
+    - Average pairwise similarity of shared content between communities
+    Returns: (within_similarity, between_similarity)
+    """
+    import community as community_louvain
+    from sklearn.metrics.pairwise import cosine_similarity
+    import numpy as np
+
+    # Get the social network
+    network = model.social_media_platform.social_network.network
+    if network.number_of_nodes() < 10:
+        return None, None
+
+    # Detect communities
+    undirected_network = network.to_undirected()
+    communities = community_louvain.best_partition(undirected_network)
+
+    # Map: community_id -> list of content topic vectors shared by members
+    community_content = {}
+    for agent in model.agents:
+        if not hasattr(agent, "shared_content") or not agent.shared_content:
+            continue
+        # Get the community id of the agent
+        comm_id = communities.get(agent.pos, -1)
+        if comm_id not in community_content:
+            community_content[comm_id] = []
+        # Add all topic vectors of content this agent has shared
+        for item in agent.shared_content:
+            community_content[comm_id].append(item['content'].topic_vector)
+
+    # Remove empty communities
+    community_content = {k: v for k, v in community_content.items() if len(v) > 1}
+
+    # Compute within-cluster similarity
+    within_sims = []
+    for vectors in community_content.values():
+        arr = np.array(vectors)
+        if len(arr) < 2:
+            continue
+        sim_matrix = cosine_similarity(arr)
+        # Take upper triangle, excluding diagonal
+        triu_indices = np.triu_indices_from(sim_matrix, k=1)
+        sims = sim_matrix[triu_indices]
+        if len(sims) > 0:
+            within_sims.append(np.mean(sims))
+    within_similarity = np.mean(within_sims) if within_sims else None
+
+    # Compute between-cluster similarity
+    between_sims = []
+    comm_ids = list(community_content.keys())
+    for i in range(len(comm_ids)):
+        for j in range(i+1, len(comm_ids)):
+            arr1 = np.array(community_content[comm_ids[i]])
+            arr2 = np.array(community_content[comm_ids[j]])
+            sims = cosine_similarity(arr1, arr2).flatten()
+            if len(sims) > 0:
+                between_sims.append(np.mean(sims))
+    between_similarity = np.mean(between_sims) if between_sims else None
+
+    return within_similarity, between_similarity
