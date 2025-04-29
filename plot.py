@@ -278,213 +278,101 @@ def plot_echo_chamber_effect(data, output_path=None):
 
 def plot_recommender_summary(data, output_path=None):
     """
-    Create a summary plot comparing recommenders across multiple metrics,
-    showing the average values over the entire simulation period,
-    comparing different diversity levels.
+    Create separate summary plots for each metric, with subplots for each diversity level,
+    similar to the timeline plot layout.
     
     Parameters:
     -----------
     data : pandas.DataFrame
         DataFrame containing experiment results
     output_path : str, optional
-        Path to save the plot. If None, the plot is not saved.
+        Path to save the plots. If None, the plots are not saved.
     """
     # Define metrics to plot
-    metrics = ["Misinformation_Spread_Percentage", 
-               "Misinformation_Ratio_Difference", 
-               "Misinformation_Count_In_Recommendations",
-               "Echo_Chamber_Effect"]
+    metrics = {
+        "Misinformation_Spread_Percentage": "Infection Rate", 
+        "Misinformation_Ratio_Difference": "Misinformation Ratio Difference", 
+        "Misinformation_Count_In_Recommendations": "Misinformation Count",
+        "Echo_Chamber_Effect": "Echo Chamber Effect"
+    }
     
-    metric_labels = ["Infection Rate", 
-                    "Misinformation Ratio Difference", 
-                    "Misinformation Count",
-                    "Echo Chamber Effect"]
-    
-    # Create a figure with subplots for each metric
-    fig, axes = plt.subplots(len(metrics), 1, figsize=(14, 5 * len(metrics)))
-    
-    # Get unique recommender types and diversity settings
-    recommender_types = sorted(data["recommender_type"].unique())
+    # Get unique diversity settings and recommender types
     diversity_settings = sorted(data["diversity_setting"].unique())
+    recommender_types = sorted(data["recommender_type"].unique())
     
-    # Create a color map for diversity settings
-    import matplotlib.cm as cm
-    diversity_cmap = cm.get_cmap('viridis', len(diversity_settings))
-    diversity_colors = {setting: diversity_cmap(i/max(1, len(diversity_settings)-1)) 
-                        for i, setting in enumerate(diversity_settings)}
-    
-    # Process each metric
-    for i, (metric, label) in enumerate(zip(metrics, metric_labels)):
-        # Calculate mean and std for the metric by recommender type and diversity setting across all steps
-        metric_data = data.groupby(["recommender_type", "diversity_setting"])[metric].agg(
+    # Create a figure for each metric
+    for metric, label in metrics.items():
+        # Create a figure with subplots for each diversity setting
+        fig, axes = plt.subplots(1, len(diversity_settings), 
+                                figsize=(16, 6), 
+                                sharey=True)
+        
+        # Handle case with only one diversity setting
+        if len(diversity_settings) == 1:
+            axes = [axes]
+        
+        # Calculate average values for each recommender and diversity setting
+        avg_data = data.groupby(["recommender_type", "diversity_setting"])[metric].agg(
             ["mean", "std"]).reset_index()
-        metric_data.columns = ["recommender_type", "diversity_setting", "value", "std"]
+        avg_data.columns = ["recommender_type", "diversity_setting", "mean", "std"]
         
-        # Sort by recommender type first, then by diversity setting
-        metric_data = metric_data.sort_values(["recommender_type", "diversity_setting"])
-        
-        # Set width of bars
-        bar_width = 0.8 / len(diversity_settings)
-        
-        # Get unique recommender types and sort them
-        rec_types = sorted(metric_data["recommender_type"].unique())
-        
-        # Set positions for bars
-        positions = np.arange(len(rec_types))
-        
-        # Plot bars for each diversity setting
-        for j, diversity in enumerate(diversity_settings):
+        # Plot for each diversity setting
+        for i, diversity in enumerate(diversity_settings):
             # Filter data for this diversity setting
-            setting_data = metric_data[metric_data["diversity_setting"] == diversity]
+            setting_data = avg_data[avg_data["diversity_setting"] == diversity]
             
-            # Create dictionary to map recommender types to their positions
-            rec_to_pos = {rec: i for i, rec in enumerate(rec_types)}
+            # Sort by mean value for better visualization
+            setting_data = setting_data.sort_values("mean")
             
-            # Get positions for this diversity setting
-            bar_positions = [rec_to_pos[rec] - 0.4 + (j+0.5)*bar_width for rec in setting_data["recommender_type"]]
-            
-            # Get colors for each recommender type
-            rec_colors = [RECOMMENDER_COLORS.get(rec, '#999999') for rec in setting_data["recommender_type"]]
-            
-            # Adjust color based on diversity setting (make it darker for higher diversity)
-            if diversity != "No Diversity":
-                # Make colors darker for diversity settings
-                adjusted_colors = []
-                for color in rec_colors:
-                    rgb = plt.cm.colors.to_rgb(color)
-                    # Adjust darkness based on diversity level
-                    darkness_factor = 0.8 - (j * 0.15)  # Darker for higher diversity levels
-                    darker_rgb = [max(0, c * darkness_factor) for c in rgb]
-                    adjusted_colors.append(darker_rgb)
-                rec_colors = adjusted_colors
-            
-            # Plot bars
+            # Create bar chart
             bars = axes[i].barh(
-                bar_positions, 
-                setting_data["value"], 
-                bar_width, 
-                xerr=setting_data["std"], 
+                setting_data["recommender_type"],
+                setting_data["mean"],
+                xerr=setting_data["std"],
                 capsize=5,
-                color=rec_colors,
-                label=diversity if j == 0 else "",  # Only add label once
-                alpha=0.9
+                color=[RECOMMENDER_COLORS[rec] for rec in setting_data["recommender_type"]],
+                alpha=0.8
             )
             
             # Add value labels
             for bar in bars:
                 width = bar.get_width()
-                # Position the label at the end of the bar
-                label_x = width + (0.01 * max(metric_data["value"]))
-                label_y = bar.get_y() + bar.get_height()/2
-                # Add a white background to the text for better visibility
-                axes[i].text(label_x, label_y, 
-                            f'{width:.3f}', va='center', fontsize=9, fontweight='bold',
-                            bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=1))
+                axes[i].text(
+                    width + (0.01 * avg_data["mean"].max()),
+                    bar.get_y() + bar.get_height()/2,
+                    f'{width:.3f}', 
+                    va='center', 
+                    fontsize=10, 
+                    fontweight='bold',
+                    bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=1)
+                )
+            
+            # Add a vertical line at x=0 for metrics where it makes sense
+            if metric == "Misinformation_Ratio_Difference":
+                axes[i].axvline(x=0, color='gray', linestyle='--', alpha=0.7)
+            
+            axes[i].set_title(f"{diversity}", fontsize=14)
+            axes[i].set_xlabel(label, fontsize=12)
+            axes[i].grid(True, linestyle='--', alpha=0.7, axis='x')
+            
+            # Only add y-label to the first subplot
+            if i == 0:
+                axes[i].set_ylabel("Recommender Type", fontsize=12)
         
-        # Add a vertical line at x=0 for metrics where it makes sense
-        if metric == "Misinformation_Ratio_Difference":
-            axes[i].axvline(x=0, color='gray', linestyle='--', alpha=0.7)
+        # Add a main title
+        plt.suptitle(f"{label} by Recommender Type", fontsize=16, y=1.02)
         
-        # Set title and labels
-        axes[i].set_title(f"Average {label} by Recommender Type and Diversity Level", fontsize=14)
-        axes[i].set_xlabel(label, fontsize=12)
-        axes[i].set_ylabel("")
+        plt.tight_layout()
         
-        # Set y-ticks to recommender types
-        axes[i].set_yticks(positions)
-        axes[i].set_yticklabels(rec_types)
-        
-        # Add grid
-        axes[i].grid(True, linestyle='--', alpha=0.7, axis='x')
-        
-        # Add legend with improved styling
-        if i == 0:
-            # Create a custom legend with larger font and better positioning
-            legend = axes[i].legend(
-                loc='upper right', 
-                fontsize=12, 
-                framealpha=0.9,
-                title="Diversity Level", 
-                title_fontsize=13,
-                bbox_to_anchor=(1.0, 1.0)
-            )
-            # Add a border to the legend for better visibility
-            legend.get_frame().set_edgecolor('black')
-            legend.get_frame().set_linewidth(1.5)
-        
-        # Adjust x-axis limits to make room for the labels
-        x_max = max(metric_data["value"] + metric_data["std"]) * 1.2
-        axes[i].set_xlim(right=x_max)
+        # Save the plot if output path is provided
+        if output_path:
+            metric_name = metric.lower().replace('_', '')
+            file_path = output_path.replace(".png", f"_{metric_name}.png")
+            plt.savefig(file_path, dpi=300, bbox_inches='tight')
     
-    plt.tight_layout()
-    
-    if output_path:
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    
+    # Return the last created figure
     return fig
 
-def generate_comparison_dashboard(data, output_path=None):
-    """
-    Generate a dashboard with multiple metrics for comparing recommender algorithms,
-    with different diversity levels.
-    
-    Parameters:
-    -----------
-    data : pandas.DataFrame
-        DataFrame containing experiment results
-    output_path : str, optional
-        Path to save the plot. If None, the plot is not saved.
-    """
-    # Create a 2x2 subplot layout
-    fig, axes = plt.subplots(2, 2, figsize=(20, 16))
-    
-    # Plot 1: Misinformation Infection
-    sns.lineplot(data=data, x="Step", y="Misinformation_Spread_Percentage", 
-                 hue="recommender_type", style="diversity_setting", 
-                 errorbar="sd", ax=axes[0, 0],
-                 palette=RECOMMENDER_COLORS)
-    axes[0, 0].set_title("Infection Rate by Recommender Type and Diversity Level", fontsize=14)
-    axes[0, 0].set_ylabel("Infection Rate", fontsize=12)
-    
-    # Plot 2: Misinformation Ratio Difference
-    sns.lineplot(data=data, x="Step", y="Misinformation_Ratio_Difference", 
-                 hue="recommender_type", style="diversity_setting", 
-                 errorbar="sd", ax=axes[0, 1],
-                 palette=RECOMMENDER_COLORS)
-    axes[0, 1].set_title("Misinformation Ratio Difference", fontsize=14)
-    axes[0, 1].set_ylabel("MRD (positive = amplifying misinfo)", fontsize=12)
-    axes[0, 1].axhline(y=0, color='gray', linestyle='--', alpha=0.7)
-    
-    # Plot 3: Misinformation Count in Recommendations
-    sns.lineplot(data=data, x="Step", y="Misinformation_Count_In_Recommendations", 
-                 hue="recommender_type", style="diversity_setting", 
-                 errorbar="sd", ax=axes[1, 0],
-                 palette=RECOMMENDER_COLORS)
-    axes[1, 0].set_title("Misinformation Count in Recommendations", fontsize=14)
-    axes[1, 0].set_ylabel("Average Number of Misinformation Items", fontsize=12)
-    
-    # Plot 4: Echo Chamber Effect
-    sns.lineplot(data=data, x="Step", y="Echo_Chamber_Effect", 
-                 hue="recommender_type", style="diversity_setting", 
-                 errorbar="sd", ax=axes[1, 1],
-                 palette=RECOMMENDER_COLORS)
-    axes[1, 1].set_title("Echo Chamber Effect", fontsize=14)
-    axes[1, 1].set_ylabel("Echo Chamber Effect", fontsize=12)
-    
-    # Adjust layout and add a main title
-    plt.suptitle("Recommender Algorithm Comparison Dashboard (Multiple Diversity Levels)", fontsize=20)
-    plt.tight_layout(rect=[0, 0, 1, 0.97])  # Adjust for the suptitle
-    
-    # Create a single legend for the entire figure
-    handles, labels = axes[0, 0].get_legend_handles_labels()
-    for ax in axes.flat:
-        ax.get_legend().remove()
-    fig.legend(handles, labels, loc='lower center', ncol=len(labels)//2, bbox_to_anchor=(0.5, 0), fontsize=12)
-    
-    if output_path:
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    
-    return fig
 
 def create_recommender_ranking_table(data, output_path=None):
     """
@@ -680,10 +568,7 @@ def generate_all_plots(csv_path, output_dir=None):
     
     # Generate ranking table
     create_recommender_ranking_table(data, os.path.join(output_dir, "recommender_ranking_table.png"))
-    
-    # Generate comparison dashboard
-    generate_comparison_dashboard(data, os.path.join(output_dir, "recommender_comparison_dashboard.png"))
-    
+   
     # Generate diversity impact heatmap
     plot_diversity_impact_heatmap(data, os.path.join(output_dir, "diversity_impact_heatmap.png"))
     
