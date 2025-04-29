@@ -64,7 +64,7 @@ def run_recommender_comparison_experiment(
         N=n_agents,
         m_links=m_links,
         news_amount=news_amount,
-        fake_news_percentage=fake_news_percentage,
+        fake_news_percentage=fake_news_percentage, 
         bot_percentage=bot_percentage,
         influencer_percentage=influencer_percentage,
         increase_diversity=False,
@@ -82,11 +82,11 @@ def run_recommender_comparison_experiment(
         "N": n_agents,
         "m_links": m_links,
         "news_amount": news_amount,
-        "fake_news_percentage": fake_news_percentage,
+        "fake_news_percentage": [5, 10, 20],
         "bot_percentage": bot_percentage,
         "influencer_percentage": influencer_percentage,
         "increase_diversity": [False, True],
-        "num_recommendations": num_recommendations,
+        "num_recommendations": [5, 10, 20],
         "use_stored_network": True,  # Now use the stored network for all runs
         "recommender_type": [type.value for type in RecommenderType]
     }
