@@ -223,10 +223,10 @@ if __name__ == "__main__":
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = run_recommender_comparison_experiment(
         iterations=1,       # Number of runs per recommender type
-        max_steps=150,       # Steps per run
-        n_agents=100,       # Number of agents
-        m_links=6,         # Links per new node
-        news_amount=200,    # Initial news items
+        max_steps=800,       # Steps per run
+        n_agents=200,       # Number of agents
+        m_links=8,         # Links per new node
+        news_amount=400,    # Initial news items
         fake_news_percentage=10,  # Percentage of fake news
         bot_percentage=7,   # Percentage of bots
         influencer_percentage=3,  # Percentage of influencers
