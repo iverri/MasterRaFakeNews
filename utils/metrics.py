@@ -49,24 +49,40 @@ def calculate_misinformation_spread(model):
 
 def calculate_echo_chamber_effect(model):
     """
-    Calculate the average echo chamber effect across all agents.
-    Higher values indicate stronger echo chambers.
+    Calculate the echo chamber effect based on the ratio of content similarity
+    within communities versus between communities.
+    
+    Higher values indicate stronger echo chambers - communities consuming
+    similar content internally but different content from other communities.
     """
-    # Get both preference-based and propagation-based scores
-    preference_scores = [calculate_agent_echo_chamber(a) 
-                        for a in model.agents if hasattr(a, "recommended_content") and len(a.recommended_content) > 0]
+    # Get community content similarity data
+    within_similarity, between_similarity = calculate_cluster_content_similarity(model)
     
-    propagation_scores = calculate_content_propagation_clustering(model)
+    # If we don't have community data, fall back to simpler metrics
+    if within_similarity is None or between_similarity is None:
+        # Fall back to the agent-based calculation
+        preference_scores = [calculate_agent_echo_chamber(a) 
+                            for a in model.agents if hasattr(a, "recommended_content") and len(a.recommended_content) > 0]
+        return sum(preference_scores) / len(preference_scores) if preference_scores else 0
     
-    # Combine both metrics (equal weighting)
-    if preference_scores and propagation_scores:
-        return (sum(preference_scores) / len(preference_scores) + propagation_scores) / 2
-    elif preference_scores:
-        return sum(preference_scores) / len(preference_scores)
-    elif propagation_scores:
-        return propagation_scores
+    # Calculate the ratio of within-community similarity to between-community similarity
+    # Higher ratio means stronger echo chambers
+    if between_similarity > 0:
+        echo_chamber_ratio = within_similarity / between_similarity
+        
+        # Normalize the ratio to a 0-1 scale for easier interpretation
+        # A ratio of 1.0 means no echo chamber (within = between)
+        # Higher values indicate stronger echo chambers
+        normalized_ratio = min(echo_chamber_ratio / 3.0, 1.0)  # Cap at 1.0, assuming ratios above 3.0 are strong echo chambers
+        
+        # Adjust so that 0 means no echo chamber and 1 means strong echo chamber
+        echo_chamber_score = (normalized_ratio - 0.33) * 1.5
+        echo_chamber_score = max(0, min(echo_chamber_score, 1.0))  # Ensure it stays in 0-1 range
+        
+        return echo_chamber_score
     else:
-        return 0
+        # If between_similarity is 0, this is an extreme echo chamber
+        return 1.0
 
 def calculate_agent_echo_chamber(agent):
     """
@@ -84,71 +100,13 @@ def calculate_agent_echo_chamber(agent):
     # Higher average similarity indicates stronger echo chamber
     return sum(similarities) / len(similarities) if similarities.size > 0 else 0
 
-def calculate_content_propagation_clustering(model):
-    """
-    Calculate echo chamber effect based on content propagation patterns in the network.
-    This measures how much content stays within community clusters rather than spreading broadly.
-    
-    Higher values indicate stronger echo chambers (content stays within clusters).
-    """
-    import networkx as nx
-    import community as community_louvain
-    
-    # Get the social network
-    network = model.social_media_platform.social_network.network
-    
-    # If network is too small, return 0
-    if network.number_of_nodes() < 10:
-        return 0
-    
-    # Convert to undirected for community detection
-    undirected_network = network.to_undirected()
-    
-    # Detect communities using Louvain method
-    communities = community_louvain.best_partition(undirected_network)
-    
-    # Create a mapping of node to community
-    node_to_community = communities
-    
-    # Track content sharing within and across communities
-    within_community_shares = 0
-    across_community_shares = 0
-    
-    # For each agent, check where they shared content
-    for agent in model.agents:
-        if not hasattr(agent, "shared_content") or not len(agent.shared_content) > 0:
-            continue
-            
-        # Get agent's community
-        agent_community = node_to_community.get(agent.pos, -1)
-        
-        # Get agent's followers
-        followers = [a for a in model.agents if hasattr(a, "pos") and 
-                    network.has_edge(agent.pos, a.pos)]
-        
-        for follower in followers:
-            follower_community = node_to_community.get(follower.pos, -2)
-            
-            # Count shares within same community vs across communities
-            if agent_community == follower_community:
-                within_community_shares += 1
-            else:
-                across_community_shares += 1
-    
-    # Calculate ratio of within-community sharing
-    total_shares = within_community_shares + across_community_shares
-    if total_shares == 0:
-        return 0
-        
-    # Echo chamber score: proportion of content shared within same community
-    # Higher values indicate stronger echo chambers
-    return within_community_shares / total_shares
 
 def calculate_cluster_content_similarity(model):
     """
     Use Louvain to detect communities, then compute:
     - Average pairwise similarity of shared content within each community
     - Average pairwise similarity of shared content between communities
+    - Echo chamber score per community
     Returns: (within_similarity, between_similarity)
     """
     import community as community_louvain
@@ -166,6 +124,11 @@ def calculate_cluster_content_similarity(model):
 
     # Map: community_id -> list of content topic vectors shared by members
     community_content = {}
+    # Track fake news per community
+    community_fake_news = {}
+    # Track community sizes
+    community_sizes = {}
+    
     for agent in model.agents:
         if not hasattr(agent, "shared_content") or not agent.shared_content:
             continue
@@ -173,16 +136,35 @@ def calculate_cluster_content_similarity(model):
         comm_id = communities.get(agent.pos, -1)
         if comm_id not in community_content:
             community_content[comm_id] = []
+            community_fake_news[comm_id] = 0
+            community_sizes[comm_id] = 0
+        
+        community_sizes[comm_id] += 1
+        
         # Add all topic vectors of content this agent has shared
         for item in agent.shared_content:
             community_content[comm_id].append(item['content'].topic_vector)
+            # Count fake news
+            if item['content'].isFake:
+                community_fake_news[comm_id] += 1
 
     # Remove empty communities
     community_content = {k: v for k, v in community_content.items() if len(v) > 1}
+    
+    # Calculate fake news ratio per community
+    community_fake_ratio = {}
+    for comm_id in community_fake_news:
+        total_content = len(community_content.get(comm_id, []))
+        if total_content > 0:
+            community_fake_ratio[comm_id] = community_fake_news[comm_id] / total_content
+        else:
+            community_fake_ratio[comm_id] = 0
 
     # Compute within-cluster similarity
     within_sims = []
-    for vectors in community_content.values():
+    community_within_sims = {}  # Store per-community similarity
+    
+    for comm_id, vectors in community_content.items():
         arr = np.array(vectors)
         if len(arr) < 2:
             continue
@@ -191,19 +173,73 @@ def calculate_cluster_content_similarity(model):
         triu_indices = np.triu_indices_from(sim_matrix, k=1)
         sims = sim_matrix[triu_indices]
         if len(sims) > 0:
-            within_sims.append(np.mean(sims))
+            avg_sim = np.mean(sims)
+            within_sims.append(avg_sim)
+            community_within_sims[comm_id] = avg_sim
+    
     within_similarity = np.mean(within_sims) if within_sims else None
 
     # Compute between-cluster similarity
     between_sims = []
+    community_between_sims = {}  # Store per-community pair similarity
+    
     comm_ids = list(community_content.keys())
     for i in range(len(comm_ids)):
         for j in range(i+1, len(comm_ids)):
-            arr1 = np.array(community_content[comm_ids[i]])
-            arr2 = np.array(community_content[comm_ids[j]])
+            comm_i = comm_ids[i]
+            comm_j = comm_ids[j]
+            arr1 = np.array(community_content[comm_i])
+            arr2 = np.array(community_content[comm_j])
             sims = cosine_similarity(arr1, arr2).flatten()
             if len(sims) > 0:
-                between_sims.append(np.mean(sims))
+                avg_sim = np.mean(sims)
+                between_sims.append(avg_sim)
+                pair_key = (comm_i, comm_j)
+                community_between_sims[pair_key] = avg_sim
+    
     between_similarity = np.mean(between_sims) if between_sims else None
+
+    # Calculate echo chamber score per community
+    community_echo_scores = {}
+    
+    # For each community, calculate its average similarity with all other communities
+    for comm_id in community_within_sims:
+        # Get this community's within similarity
+        within_sim = community_within_sims[comm_id]
+        
+        # Calculate average between similarity for this community with all others
+        comm_between_sims = []
+        for pair_key, sim in community_between_sims.items():
+            if comm_id in pair_key:
+                comm_between_sims.append(sim)
+        
+        avg_between_sim = np.mean(comm_between_sims) if comm_between_sims else 0
+        
+        # Calculate echo chamber score for this community
+        if avg_between_sim > 0:
+            ratio = within_sim / avg_between_sim
+            # Normalize to 0-1 scale
+            # A ratio of 1.0 means no echo chamber (within = between)
+            # Higher values indicate stronger echo chambers
+            normalized_ratio = min(ratio / 3.0, 1.0)  # Cap at 1.0, assuming ratios above 3.0 are strong echo chambers
+            
+            # Adjust so that 0 means no echo chamber and 1 means strong echo chamber
+            echo_score = (normalized_ratio - 0.33) * 1.5
+            echo_score = max(0, min(echo_score, 1.0))  # Ensure it stays in 0-1 range
+        else:
+            # If between_similarity is 0, this is an extreme echo chamber
+            echo_score = 1.0
+            
+        community_echo_scores[comm_id] = echo_score
+
+    # Store community data in model for access by datacollector
+    model.community_data = {
+        'communities': communities,
+        'sizes': community_sizes,
+        'within_sims': community_within_sims,
+        'between_sims': community_between_sims,
+        'fake_ratio': community_fake_ratio,
+        'echo_scores': community_echo_scores
+    }
 
     return within_similarity, between_similarity

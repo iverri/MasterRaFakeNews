@@ -38,14 +38,8 @@ def run_recommender_comparison_experiment(
         Percentage of bot agents
     influencer_percentage : int
         Percentage of influencer agents
-    diversity_lambda : float
-        Diversity parameter for recommenders
-    increase_diversity : bool
-        Whether to increase diversity in recommendations
     num_recommendations : int
         Number of recommendations per agent
-    use_stored_network : bool
-        Whether to use a stored network
     """
     # Create output directory if it doesn't exist
     output_dir = "experiment_results"
@@ -108,23 +102,41 @@ def run_recommender_comparison_experiment(
     # Convert results to DataFrame
     results_df = pd.DataFrame(results)
     
-    # Removed complete results for version 1.0 due to large file size
-    '''
-    # Save the complete results
-    complete_results_file = f"{output_dir}/recommender_comparison_complete_{timestamp}.csv"
-    results_df.to_csv(complete_results_file, index=False)
-    print(f"Complete results saved to {complete_results_file}")
-    '''
+    # Store community data separately since it's complex and not CSV-friendly
+    community_data_by_run = {}
+    
+    # Extract community data before dropping it from the main dataframe
+    for idx, row in results_df.iterrows():
+        if 'Community_Data' in results_df.columns and pd.notna(row['Community_Data']):
+            run_id = f"{row['RunId']}_{row['iteration']}_{row['Step']}"
+            # Add recommender type to the community data
+            community_data = row['Community_Data'].copy() if isinstance(row['Community_Data'], dict) else {}
+            community_data['recommender_type'] = row['recommender_type']
+            community_data['diversity_level'] = row['diversity_level']
+            community_data_by_run[run_id] = community_data
+    
+    # Save community data to a separate pickle file
+    community_data_file = f"{output_dir}/community_data_{timestamp}.pkl"
+    with open(community_data_file, 'wb') as f:
+        import pickle
+        pickle.dump(community_data_by_run, f)
+    print(f"Community data saved to {community_data_file}")
+    
+    # Remove complex objects that can't be easily stored in CSV
+    if 'Community_Data' in results_df.columns:
+        results_df = results_df.drop(columns=['Community_Data'])
     
     # Create separate files for model-level and agent-level data
     model_vars = [
         "RunId", "iteration", "Step", "recommender_type", "num_recommendations", "fake_news_percentage","diversity_level",
         "Number_of_Infected", "Number_of_Susceptible", "Number_of_Exposed",
         "Network_Density", "Average_Clustering", "Community_Modularity",
-        "Active_Users", "Active_Percentage", "Active_Infected",
         "Average_Diversity_Score",
         "Misinformation_Count_In_Recommendations", "Misinformation_Ratio_Difference",
-        "Misinformation_Spread_Percentage", "Echo_Chamber_Effect"
+        "Misinformation_Spread_Percentage", "Echo_Chamber_Effect",
+        "Within_Cluster_Content_Similarity", "Between_Cluster_Content_Similarity",
+        "Echo_Chamber_Strength_Diff", "Echo_Chamber_Strength_Ratio",
+        "Number_Of_Communities", "Preference_Similarity"
     ]
     
     # Filter for model-level variables
@@ -154,9 +166,11 @@ def run_recommender_comparison_experiment(
             "avg_infected_pct": recommender_data["Number_of_Infected"].mean() / n_agents * 100,
             "avg_misinformation_spread": recommender_data["Misinformation_Spread_Percentage"].mean() * 100,
             "avg_echo_chamber_effect": recommender_data["Echo_Chamber_Effect"].mean(),
-            #"avg_diversity_score": recommender_data["Average_Diversity_Score"].mean(),
             "avg_misinfo_in_recs": recommender_data["Misinformation_Count_In_Recommendations"].mean(),
-            "avg_misinfo_ratio_diff": recommender_data["Misinformation_Ratio_Difference"].mean() * 100
+            "avg_misinfo_ratio_diff": recommender_data["Misinformation_Ratio_Difference"].mean() * 100,
+            "avg_within_similarity": recommender_data["Within_Cluster_Content_Similarity"].mean(),
+            "avg_between_similarity": recommender_data["Between_Cluster_Content_Similarity"].mean(),
+            "avg_echo_chamber_strength": recommender_data["Echo_Chamber_Strength_Diff"].mean()
         }
         
         final_step_data.append(summary)
@@ -167,7 +181,7 @@ def run_recommender_comparison_experiment(
     summary_df.to_csv(summary_file, index=False)
     print(f"Summary statistics saved to {summary_file}")
     
-    return results_df, model_data, summary_df
+    return results_df, model_data, summary_df, community_data_file
 
 def analyze_results(model_data, summary_df):
     """
@@ -186,7 +200,7 @@ def analyze_results(model_data, summary_df):
     # Print summary table
     print("\nFinal state comparison:")
     print(summary_df[["recommender_type", "avg_infected_pct", "avg_misinformation_spread", 
-                     "avg_echo_chamber_effect"]].to_string(index=False))
+                     "avg_echo_chamber_effect", "avg_echo_chamber_strength"]].to_string(index=False))
     
     # Find the recommender with lowest misinformation spread
     best_for_misinfo = summary_df.loc[summary_df["avg_misinformation_spread"].idxmin()]
@@ -198,20 +212,18 @@ def analyze_results(model_data, summary_df):
     print(f"Lowest echo chamber effect: {best_for_echo['recommender_type']} "
           f"({best_for_echo['avg_echo_chamber_effect']:.2f})")
     
-    # Removed diversity analysis for version 1.0
-    '''
-    # Find the recommender with highest diversity
-    best_for_diversity = summary_df.loc[summary_df["avg_diversity_score"].idxmax()]
-    print(f"Highest content diversity: {best_for_diversity['recommender_type']} "
-          f"({best_for_diversity['avg_diversity_score']:.2f})")
-    '''
+    # Find the recommender with lowest echo chamber strength (similarity difference)
+    best_for_similarity = summary_df.loc[summary_df["avg_echo_chamber_strength"].idxmin()]
+    print(f"Lowest content similarity difference: {best_for_similarity['recommender_type']} "
+          f"({best_for_similarity['avg_echo_chamber_strength']:.2f})")
+    
     print("\nNote: For detailed analysis and visualization, load the saved CSV files into your analysis tools.")
 
 if __name__ == "__main__":
     # Run the experiment
-    results_df, model_data, summary_df = run_recommender_comparison_experiment(
+    results_df, model_data, summary_df, community_data_file = run_recommender_comparison_experiment(
         iterations=1,       # Number of runs per recommender type
-        max_steps=100,       # Steps per run
+        max_steps=150,       # Steps per run
         n_agents=100,       # Number of agents
         m_links=6,         # Links per new node
         news_amount=200,    # Initial news items

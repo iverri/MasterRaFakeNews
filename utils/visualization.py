@@ -4,7 +4,7 @@ import solara
 import matplotlib.pyplot as plt
 import networkx as nx
 import community  # python-louvain package
-from utils.metrics import calculate_agent_echo_chamber, calculate_content_propagation_clustering
+from utils.metrics import calculate_agent_echo_chamber
 from utils.model_utils import get_agent_types
 from recommender.types import RecommenderType
 
@@ -215,60 +215,6 @@ def create_echo_chamber_histogram(scores):
     ax.grid(True, alpha=0.3)
     
     return fig
-
-@solara.component
-def EchoChamberDashboard(model):
-    """Dashboard component showing echo chamber metrics and visualizations"""
-    # This is required to trigger updates when the model changes
-    from mesa.visualization.utils import update_counter
-    update_counter.get()
-    
-    # Get the latest data from the model
-    if hasattr(model, 'datacollector') and model.datacollector.model_vars:
-        # Check if data has been collected
-        if "Echo_Chamber_Effect" in model.datacollector.model_vars:
-            # Get the latest values
-            latest_step = len(model.datacollector.model_vars["Echo_Chamber_Effect"]) - 1
-            
-            if latest_step >= 0:  # Make sure we have at least one data point
-                echo_effect = model.datacollector.model_vars["Echo_Chamber_Effect"][latest_step]
-                
-                # Calculate the component metrics
-                preference_scores = [calculate_agent_echo_chamber(a) 
-                                    for a in model.agents if hasattr(a, "recommended_content") and len(a.recommended_content) > 0]
-                avg_preference_score = sum(preference_scores) / len(preference_scores) if preference_scores else 0
-                
-                propagation_score = calculate_content_propagation_clustering(model)
-                
-                with solara.Column():
-                    solara.Markdown("## Echo Chamber Analysis")
-                    
-                    with solara.Row():
-                        with solara.Card(title="Overall Echo Chamber Effect"):
-                            level = "Strong" if echo_effect > 0.7 else "Moderate" if echo_effect > 0.4 else "Weak"
-                            solara.Markdown(f"**{echo_effect:.2f}** ({level})")
-                    
-                    with solara.Row():
-                        with solara.Card(title="Preference Similarity"):
-                            pref_level = "High" if avg_preference_score > 0.7 else "Medium" if avg_preference_score > 0.4 else "Low"
-                            solara.Markdown(f"**{avg_preference_score:.2f}** ({pref_level})")
-                            solara.Markdown("*How similar recommended content is to user preferences*")
-                        
-                        with solara.Card(title="Content Propagation Clustering"):
-                            prop_level = "High" if propagation_score > 0.7 else "Medium" if propagation_score > 0.4 else "Low"
-                            solara.Markdown(f"**{propagation_score:.2f}** ({prop_level})")
-                            solara.Markdown("*How much content stays within network communities*")
-                    
-                    # Add a visualization of the echo chamber distribution
-                    # if preference_scores:
-                    # Use FigureMatplotlib instead of FigureContainer
-                    # solara.FigureMatplotlib(create_echo_chamber_histogram(preference_scores))
-            else:
-                solara.Markdown("No data points collected yet. Run the simulation to see metrics.")
-        else:
-            solara.Markdown("Echo chamber metrics not available. Run the simulation to see metrics.")
-    else:
-        solara.Markdown("No data available yet. Run the simulation to see metrics.")
 
 
 @solara.component

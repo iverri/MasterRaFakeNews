@@ -1,6 +1,6 @@
 from mesa import DataCollector
 import networkx as nx
-from utils.metrics import calculate_agent_echo_chamber, calculate_content_propagation_clustering, calculate_echo_chamber_effect, calculate_misinformation_count, calculate_misinformation_ratio_difference, calculate_misinformation_spread, calculate_cluster_content_similarity
+from utils.metrics import calculate_agent_echo_chamber, calculate_echo_chamber_effect, calculate_misinformation_count, calculate_misinformation_ratio_difference, calculate_misinformation_spread, calculate_cluster_content_similarity
 
 def setup_datacollector(model):
     """Initialize the datacollector with metrics."""
@@ -28,6 +28,8 @@ def setup_datacollector(model):
             "Echo_Chamber_Strength_Ratio": lambda m: (
                 (calculate_cluster_content_similarity(m)[0] or 0) / (calculate_cluster_content_similarity(m)[1] or 1e-6)
             ),
+            "Community_Data": lambda m: getattr(m, 'community_data', None),
+            "Number_Of_Communities": lambda m: len(set(m.community_data['communities'].values())) if hasattr(m, 'community_data') else 0,
         },
         agent_reporters={
             "State": lambda a: getattr(a, "state", None),
