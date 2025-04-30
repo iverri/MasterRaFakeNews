@@ -706,122 +706,6 @@ def plot_community_metrics_table_by_recommender(data, community_data_file, outpu
     
     return fig
 
-def plot_community_comparison_chart_by_recommender(data, community_data_file, output_path=None):
-    """
-    Create bar charts comparing key metrics across communities, organized by recommender type.
-    
-    Parameters:
-    -----------
-    data : pandas.DataFrame
-        DataFrame containing experiment results
-    community_data_file : str
-        Path to the pickle file containing community data
-    output_path : str, optional
-        Path to save the plot. If None, the plot is not saved.
-    """
-    import pickle
-    import matplotlib.pyplot as plt
-    import numpy as np
-    
-    # Organize data by recommender type
-    community_data_by_recommender = organize_community_data_by_recommender(community_data_file)
-    
-    if not community_data_by_recommender:
-        print("No community data available by recommender type")
-        return None
-    
-    # Get unique recommender types
-    recommender_types = sorted(community_data_by_recommender.keys())
-    
-    # Create a figure with subplots - one row per recommender type, three columns for metrics
-    fig, axes = plt.subplots(len(recommender_types), 3, 
-                            figsize=(18, 5 * len(recommender_types)),
-                            constrained_layout=True)
-    
-    # If only one recommender type, make axes 2D
-    if len(recommender_types) == 1:
-        axes = np.array([axes])
-    
-    # Process each recommender type
-    for i, rec_type in enumerate(recommender_types):
-        # Get community data for this recommender
-        community_data = community_data_by_recommender[rec_type]
-        
-        if not community_data:
-            print(f"No community data available for {rec_type}")
-            continue
-        
-        # Extract data
-        communities = community_data['communities']
-        fake_ratio = community_data['fake_ratio']
-        sizes = community_data['sizes']
-        within_sims = community_data['within_sims']
-        
-        # Create a list of unique community IDs
-        community_ids = sorted(set(communities.values()))
-        
-        # Plot community sizes
-        comm_sizes = [sizes.get(comm_id, 0) for comm_id in community_ids]
-        axes[i, 0].bar(
-            [f"Comm {comm_id}" for comm_id in community_ids],
-            comm_sizes,
-            color='skyblue'
-        )
-        axes[i, 0].set_title(f"Community Sizes - {rec_type}", fontsize=12)
-        axes[i, 0].set_ylabel("Number of Agents", fontsize=10)
-        axes[i, 0].tick_params(axis='x', rotation=45)
-        axes[i, 0].grid(True, linestyle='--', alpha=0.7, axis='y')
-        
-        # Plot fake news ratio
-        fake_ratios = [fake_ratio.get(comm_id, 0) for comm_id in community_ids]
-        bars = axes[i, 1].bar(
-            [f"Comm {comm_id}" for comm_id in community_ids],
-            fake_ratios,
-            color='salmon'
-        )
-        # Add value labels
-        for bar in bars:
-            height = bar.get_height()
-            axes[i, 1].text(
-                bar.get_x() + bar.get_width()/2.,
-                height + 0.01,
-                f'{height:.3f}',
-                ha='center', va='bottom',
-                fontsize=10
-            )
-        axes[i, 1].set_title(f"Fake News Ratio - {rec_type}", fontsize=12)
-        axes[i, 1].set_ylabel("Fake News Ratio", fontsize=10)
-        axes[i, 1].tick_params(axis='x', rotation=45)
-        axes[i, 1].grid(True, linestyle='--', alpha=0.7, axis='y')
-        
-        # Plot within-community similarity
-        within_similarities = [within_sims.get(comm_id, 0) for comm_id in community_ids]
-        bars = axes[i, 2].bar(
-            [f"Comm {comm_id}" for comm_id in community_ids],
-            within_similarities,
-            color='lightgreen'
-        )
-        # Add value labels
-        for bar in bars:
-            height = bar.get_height()
-            axes[i, 2].text(
-                bar.get_x() + bar.get_width()/2.,
-                height + 0.01,
-                f'{height:.3f}',
-                ha='center', va='bottom',
-                fontsize=10
-            )
-        axes[i, 2].set_title(f"Within-Community Similarity - {rec_type}", fontsize=12)
-        axes[i, 2].set_ylabel("Similarity Score", fontsize=10)
-        axes[i, 2].tick_params(axis='x', rotation=45)
-        axes[i, 2].grid(True, linestyle='--', alpha=0.7, axis='y')
-    
-    plt.suptitle("Community Comparison by Recommender Type", fontsize=16, y=1.02)
-    
-    if output_path:
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    
-    return fig
 
 def organize_community_data_by_recommender(community_data_file):
     """
@@ -869,7 +753,7 @@ def organize_community_data_by_recommender(community_data_file):
     
     return data_by_recommender
 
-def plot_community_metrics_by_recommender(data, community_data_by_recommender, output_path=None):
+def plot_community_metrics_by_recommender(data, community_data_file, output_path=None):
     """
     Create plots showing community metrics for each recommender type.
     
@@ -877,13 +761,20 @@ def plot_community_metrics_by_recommender(data, community_data_by_recommender, o
     -----------
     data : pandas.DataFrame
         DataFrame containing experiment results
-    community_data_by_recommender : dict
-        Dictionary mapping recommender types to their community data
+    community_data_file : str
+        Path to the pickle file containing community data
     output_path : str, optional
         Path to save the plot. If None, the plot is not saved.
     """
     import matplotlib.pyplot as plt
     import numpy as np
+    
+    # Organize data by recommender type
+    community_data_by_recommender = organize_community_data_by_recommender(community_data_file)
+    
+    if not community_data_by_recommender:
+        print("No community data available by recommender type")
+        return None
     
     # Get unique recommender types
     recommender_types = sorted(community_data_by_recommender.keys())
@@ -987,6 +878,199 @@ def plot_community_metrics_by_recommender(data, community_data_by_recommender, o
     
     return fig
 
+def plot_diversity_impact_table(data, community_data_file, output_path=None):
+    """
+    Create table visualizations showing how different diversity levels affect metrics
+    for each recommender type.
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        DataFrame containing experiment results
+    community_data_file : str
+        Path to the pickle file containing community data
+    output_path : str, optional
+        Path to save the plot. If None, the plot is not saved.
+    """
+    import pickle
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+    
+    # Load community data
+    with open(community_data_file, 'rb') as f:
+        community_data_by_run = pickle.load(f)
+    
+    # Extract diversity levels and recommender types from the data
+    diversity_levels = sorted(data['diversity_level'].unique())
+    recommender_types = sorted(data['recommender_type'].unique())
+    
+    # Create a figure for the table
+    fig = plt.figure(figsize=(12, len(recommender_types) * 5))
+    
+    # Prepare metrics to display
+    metrics = ["Misinfo Ratio", "Cluster sim", "EC"]
+    
+    # Create a subplot for each recommender type
+    for i, rec_type in enumerate(recommender_types):
+        ax = fig.add_subplot(len(recommender_types), 1, i+1)
+        ax.axis('tight')
+        ax.axis('off')
+        
+        # Get the last step data for this recommender type
+        last_step_data = {}
+        for run_id, run_data in community_data_by_run.items():
+            if ('recommender_type' in run_data and 
+                run_data['recommender_type'] == rec_type):
+                
+                # Extract step and run key
+                step = int(run_id.split('_')[-1])
+                run_key = '_'.join(run_id.split('_')[:-1])
+                
+                # Store the highest step for each run key
+                if run_key not in last_step_data or step > last_step_data[run_key]['step']:
+                    last_step_data[run_key] = {
+                        'step': step,
+                        'data': run_data,
+                        'diversity_level': run_data.get('diversity_level', 0)
+                    }
+        
+        # Group data by diversity level
+        data_by_diversity = {}
+        for run_info in last_step_data.values():
+            div_level = run_info['diversity_level']
+            if div_level not in data_by_diversity:
+                data_by_diversity[div_level] = []
+            data_by_diversity[div_level].append(run_info['data'])
+        
+        # Get all unique community IDs across all diversity levels
+        all_communities = set()
+        for div_data_list in data_by_diversity.values():
+            for div_data in div_data_list:
+                if 'communities' in div_data:
+                    all_communities.update(set(div_data['communities'].values()))
+        
+        # Sort communities
+        all_communities = sorted(all_communities)
+        
+        # Prepare table data
+        table_data = []
+        
+        # Create data rows for each community
+        for comm_id in all_communities:
+            row = [f"{comm_id}"]
+            
+            # Get average size across all diversity levels
+            sizes = []
+            for div_level, div_data_list in data_by_diversity.items():
+                for div_data in div_data_list:
+                    if 'sizes' in div_data and comm_id in div_data['sizes']:
+                        sizes.append(div_data['sizes'][comm_id])
+            
+            # Add average size to row
+            row.append(f"{int(np.mean(sizes)) if sizes else 0}")
+            
+            # For each metric and diversity level, get the value
+            for metric_name in ["fake_ratio", "within_sims", "echo_scores"]:
+                for div_level in diversity_levels:
+                    if div_level in data_by_diversity:
+                        # Get values for this community across all runs with this diversity level
+                        values = []
+                        for div_data in data_by_diversity[div_level]:
+                            # For echo_scores, calculate if not present
+                            if metric_name == "echo_scores" and "echo_scores" not in div_data:
+                                if ('fake_ratio' in div_data and 
+                                    'within_sims' in div_data and 
+                                    comm_id in div_data.get('fake_ratio', {}) and 
+                                    comm_id in div_data.get('within_sims', {})):
+                                    
+                                    echo_score = (div_data['fake_ratio'][comm_id] + 
+                                                 div_data['within_sims'][comm_id]) / 2
+                                    values.append(echo_score)
+                            elif metric_name in div_data and comm_id in div_data[metric_name]:
+                                values.append(div_data[metric_name][comm_id])
+                        
+                        # Calculate average value
+                        if values:
+                            avg_value = np.mean(values)
+                            row.append(f"{avg_value:.3f}")
+                        else:
+                            row.append("N/A")
+                    else:
+                        row.append("N/A")
+            
+            table_data.append(row)
+        
+        # Create column labels
+        col_labels = ["ID", "Size"]
+        for metric in metrics:
+            for level in diversity_levels:
+                col_labels.append(f"{level}")
+        
+        # Create table
+        if len(table_data) > 0:  # Only create table if we have data rows
+            table = ax.table(
+                cellText=table_data,
+                colLabels=col_labels,
+                loc='center',
+                cellLoc='center'
+            )
+            
+            # Style the table
+            table.auto_set_font_size(False)
+            table.set_fontsize(10)
+            table.scale(1.2, 1.5)
+            
+            # Fix column widths
+            for col in range(len(col_labels)):
+                if col < 2:  # Community and Size columns
+                    for row in range(len(table_data) + 1):  # +1 for header row
+                        cell = table[row, col]
+                        cell.set_width(0.06 if col == 0 else 0.04)
+            
+            # Color the cells based on values
+            for j in range(len(table_data)):  # Row index (communities)
+                for k in range(2, len(col_labels)):  # Column index (metrics at different diversity levels)
+                    cell = table[j+1, k]  # +1 to account for header row
+                    cell_text = cell.get_text().get_text()
+                    
+                    # Skip cells with N/A
+                    if cell_text == "N/A":
+                        continue
+                    
+                    try:
+                        value = float(cell_text)
+                        
+                        # Determine which metric this column represents
+                        metric_idx = (k - 2) // len(diversity_levels)
+                        
+                        # Color based on metric type
+                        if metric_idx == 0:  # Misinfo Ratio (red = high)
+                            cell.set_facecolor((value, 1 - value, 0, 0.3))
+                        elif metric_idx == 1:  # Cluster sim (blue = high)
+                            cell.set_facecolor((0, 0, value, 0.3))
+                        elif metric_idx == 2:  # Echo Chamber (purple = high)
+                            cell.set_facecolor((value, 0, value, 0.3))
+                    except ValueError:
+                        # Skip cells that can't be converted to float
+                        continue
+            
+            # Add "Div" prefix to diversity level headers
+            for col in range(2, len(col_labels)):
+                cell = table[0, col]
+                current_text = cell.get_text().get_text()
+                cell.get_text().set_text(f"Div {current_text}")
+            
+            ax.set_title(f"Community Metrics - {rec_type}", fontsize=14, pad=20)
+    
+    plt.suptitle("Community Metrics Analysis by Recommender Type", fontsize=16, y=0.99)
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    
+    return fig
+
 def generate_all_plots(csv_path, output_dir=None, community_data_file=None):
     """
     Generate all plots for the given experiment results.
@@ -1023,18 +1107,14 @@ def generate_all_plots(csv_path, output_dir=None, community_data_file=None):
     
     # Generate community-specific plots if community data is available
     if community_data_file:
-        
         # Generate recommender-specific community plots
         plot_community_metrics_table_by_recommender(data, community_data_file, 
                                                   os.path.join(output_dir, "community_metrics_table_by_recommender.png"))
-        plot_community_comparison_chart_by_recommender(data, community_data_file, 
-                                                     os.path.join(output_dir, "community_comparison_chart_by_recommender.png"))
-        
-        # Generate additional recommender comparison plots
-        community_data_by_recommender = organize_community_data_by_recommender(community_data_file)
-        if community_data_by_recommender:
-            plot_community_metrics_by_recommender(data, community_data_by_recommender, 
-                                                os.path.join(output_dir, "community_metrics_by_recommender.png"))
+        plot_community_metrics_by_recommender(data, community_data_file, 
+                                            os.path.join(output_dir, "community_metrics_by_recommender.png"))
+        plot_diversity_impact_table(data, community_data_file, 
+                                    os.path.join(output_dir, "diversity_impact_table.png"))
+    
     # Show all plots
     plt.show()
 
