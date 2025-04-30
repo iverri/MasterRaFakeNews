@@ -75,7 +75,7 @@ def diversity_reranking__MMR(user_preferences, recs, lambda_param, k=10):
     
     return reranked_recs
 
-def diversity_reranking(user_preferences, recs, k=10, pre_calculated=None):
+def diversity_reranking(user_preferences, recs, k=10, pre_calculated=None, diversity_level=0.5):
     """
     Rerank recommendations using Determinantal Point Process (DPP).
     
@@ -84,6 +84,8 @@ def diversity_reranking(user_preferences, recs, k=10, pre_calculated=None):
     - recs: list of NewsContent objects to be reranked
     - k: number of recommendations to select
     - pre_calculated: optional dict with pre-calculated data (topic_vectors, relevance_scores)
+    - diversity_weight: balance between diversity and quality (0-1)
+                        higher values favor diversity, lower values favor quality
     Returns:
     - reranked list of NewsContent objects
     """
@@ -118,8 +120,20 @@ def diversity_reranking(user_preferences, recs, k=10, pre_calculated=None):
     # Create similarity kernel
     similarity = cosine_similarity(rec_topic_vectors)
     
-    # Create L-ensemble kernel: L = diag(quality) * similarity * diag(quality)
-    L = np.diag(quality) @ similarity @ np.diag(quality)
+    # Apply diversity weight to the similarity matrix
+    # When diversity_weight is high (close to 1):
+    # - Off-diagonal elements (similarities between different items) are reduced
+    # - This makes diverse sets more probable
+    weighted_similarity = np.copy(similarity)
+    
+    # Only modify off-diagonal elements (keep self-similarity at 1)
+    for i in range(len(weighted_similarity)):
+        for j in range(len(weighted_similarity)):
+            if i != j:  # Only modify off-diagonal elements
+                weighted_similarity[i, j] *= (1 - diversity_level)
+    
+    # Create L-ensemble kernel with weighted similarity
+    L = np.diag(quality) @ weighted_similarity @ np.diag(quality)
     
     # Initialize DPP with L-ensemble
     dpp = FiniteDPP('likelihood', **{'L': L})
