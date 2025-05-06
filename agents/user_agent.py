@@ -18,6 +18,7 @@ class UserAgent(Agent):
         self.feed = [] # feed with NewsContent
         self.recommended_content = []
         self.shared_content = []  # Track content this agent has shared
+        self.recent_content = []
         self.social_network = model.social_media_platform.social_network
         self.social_media_platform = model.social_media_platform
         self.diversity_score = 0
@@ -60,11 +61,6 @@ class UserAgent(Agent):
         if self.is_active:
             # Process both feed and recommendations
             all_content = self.feed + self.recommended_content
-
-            import recommender.diversity as diversity
-            
-            topic_vectors = [content.topic_vector for content in self.recommended_content]
-            self.diversity_score = diversity.calculate_diversity(topic_vectors)
 
             # Evaluate all content in feed and recommendations
             for content in all_content:
@@ -169,6 +165,17 @@ class UserAgent(Agent):
             self.shared_content = [
                 item for item in self.shared_content 
                 if (current_step - item['step'] <= 20) or (len(self.shared_content) <= 50)
+            ]
+
+        all_content = self.feed + self.recommended_content
+        new_content = [content for content in all_content if content not in self.recent_content]
+        for content in new_content:
+            self.recent_content.append({'content': content, 'step': self.model.steps})
+
+        if len(self.recent_content) > 30:
+            self.recent_content = [
+                item for item in self.recent_content
+                if (self.model.steps - item['step'] <= 20) or (len(self.recent_content) <= 30)
             ]
         
     def post_content(self):
