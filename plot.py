@@ -399,6 +399,7 @@ def create_recommender_ranking_table(data, output_path=None):
         "Misinformation_Count_In_Recommendations": {"label": "MC", "lower_better": True},
         "Echo_Chamber_Effect": {"label": "EC", "lower_better": True},
         "Average_Diversity_Score": {"label": "DS", "lower_better": False},
+        "Diversity_Improvement_Percentage": {"label": "DI", "lower_better": False},
     }
     
     # Get a consistent order of recommender types across all diversity settings

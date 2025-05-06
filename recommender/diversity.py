@@ -311,63 +311,73 @@ def diversity_reranking_MMR(user_preferences, recs, k=10, pre_calculated=None, d
 
 def diversity_reranking(user_preferences, recs, k=10, pre_calculated=None, diversity_level=0.5):
     """
-    Rerank recommendations using Determinantal Point Process (DPP).
+    Rerank recommendations using an efficient diversity-aware approach.
     
     Parameters:
     - user_preferences: vector representing user preferences
     - recs: list of NewsContent objects to be reranked
     - k: number of recommendations to select
-    - pre_calculated: optional dict with pre-calculated data (topic_vectors, relevance_scores)
-    - diversity_weight: balance between diversity and quality (0-1)
-                        higher values favor diversity, lower values favor quality
+    - pre_calculated: optional dict with pre-calculated data
+    - diversity_level: balance between diversity and relevance (0-1)
     Returns:
-    - reranked list of NewsContent objects
+    - reranked list of NewsContent objects and their diversity score
     """
     from dppy.finite_dpps import FiniteDPP
     
-    # Use pre-calculated data if provided, otherwise calculate
+    # Handle pre-calculated data as before
     if pre_calculated and 'topic_vectors' in pre_calculated and 'relevance_scores' in pre_calculated:
-        # Make sure pre-calculated data matches the recommendations list
         if len(pre_calculated['topic_vectors']) == len(recs):
             rec_topic_vectors = pre_calculated['topic_vectors']
             relevance_scores = pre_calculated['relevance_scores']
         else:
-            # If lengths don't match, we need to recalculate
-            rec_topic_vectors = [rec.topic_vector for rec in recs]
+            rec_topic_vectors = np.array([rec.topic_vector for rec in recs])
             relevance_scores = cosine_similarity([user_preferences], rec_topic_vectors)[0]
     else:
-        # Extract topic vectors from recommendations
-        rec_topic_vectors = [rec.topic_vector for rec in recs]
-        
-        # Calculate relevance scores (similarity between user preferences and recommendations)
+        rec_topic_vectors = np.array([rec.topic_vector for rec in recs])
         relevance_scores = cosine_similarity([user_preferences], rec_topic_vectors)[0]
     
     # Handle edge cases
     if len(recs) <= 1 or k <= 1:
-        # Sort by relevance and return top-k
         indices = np.argsort(-np.array(relevance_scores))
-        return [recs[i] for i in indices[:k]]
+        return [recs[i] for i in indices[:k]], 0.0
     
-    # Create quality vector (relevance scores)
-    quality = np.array(relevance_scores)
+    # Calculate original diversity
+    top_k_indices = np.argsort(-np.array(relevance_scores))[:k]
+    top_k_vectors = np.array([rec_topic_vectors[i] for i in top_k_indices])
+    original_diversity = calculate_diversity(top_k_vectors)
     
     # Create similarity kernel
     similarity = cosine_similarity(rec_topic_vectors)
     
-    # Apply diversity weight to the similarity matrix
-    # When diversity_weight is high (close to 1):
-    # - Off-diagonal elements (similarities between different items) are reduced
-    # - This makes diverse sets more probable
-    weighted_similarity = np.copy(similarity)
+    # Create quality vector (relevance scores)
+    quality = np.array(relevance_scores)
     
-    # Only modify off-diagonal elements (keep self-similarity at 1)
-    for i in range(len(weighted_similarity)):
-        for j in range(len(weighted_similarity)):
+    # IMPROVED APPROACH: Use a more direct diversity control
+    # Transform the similarity matrix based on diversity_level
+    # Higher diversity_level = lower similarities between items
+    diversity_factor = diversity_level * 5  # Scale for more pronounced effect
+    
+    # Apply exponential transformation to similarity matrix
+    # This creates a more dramatic effect as diversity_level increases
+    transformed_similarity = np.copy(similarity)
+    for i in range(len(transformed_similarity)):
+        for j in range(len(transformed_similarity)):
             if i != j:  # Only modify off-diagonal elements
-                weighted_similarity[i, j] *= (1 - diversity_level)
+                # Apply exponential transformation - stronger effect with higher diversity_level
+                transformed_similarity[i, j] = similarity[i, j] ** (1 + diversity_factor)
     
-    # Create L-ensemble kernel with weighted similarity
-    L = np.diag(quality) @ weighted_similarity @ np.diag(quality)
+    # Create L-ensemble kernel with direct diversity control
+    # Balance between quality and diversity based on diversity_level
+    quality_weight = 1.0
+    diversity_weight = diversity_level * 3  # Scale for more pronounced effect
+    
+    # Construct kernel with explicit control over quality vs. diversity tradeoff
+    L = quality_weight * np.diag(quality) @ transformed_similarity @ np.diag(quality)
+    
+    # Add diversity-weighted identity matrix to further control diversity
+    # Higher diversity_level means more weight on the identity matrix
+    # This increases repulsion between similar items
+    L += diversity_weight * np.eye(len(L))
     
     # Initialize DPP with L-ensemble
     dpp = FiniteDPP('likelihood', **{'L': L})
@@ -378,8 +388,11 @@ def diversity_reranking(user_preferences, recs, k=10, pre_calculated=None, diver
     
     # Create the reranked list
     reranked_recs = [recs[i] for i in selected_indices]
-
+    
+    # Calculate new diversity
     reranked_vectors = np.array([rec.topic_vector for rec in reranked_recs])
     new_diversity = calculate_diversity(reranked_vectors)
+    
+    # print(f"Diversity level: {diversity_level}, Improvement: {(new_diversity - original_diversity):.4f}")
     
     return reranked_recs, new_diversity

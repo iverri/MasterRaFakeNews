@@ -1,6 +1,6 @@
 from mesa import DataCollector
 import networkx as nx
-from utils.metrics import calculate_agent_echo_chamber, calculate_echo_chamber_effect, calculate_misinformation_count, calculate_misinformation_ratio_difference, calculate_misinformation_spread, calculate_cluster_content_similarity
+from utils.metrics import calculate_agent_echo_chamber, calculate_echo_chamber_effect, calculate_misinformation_count, calculate_misinformation_ratio_difference, calculate_misinformation_spread, calculate_cluster_content_similarity, calculate_diversity_improvement
 
 def setup_datacollector(model):
     """Initialize the datacollector with metrics."""
@@ -12,6 +12,7 @@ def setup_datacollector(model):
             "Current_Hour": lambda m: m.current_hour,
             "Average_Feed_Size": lambda m: sum(len(a.recommended_content) for a in m.agents if hasattr(a, "recommended_content")) / len(m.agents) if len(m.agents) > 0 else 0,
             "Average_Diversity_Score": lambda m: sum(a.diversity_score for a in m.agents if hasattr(a, "diversity_score") and a.diversity_score != 0) / len(m.agents) if len(m.agents) > 0 else 0,
+            "Diversity_Improvement_Percentage": lambda m: calculate_diversity_improvement(m),
             "Misinformation_Count_In_Recommendations": lambda m: calculate_misinformation_count(m),
             "Misinformation_Ratio_Difference": lambda m: calculate_misinformation_ratio_difference(m),
             "Misinformation_Spread_Percentage": lambda m: calculate_misinformation_spread(m),

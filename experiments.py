@@ -79,7 +79,7 @@ def run_recommender_comparison_experiment(
         "fake_news_percentage": fake_news_percentage,
         "bot_percentage": bot_percentage,
         "influencer_percentage": influencer_percentage,
-        "diversity_level": [0, 0.5, 0.75, 1.0],
+        "diversity_level": [0, 0.5, 1.0],
         "num_recommendations": num_recommendations,
         "use_stored_network": True,  # Now use the stored network for all runs
         "recommender_type": [type.value for type in RecommenderType]
@@ -134,8 +134,8 @@ def run_recommender_comparison_experiment(
         "Average_Diversity_Score",
         "Misinformation_Count_In_Recommendations", "Misinformation_Ratio_Difference",
         "Misinformation_Spread_Percentage", "Echo_Chamber_Effect",
-        "Within_Cluster_Content_Similarity", "Between_Cluster_Content_Similarity",
-        "Echo_Chamber_Strength_Diff", "Echo_Chamber_Strength_Ratio",
+        "Diversity_Improvement_Percentage",
+        "Within_Community_Similarity", "Between_Community_Similarity",
         "Number_Of_Communities", "Preference_Similarity"
     ]
     
@@ -168,9 +168,8 @@ def run_recommender_comparison_experiment(
             "avg_echo_chamber_effect": recommender_data["Echo_Chamber_Effect"].mean(),
             "avg_misinfo_in_recs": recommender_data["Misinformation_Count_In_Recommendations"].mean(),
             "avg_misinfo_ratio_diff": recommender_data["Misinformation_Ratio_Difference"].mean() * 100,
-            "avg_within_similarity": recommender_data["Within_Cluster_Content_Similarity"].mean(),
-            "avg_between_similarity": recommender_data["Between_Cluster_Content_Similarity"].mean(),
-            "avg_echo_chamber_strength": recommender_data["Echo_Chamber_Strength_Diff"].mean()
+            "avg_within_similarity": recommender_data["Within_Community_Similarity"].mean(),
+            "avg_between_similarity": recommender_data["Between_Community_Similarity"].mean(),
         }
         
         final_step_data.append(summary)
@@ -200,7 +199,7 @@ def analyze_results(model_data, summary_df):
     # Print summary table
     print("\nFinal state comparison:")
     print(summary_df[["recommender_type", "avg_infected_pct", "avg_misinformation_spread", 
-                     "avg_echo_chamber_effect", "avg_echo_chamber_strength"]].to_string(index=False))
+                     "avg_echo_chamber_effect"]].to_string(index=False))
     
     # Find the recommender with lowest misinformation spread
     best_for_misinfo = summary_df.loc[summary_df["avg_misinformation_spread"].idxmin()]
@@ -212,20 +211,15 @@ def analyze_results(model_data, summary_df):
     print(f"Lowest echo chamber effect: {best_for_echo['recommender_type']} "
           f"({best_for_echo['avg_echo_chamber_effect']:.2f})")
     
-    # Find the recommender with lowest echo chamber strength (similarity difference)
-    best_for_similarity = summary_df.loc[summary_df["avg_echo_chamber_strength"].idxmin()]
-    print(f"Lowest content similarity difference: {best_for_similarity['recommender_type']} "
-          f"({best_for_similarity['avg_echo_chamber_strength']:.2f})")
-    
     print("\nNote: For detailed analysis and visualization, load the saved CSV files into your analysis tools.")
 
 if __name__ == "__main__":
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = run_recommender_comparison_experiment(
         iterations=1,       # Number of runs per recommender type
-        max_steps=800,       # Steps per run
-        n_agents=200,       # Number of agents
-        m_links=8,         # Links per new node
+        max_steps=50,       # Steps per run
+        n_agents=100,       # Number of agents
+        m_links=5,         # Links per new node
         news_amount=400,    # Initial news items
         fake_news_percentage=10,  # Percentage of fake news
         bot_percentage=7,   # Percentage of bots

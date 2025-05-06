@@ -22,6 +22,7 @@ class UserAgent(Agent):
         self.social_network = model.social_media_platform.social_network
         self.social_media_platform = model.social_media_platform
         self.diversity_score = 0
+        self.original_diversity_score = 0
         # Activity-related properties
         self.is_active = False
         self.activity_probability = min(max(random.gauss(0.3, 0.1), 0.1), 0.7)  # Base probability of being active

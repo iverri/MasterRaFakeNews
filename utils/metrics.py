@@ -243,3 +243,17 @@ def calculate_cluster_content_similarity(model):
     }
 
     return within_similarity, between_similarity
+
+def calculate_diversity_improvement(model):
+    """Calculate the percentage improvement in diversity from reranking."""
+    total_improvement = 0
+    count = 0
+    
+    for agent in model.agents:
+        if hasattr(agent, "original_diversity_score") and hasattr(agent, "diversity_score"):
+            if agent.original_diversity_score > 0:
+                improvement = (agent.diversity_score - agent.original_diversity_score) / agent.original_diversity_score
+                total_improvement += improvement
+                count += 1
+    
+    return (total_improvement / count * 100) if count > 0 else 0
