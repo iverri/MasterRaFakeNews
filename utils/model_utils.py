@@ -11,7 +11,7 @@ from utils.network_storage import NetworkStorage
 def random_preferences(model=None):
     """Generate random normalized preference vector."""
     # Generate random preferences with 15 dimensions
-    preferences = [random.random() for i in range(15)]
+    preferences = [random.random() for i in range(8)]
     
     # Normalize the vector (convert to unit vector)
     magnitude = sum(x**2 for x in preferences)**0.5

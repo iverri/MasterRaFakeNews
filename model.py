@@ -9,6 +9,7 @@ from utils.model_utils import (
     distribute_news,
     random_preferences,
     get_agent_types
+    
 )
 from utils.datacollector import setup_datacollector
 from objects.social_media_platform import SocialMediaPlatform

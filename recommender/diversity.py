@@ -119,7 +119,7 @@ def guaranteed_diversity_reranking(user_preferences, recs, k=10, pre_calculated=
     
     return reranked_recs
 
-def diversity_reranking_MMR(user_preferences, recs, k=10, pre_calculated=None, diversity_level=0.5):
+def diversity_reranking(user_preferences, recs, k=10, pre_calculated=None, diversity_level=0.5):
     """
     Rerank recommendations using a constrained Maximal Marginal Relevance (MMR) approach
     that guarantees diversity increases.
@@ -309,7 +309,7 @@ def diversity_reranking_MMR(user_preferences, recs, k=10, pre_calculated=None, d
     
     return reranked_recs, new_diversity
 
-def diversity_reranking(user_preferences, recs, k=10, pre_calculated=None, diversity_level=0.5):
+def diversity_reranking_DPP(user_preferences, recs, k=10, pre_calculated=None, diversity_level=0.5):
     """
     Rerank recommendations using an efficient diversity-aware approach.
     

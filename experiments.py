@@ -79,7 +79,7 @@ def run_recommender_comparison_experiment(
         "fake_news_percentage": fake_news_percentage,
         "bot_percentage": bot_percentage,
         "influencer_percentage": influencer_percentage,
-        "diversity_level": [0, 0.5, 1.0],
+        "diversity_level": [0, 0.75, 1.0],
         "num_recommendations": num_recommendations,
         "use_stored_network": True,  # Now use the stored network for all runs
         "recommender_type": [type.value for type in RecommenderType]
@@ -136,7 +136,7 @@ def run_recommender_comparison_experiment(
         "Misinformation_Spread_Percentage", "Echo_Chamber_Effect",
         "Diversity_Improvement_Percentage",
         "Within_Community_Similarity", "Between_Community_Similarity",
-        "Number_Of_Communities", "Preference_Similarity"
+        "Number_Of_Communities"
     ]
     
     # Filter for model-level variables
@@ -217,7 +217,7 @@ if __name__ == "__main__":
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = run_recommender_comparison_experiment(
         iterations=1,       # Number of runs per recommender type
-        max_steps=50,       # Steps per run
+        max_steps=100,       # Steps per run
         n_agents=100,       # Number of agents
         m_links=5,         # Links per new node
         news_amount=400,    # Initial news items

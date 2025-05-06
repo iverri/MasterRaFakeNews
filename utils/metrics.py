@@ -54,16 +54,20 @@ def calculate_echo_chamber_effect(model):
     
     Higher values indicate stronger echo chambers - communities consuming
     similar content internally but different content from other communities.
+    
+    This calculation is only performed every 5 steps to improve performance.
     """
+    # Only calculate every 5 steps
+    if model.steps % 5 != 0:
+        # Return the last calculated value if available
+        return getattr(model, 'last_echo_chamber_score', 0)
+    
     # Get community content similarity data
     within_similarity, between_similarity = calculate_cluster_content_similarity(model)
     
-    # If we don't have community data, fall back to simpler metrics
+    # If we don't have community data, return 0 or last value
     if within_similarity is None or between_similarity is None:
-        # Fall back to the agent-based calculation
-        preference_scores = [calculate_agent_echo_chamber(a) 
-                            for a in model.agents if hasattr(a, "recommended_content") and len(a.recommended_content) > 0]
-        return sum(preference_scores) / len(preference_scores) if preference_scores else 0
+        return getattr(model, 'last_echo_chamber_score', 0)
     
     # Calculate the ratio of within-community similarity to between-community similarity
     # Higher ratio means stronger echo chambers
@@ -78,27 +82,13 @@ def calculate_echo_chamber_effect(model):
         # Adjust so that 0 means no echo chamber and 1 means strong echo chamber
         echo_chamber_score = (normalized_ratio - 0.33) * 1.5
         echo_chamber_score = max(0, min(echo_chamber_score, 1.0))  # Ensure it stays in 0-1 range
-        
-        return echo_chamber_score
     else:
         # If between_similarity is 0, this is an extreme echo chamber
-        return 1.0
-
-def calculate_agent_echo_chamber(agent):
-    """
-    Calculate the echo chamber score for an individual agent.
-    This measures how similar the content in their recommendations is to their preferences.
-    """
-    if not hasattr(agent, "recommended_content") or not agent.recommended_content:
-        return 0
+        echo_chamber_score = 1.0
     
-    # Calculate similarity between agent preferences and each content item
-    agent_preference = np.array(agent.preference_vector).reshape(1, -1)
-    content_topics = np.array([content.topic_vector for content in agent.recommended_content])
-    similarities = cosine_similarity(agent_preference, content_topics)[0]
-    
-    # Higher average similarity indicates stronger echo chamber
-    return sum(similarities) / len(similarities) if similarities.size > 0 else 0
+    # Store the result for use in non-calculation steps
+    model.last_echo_chamber_score = echo_chamber_score
+    return echo_chamber_score
 
 
 def calculate_cluster_content_similarity(model):
@@ -108,7 +98,17 @@ def calculate_cluster_content_similarity(model):
     - Average pairwise similarity of shared content between communities
     - Echo chamber score per community
     Returns: (within_similarity, between_similarity)
+    
+    This calculation is only performed every 5 steps to improve performance.
     """
+    # Only calculate every 5 steps
+    if model.steps % 5 != 0:
+        # If we have stored previous results, return those
+        if hasattr(model, 'last_similarity_results'):
+            return model.last_similarity_results
+        # Otherwise return None values
+        return None, None
+    
     import community as community_louvain
     from sklearn.metrics.pairwise import cosine_similarity
     import numpy as np
@@ -130,7 +130,7 @@ def calculate_cluster_content_similarity(model):
     community_sizes = {}
     
     for agent in model.agents:
-        if not hasattr(agent, "shared_content") or not agent.shared_content:
+        if not hasattr(agent, "recent_content") or not agent.recent_content:
             continue
         # Get the community id of the agent
         comm_id = communities.get(agent.pos, -1)
@@ -142,7 +142,7 @@ def calculate_cluster_content_similarity(model):
         community_sizes[comm_id] += 1
         
         # Add all topic vectors of content this agent has shared
-        for item in agent.shared_content:
+        for item in agent.recent_content:
             community_content[comm_id].append(item['content'].topic_vector)
             # Count fake news
             if item['content'].isFake:
@@ -242,6 +242,8 @@ def calculate_cluster_content_similarity(model):
         'echo_scores': community_echo_scores
     }
 
+    # Store the results for use in non-calculation steps
+    model.last_similarity_results = (within_similarity, between_similarity)
     return within_similarity, between_similarity
 
 def calculate_diversity_improvement(model):
