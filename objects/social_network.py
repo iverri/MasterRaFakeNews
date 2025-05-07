@@ -5,10 +5,11 @@ from utils.objects_utils import (
     adjust_node_connectivity,
 )
 from utils.network_storage import NetworkStorage
+import os
 
 class Social_Network:
 
-    def __init__(self, model, num_agents, m_links, preference_vectors=None, use_stored_network=True):
+    def __init__(self, model, num_agents, m_links, preference_vectors=None, use_stored_network=True, network_file=None):
         self.model = model
         self.num_agents = num_agents
         self.m_links = m_links
@@ -21,26 +22,44 @@ class Social_Network:
         # Check if we should use a stored network
         storage = model.network_storage
         
-        if use_stored_network and storage.has_stored_network():
-            # Use the stored network
-            self.network = storage.get_network()
-            print("Using stored network")
-            # If we're using a stored network, we might want to use stored preference vectors too
-            stored_preferences = storage.get_preference_vectors()
-            if stored_preferences is not None and len(stored_preferences) == num_agents:
-                # Replace the model's preference vectors with stored ones
-                model.preference_vectors = stored_preferences
-
+        if use_stored_network:
+            if network_file and os.path.exists(network_file):
+                # Load network from file for parallel processing
+                self.network, stored_preferences = NetworkStorage.load_network_from_file(network_file)
+                print(f"Using network from file: {network_file}")
+                
+                # If we're using a stored network, we might want to use stored preference vectors too
+                if stored_preferences is not None and len(stored_preferences) == num_agents:
+                    # Replace the model's preference vectors with stored ones
+                    model.preference_vectors = stored_preferences
+                    
+            elif storage.has_stored_network():
+                # Use the in-memory stored network (for non-parallel usage)
+                self.network = storage.get_network()
+                print("Using stored network from memory")
+                
+                # If we're using a stored network, we might want to use stored preference vectors too
+                stored_preferences = storage.get_preference_vectors()
+                if stored_preferences is not None and len(stored_preferences) == num_agents:
+                    # Replace the model's preference vectors with stored ones
+                    model.preference_vectors = stored_preferences
+            else:
+                # Create a new network if no stored network is available
+                self._create_new_network(model, num_agents, m_links, preference_vectors)
         else:
             # Create a new network
-            if preference_vectors is not None:
-                self.network = create_preference_based_network(model, num_agents, m_links, preference_vectors)
-            else:
-                # Fallback to simpler network if no preferences provided
-                self.network = create_basic_network(num_agents, m_links)
-            
-            # Always store the network for future use
-            storage.store_network(self.network, model.preference_vectors)
+            self._create_new_network(model, num_agents, m_links, preference_vectors)
+    
+    def _create_new_network(self, model, num_agents, m_links, preference_vectors):
+        """Create a new network and store it"""
+        if preference_vectors is not None:
+            self.network = create_preference_based_network(model, num_agents, m_links, preference_vectors)
+        else:
+            # Fallback to simpler network if no preferences provided
+            self.network = create_basic_network(num_agents, m_links)
+        
+        # Always store the network for future use
+        model.network_storage.store_network(self.network, model.preference_vectors)
     
     # Not in use
     def update_network(self, probability=0.1):

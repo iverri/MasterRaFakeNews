@@ -25,7 +25,8 @@ class FakeNewsModel(Model):
     '''
     #Initialize agents
     def __init__(self, N=200, m_links=10, news_amount=500, fake_news_percentage=10, 
-                 recommender_type="random", bot_percentage=5, influencer_percentage=5, diversity_level=0, num_recommendations=10, use_stored_network=True, stored_network=None, 
+                 recommender_type="random", bot_percentage=5, influencer_percentage=5, diversity_level=0, 
+                 num_recommendations=10, use_stored_network=True, stored_network=None, network_file=None,
                  seed: int = None):
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
@@ -45,16 +46,16 @@ class FakeNewsModel(Model):
         self.diversity_level = diversity_level
         self.num_recommendations = num_recommendations
         self.use_stored_network = use_stored_network
-        self.network_storage = stored_network if use_stored_network else NetworkStorage()
+        self.network_file = network_file
+        self.network_storage = stored_network if use_stored_network and stored_network else NetworkStorage()
 
-        # Check if we should use a stored network
         # Generate preference vectors first (these might be replaced if using stored network)
         self.preference_vectors = [random_preferences() for _ in range(self.num_agents)]
 
         self.social_media_platform = SocialMediaPlatform(
             self, self.num_agents, self.m_links, self.preference_vectors, 
             self.recommender_type, self.diversity_level, 
-            self.num_recommendations, self.use_stored_network
+            self.num_recommendations, self.use_stored_network, self.network_file
         )
         
         # Setup grid for Mesa

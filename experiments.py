@@ -68,10 +68,14 @@ def run_recommender_comparison_experiment(
         recommender_type=RecommenderType.RANDOM.value  # Use any recommender for initial setup
     )
     
-    network = NetworkStorage()
-    network.store_network(initial_model.social_media_platform.social_network.network, initial_model.preference_vectors)
-    # Now the network is created and stored with current parameters
-    print("Created and stored initial network with current parameters")
+    # Store the network to a file that can be accessed by all processes
+    network_file = f"{output_dir}/network_{timestamp}.pkl"
+    NetworkStorage.store_network_to_file(
+        initial_model.social_media_platform.social_network.network, 
+        initial_model.preference_vectors,
+        network_file
+    )
+    print(f"Created and stored initial network to {network_file}")
     
     # Define parameters for batch run
     # We'll vary the recommender type while keeping other parameters fixed
@@ -85,7 +89,8 @@ def run_recommender_comparison_experiment(
         "diversity_level": [0, 0.75, 1.0],
         "num_recommendations": num_recommendations,
         "use_stored_network": True,  # Now use the stored network for all runs
-        "stored_network": network,
+        "network_file": network_file,  # Pass the network file path instead of the network object
+        "stored_network": None,  # No longer needed
         "recommender_type": [type.value for type in RecommenderType]
     }
     
@@ -98,7 +103,7 @@ def run_recommender_comparison_experiment(
         parameters=parameters,
         iterations=iterations,
         max_steps=max_steps,
-        number_processes=1,  # Set to higher number for parallel processing
+        number_processes=5,  # Set to higher number for parallel processing
         data_collection_period=1,  # Collect data at each step
         display_progress=True
     )
@@ -228,7 +233,7 @@ if __name__ == "__main__":
         fake_news_percentage=10,  # Percentage of fake news
         bot_percentage=7,   # Percentage of bots
         influencer_percentage=3,  # Percentage of influencers
-        num_recommendations=8,   # Number of recommendations
+        num_recommendations=10,   # Number of recommendations
     )
     
     # Analyze the results
