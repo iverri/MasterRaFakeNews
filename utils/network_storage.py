@@ -5,6 +5,7 @@ class NetworkStorage:
     _instance = None
     _network = None
     _preference_vectors = None
+    global_communities = None  # Added to store communities across all model instances
     
     def __new__(cls):
         if cls._instance is None:
@@ -37,3 +38,4 @@ class NetworkStorage:
         """Clear the stored network"""
         cls._network = None
         cls._preference_vectors = None
+        cls.global_communities = None  # Also clear the communities when clearing the network

@@ -1,7 +1,7 @@
 import networkx as nx
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-
+from utils.network_storage import NetworkStorage
 
 def calculate_misinformation_count(model):
     """Calculate the average number of fake news items in agents' recommendation lists."""
@@ -93,15 +93,16 @@ def calculate_echo_chamber_effect(model):
 
 def calculate_cluster_content_similarity(model):
     """
-    Use Louvain to detect communities, then compute:
+    Use community detection to identify communities, then compute:
     - Average pairwise similarity of shared content within each community
     - Average pairwise similarity of shared content between communities
     - Echo chamber score per community
     Returns: (within_similarity, between_similarity)
     
-    This calculation is only performed every 5 steps to improve performance.
+    Communities are detected once and cached for the entire simulation.
+    Content similarity is recalculated every 5 steps.
     """
-    # Only calculate every 5 steps
+    # Only calculate content similarity every 5 steps
     if model.steps % 5 != 0:
         # If we have stored previous results, return those
         if hasattr(model, 'last_similarity_results'):
@@ -109,8 +110,6 @@ def calculate_cluster_content_similarity(model):
         # Otherwise return None values
         return None, None
     
-    import community as community_louvain
-    from sklearn.metrics.pairwise import cosine_similarity
     import numpy as np
 
     # Get the social network
@@ -118,9 +117,79 @@ def calculate_cluster_content_similarity(model):
     if network.number_of_nodes() < 10:
         return None, None
 
-    # Detect communities
-    undirected_network = network.to_undirected()
-    communities = community_louvain.best_partition(undirected_network)
+    # Use a class-level cache for communities across all model instances
+    # This ensures all models use exactly the same community structure
+    if not model.network_storage.global_communities:
+        print("FIRST TIME DETECTING COMMUNITIES - THIS SHOULD HAPPEN ONLY ONCE")
+        # First time - detect communities
+        try:
+            import infomap
+            # Create an Infomap instance with fixed seed for reproducibility
+            im = infomap.Infomap("--directed --silent --seed 42")
+            
+            # Add links to Infomap - use sorted edges for determinism
+            sorted_edges = sorted(network.edges())
+            for source, target in sorted_edges:
+                im.add_link(source, target)
+            
+            # Run the Infomap algorithm
+            im.run()
+            
+            # Extract communities
+            communities = {}
+            for node, module in im.modules:
+                communities[node] = module
+                
+            # Debug: Print community sizes to verify consistency
+            community_counts = {}
+            for comm_id in set(communities.values()):
+                community_counts[comm_id] = sum(1 for v in communities.values() if v == comm_id)
+            print(f"COMMUNITY DETECTION - Network size: {network.number_of_nodes()}, Communities: {len(community_counts)}")
+            print(f"Community sizes: {sorted(community_counts.values(), reverse=True)[:5]}...")
+            
+        except ImportError:
+            # Fallback to Louvain on directed graph using weight adjustments
+            import community as community_louvain
+            
+            # Set random seed for reproducibility
+            np.random.seed(42)
+            
+            # Create a weighted undirected graph that preserves directional information
+            weighted_undirected = nx.Graph()
+            # Use sorted edges for determinism
+            sorted_edges = sorted(network.edges())
+            for u, v in sorted_edges:
+                # Check if reciprocal edge exists
+                if network.has_edge(v, u):
+                    # Reciprocal connection (both follow each other) gets higher weight
+                    weighted_undirected.add_edge(u, v, weight=2.0)
+                else:
+                    # One-way connection gets lower weight
+                    weighted_undirected.add_edge(u, v, weight=1.0)
+            
+            # Run Louvain on the weighted undirected graph
+            communities = community_louvain.best_partition(weighted_undirected)
+            
+            # Debug: Print community sizes to verify consistency
+            community_counts = {}
+            for comm_id in set(communities.values()):
+                community_counts[comm_id] = sum(1 for v in communities.values() if v == comm_id)
+            print(f"COMMUNITY DETECTION (Louvain) - Network size: {network.number_of_nodes()}, Communities: {len(community_counts)}")
+            print(f"Community sizes: {sorted(community_counts.values(), reverse=True)[:5]}...")
+            
+            # Reset random seed to avoid affecting other parts of the simulation
+            np.random.seed(None)
+        
+        # Store communities in the NetworkStorage singleton for global access
+        model.network_storage.global_communities = communities
+        
+        # Also cache in this model instance
+        model.cached_communities = communities
+    else:
+        # Reuse globally cached communities
+        communities = model.network_storage.global_communities
+        model.cached_communities = communities
+        print("Reusing global community structure")
 
     # Map: community_id -> list of content topic vectors shared by members
     community_content = {}
@@ -154,9 +223,12 @@ def calculate_cluster_content_similarity(model):
     # Calculate fake news ratio per community
     community_fake_ratio = {}
     for comm_id in community_fake_news:
+        # Get the actual count of content items, not just the length of topic vectors list
         total_content = len(community_content.get(comm_id, []))
+        fake_content = community_fake_news[comm_id]
+        
         if total_content > 0:
-            community_fake_ratio[comm_id] = community_fake_news[comm_id] / total_content
+            community_fake_ratio[comm_id] = fake_content / total_content
         else:
             community_fake_ratio[comm_id] = 0
 
