@@ -220,10 +220,10 @@ def analyze_results(model_data, summary_df):
 if __name__ == "__main__":
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = run_recommender_comparison_experiment(
-        iterations=1,       # Number of runs per recommender type
-        max_steps=50,       # Steps per run
-        n_agents=100,       # Number of agents
-        m_links=5,         # Links per new node
+        iterations=5,       # Number of runs per recommender type
+        max_steps=700,       # Steps per run
+        n_agents=200,       # Number of agents
+        m_links=8,         # Links per new node
         news_amount=400,    # Initial news items
         fake_news_percentage=10,  # Percentage of fake news
         bot_percentage=7,   # Percentage of bots
