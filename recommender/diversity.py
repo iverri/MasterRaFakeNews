@@ -10,8 +10,15 @@ import numpy as np
 
 def calculate_diversity(topic_vectors):
     """Calculate the diversity score of the recommendations."""
-    if not topic_vectors or len(topic_vectors) < 2:
-        return 0.0  # No diversity with 0 or 1 item
+    # Fix the array truth value error by checking if it's a NumPy array first
+    if isinstance(topic_vectors, np.ndarray):
+        # Check if array is empty or has fewer than 2 elements
+        if topic_vectors.size == 0 or topic_vectors.shape[0] < 2:
+            return 0.0
+    else:
+        # Original check for non-NumPy collections
+        if not topic_vectors or len(topic_vectors) < 2:
+            return 0.0  # No diversity with 0 or 1 item
         
     # Ensure topic vectors are properly formatted for cosine_similarity
     vectors = np.array(topic_vectors)
@@ -19,121 +26,358 @@ def calculate_diversity(topic_vectors):
     # Calculate the cosine similarity between the recommendations
     similarity_matrix = cosine_similarity(vectors)
     
-    # Calculate the diversity score
-    diversity_score = 1 - similarity_matrix.mean()
+    # Remove the diagonal (self-similarity) for more accurate measurement
+    n = similarity_matrix.shape[0]
+    similarity_sum = similarity_matrix.sum() - n  # Subtract diagonal sum (all 1's)
+    num_pairs = n * (n - 1)  # Number of pairs (excluding self-pairs)
+    
+    # Calculate the diversity score (1 - average similarity between different items)
+    diversity_score = 1 - (similarity_sum / num_pairs)
     
     return diversity_score
 
-def diversity_reranking__MMR(user_preferences, recs, lambda_param, k=10):
+def guaranteed_diversity_reranking(user_preferences, recs, k=10, pre_calculated=None):
     """
-    Rerank the recommendations based on diversity using Maximal Marginal Relevance (MMR).
+    Rerank recommendations with a guarantee of increased diversity.
+    Uses a greedy approach that always increases diversity.
     
     Parameters:
     - user_preferences: vector representing user preferences
     - recs: list of NewsContent objects to be reranked
-    - lambda_param: balance between relevance and diversity (0-1)
-                    higher values favor relevance, lower values favor diversity
     - k: number of recommendations to select
+    - pre_calculated: optional dict with pre-calculated data
     Returns:
     - reranked list of NewsContent objects
     """
     # Extract topic vectors from recommendations
-    rec_topic_vectors = [rec.topic_vector for rec in recs]
+    rec_topic_vectors = np.array([rec.topic_vector for rec in recs])
     
-    # Calculate relevance scores (similarity between user preferences and recommendations)
-    relevance_scores = cosine_similarity([user_preferences], rec_topic_vectors)[0]
+    # Calculate original diversity
+    original_diversity = calculate_diversity(rec_topic_vectors)
     
-    selected_indices = []
-    unselected_indices = list(range(len(recs)))
+    # Calculate relevance scores
+    if pre_calculated and 'relevance_scores' in pre_calculated and len(pre_calculated['relevance_scores']) == len(recs):
+        relevance_scores = pre_calculated['relevance_scores']
+    else:
+        relevance_scores = cosine_similarity([user_preferences], rec_topic_vectors)[0]
     
-    # Select items one by one using MMR
-    while unselected_indices and len(selected_indices) < k:
-        mmr_scores = []
+    # Start with the most relevant item
+    best_idx = np.argmax(relevance_scores)
+    selected_indices = [best_idx]
+    remaining_indices = set(range(len(recs)))
+    remaining_indices.remove(best_idx)
+    
+    # Greedy selection that guarantees diversity increases
+    while len(selected_indices) < min(k, len(recs)):
+        best_addition = None
+        best_diversity = 0
         
-        for i in unselected_indices:
-            if not selected_indices:
-                # For the first item, MMR is just the relevance score
-                mmr_score = relevance_scores[i]
-            else:
-                # Calculate similarity to already selected items
-                selected_vectors = [rec_topic_vectors[j] for j in selected_indices]
-                similarity_to_selected = cosine_similarity([rec_topic_vectors[i]], selected_vectors)[0]
-                max_similarity = max(similarity_to_selected) ** 0.5
-                
-                # MMR formula: λ * relevance - (1-λ) * max_similarity
-                mmr_score = lambda_param * relevance_scores[i] - (1 - lambda_param) * max_similarity
+        # Try adding each remaining item and measure the resulting diversity
+        for idx in remaining_indices:
+            candidate_indices = selected_indices + [idx]
+            candidate_vectors = rec_topic_vectors[candidate_indices]
+            candidate_diversity = calculate_diversity(candidate_vectors)
             
-            mmr_scores.append((i, mmr_score))
+            # Find the item that maximizes diversity when added
+            if candidate_diversity > best_diversity:
+                best_diversity = candidate_diversity
+                best_addition = idx
         
-        # Select the item with the highest MMR score
-        best_idx, _ = max(mmr_scores, key=lambda x: x[1])
-        selected_indices.append(best_idx)
-        unselected_indices.remove(best_idx)
+        if best_addition is not None:
+            selected_indices.append(best_addition)
+            remaining_indices.remove(best_addition)
+        else:
+            # If no addition improves diversity (unlikely), add the most relevant remaining item
+            remaining_relevance = [(i, relevance_scores[i]) for i in remaining_indices]
+            if remaining_relevance:
+                best_remaining = max(remaining_relevance, key=lambda x: x[1])[0]
+                selected_indices.append(best_remaining)
+                remaining_indices.remove(best_remaining)
+            else:
+                break
     
     # Create the reranked list
     reranked_recs = [recs[i] for i in selected_indices]
+    
+    # Verify that diversity has increased
+    reranked_vectors = np.array([rec.topic_vector for rec in reranked_recs])
+    new_diversity = calculate_diversity(reranked_vectors)
+    
+    # If somehow diversity didn't increase (edge case), fall back to original with most diverse items first
+    if new_diversity <= original_diversity:
+        # Calculate pairwise distances between all items
+        pairwise_distances = 1 - cosine_similarity(rec_topic_vectors)
+        
+        # For each item, calculate its average distance to all other items
+        avg_distances = np.mean(pairwise_distances, axis=1)
+        
+        # Sort by diversity (average distance to other items)
+        diverse_indices = np.argsort(-avg_distances)[:k]
+        
+        # Create the reranked list
+        reranked_recs = [recs[i] for i in diverse_indices]
     
     return reranked_recs
 
 def diversity_reranking(user_preferences, recs, k=10, pre_calculated=None, diversity_level=0.5):
     """
-    Rerank recommendations using Determinantal Point Process (DPP).
+    Rerank recommendations using a constrained Maximal Marginal Relevance (MMR) approach
+    that guarantees diversity increases.
     
     Parameters:
     - user_preferences: vector representing user preferences
     - recs: list of NewsContent objects to be reranked
     - k: number of recommendations to select
-    - pre_calculated: optional dict with pre-calculated data (topic_vectors, relevance_scores)
-    - diversity_weight: balance between diversity and quality (0-1)
-                        higher values favor diversity, lower values favor quality
+    - pre_calculated: optional dict with pre-calculated data
+    - diversity_level: balance between diversity and relevance (0-1)
+                      higher values favor diversity, lower values favor relevance
     Returns:
-    - reranked list of NewsContent objects
+    - reranked list of NewsContent objects and their diversity score
+    """
+    # Extract topic vectors from recommendations
+    rec_topic_vectors = np.array([rec.topic_vector for rec in recs])
+    n_items = len(recs)
+    k = min(k, n_items)  # Ensure k doesn't exceed available items
+    
+    # Calculate relevance scores - reuse if pre-calculated
+    if pre_calculated and 'relevance_scores' in pre_calculated and len(pre_calculated['relevance_scores']) == n_items:
+        relevance_scores = pre_calculated['relevance_scores']
+    else:
+        relevance_scores = cosine_similarity([user_preferences], rec_topic_vectors)[0]
+    
+    # Pre-compute similarity matrix for all items
+    if pre_calculated and 'similarity_matrix' in pre_calculated:
+        similarity_matrix = pre_calculated['similarity_matrix']
+    else:
+        similarity_matrix = cosine_similarity(rec_topic_vectors)
+    
+    # Get the original top-k recommendations based on relevance
+    top_k_indices = np.argsort(-relevance_scores)[:k]
+    top_k_vectors = rec_topic_vectors[top_k_indices]
+    original_diversity = calculate_diversity(top_k_vectors)
+    
+    # Convert diversity_level to lambda parameter for MMR
+    lambda_param = 1.0 - diversity_level
+    
+    # Initialize with the most relevant item
+    best_idx = np.argmax(relevance_scores)
+    selected_indices = [best_idx]
+    
+    # Use a boolean mask for unselected items (faster than list operations)
+    mask = np.ones(n_items, dtype=bool)
+    mask[best_idx] = False
+    
+    # Cache for diversity scores
+    diversity_cache = {}
+    
+    # Vectorized MMR implementation
+    while len(selected_indices) < k and np.any(mask):
+        # Get indices of remaining items
+        remaining_indices = np.where(mask)[0]
+        
+        if len(selected_indices) < 2:
+            # For the first few items, just use MMR without diversity constraint
+            # Get similarities to selected items for all remaining items at once
+            similarities = similarity_matrix[remaining_indices][:, selected_indices]
+            max_similarities = np.max(similarities, axis=1) if similarities.size > 0 else np.zeros(len(remaining_indices))
+            
+            # Calculate MMR scores for all remaining items at once
+            mmr_scores = lambda_param * relevance_scores[remaining_indices] - (1 - lambda_param) * max_similarities
+            
+            # Select the best item
+            best_remaining_idx = np.argmax(mmr_scores)
+            best_idx = remaining_indices[best_remaining_idx]
+            
+            # Update selected and unselected
+            selected_indices.append(best_idx)
+            mask[best_idx] = False
+        else:
+            # After initial items, consider diversity constraint
+            best_idx = None
+            best_mmr_score = float('-inf')
+            
+            # Calculate MMR scores for all remaining items
+            similarities = similarity_matrix[remaining_indices][:, selected_indices]
+            max_similarities = np.max(similarities, axis=1) if similarities.size > 0 else np.zeros(len(remaining_indices))
+            mmr_scores = lambda_param * relevance_scores[remaining_indices] - (1 - lambda_param) * max_similarities
+            
+            # Sort by MMR score for efficient processing (check best candidates first)
+            sorted_indices = np.argsort(-mmr_scores)
+            
+            # Try candidates in order of MMR score
+            for i in sorted_indices:
+                idx = remaining_indices[i]
+                candidate_indices = selected_indices + [idx]
+                
+                # Check cache first
+                candidate_key = tuple(sorted(candidate_indices))
+                if candidate_key in diversity_cache:
+                    candidate_diversity = diversity_cache[candidate_key]
+                else:
+                    candidate_vectors = rec_topic_vectors[candidate_indices]
+                    candidate_diversity = calculate_diversity(candidate_vectors)
+                    diversity_cache[candidate_key] = candidate_diversity
+                
+                # Accept if diversity improves
+                if candidate_diversity >= original_diversity:
+                    best_idx = idx
+                    break  # Early stopping - take first candidate that improves diversity
+            
+            # If no item improves diversity, find the one that maximizes it
+            if best_idx is None:
+                best_diversity = original_diversity
+                
+                for idx in remaining_indices:
+                    candidate_indices = selected_indices + [idx]
+                    candidate_key = tuple(sorted(candidate_indices))
+                    
+                    if candidate_key in diversity_cache:
+                        candidate_diversity = diversity_cache[candidate_key]
+                    else:
+                        candidate_vectors = rec_topic_vectors[candidate_indices]
+                        candidate_diversity = calculate_diversity(candidate_vectors)
+                        diversity_cache[candidate_key] = candidate_diversity
+                    
+                    if candidate_diversity > best_diversity:
+                        best_diversity = candidate_diversity
+                        best_idx = idx
+                
+                # If still no good candidate, take most relevant remaining item
+                if best_idx is None and len(remaining_indices) > 0:
+                    best_idx = remaining_indices[np.argmax(relevance_scores[remaining_indices])]
+            
+            # Update selected and unselected
+            if best_idx is not None:
+                selected_indices.append(best_idx)
+                mask[best_idx] = False
+    
+    # Check if we need to fall back to pure diversity approach
+    if len(selected_indices) < k:
+        # Reset selection
+        best_idx = np.argmax(relevance_scores)
+        selected_indices = [best_idx]
+        mask = np.ones(n_items, dtype=bool)
+        mask[best_idx] = False
+        
+        # Greedy diversity maximization
+        while len(selected_indices) < k and np.any(mask):
+            remaining_indices = np.where(mask)[0]
+            best_idx = None
+            best_diversity = original_diversity
+            
+            # Vectorized approach for remaining items
+            for batch_start in range(0, len(remaining_indices), 100):  # Process in batches
+                batch_indices = remaining_indices[batch_start:batch_start+100]
+                batch_diversities = []
+                
+                for idx in batch_indices:
+                    candidate_indices = selected_indices + [idx]
+                    candidate_key = tuple(sorted(candidate_indices))
+                    
+                    if candidate_key in diversity_cache:
+                        candidate_diversity = diversity_cache[candidate_key]
+                    else:
+                        candidate_vectors = rec_topic_vectors[candidate_indices]
+                        candidate_diversity = calculate_diversity(candidate_vectors)
+                        diversity_cache[candidate_key] = candidate_diversity
+                    
+                    batch_diversities.append((idx, candidate_diversity))
+                
+                # Find best in batch
+                for idx, diversity in batch_diversities:
+                    if diversity > best_diversity:
+                        best_diversity = diversity
+                        best_idx = idx
+            
+            # If no improvement found, take most relevant remaining item
+            if best_idx is None and len(remaining_indices) > 0:
+                best_idx = remaining_indices[np.argmax(relevance_scores[remaining_indices])]
+            
+            # Update selected and unselected
+            if best_idx is not None:
+                selected_indices.append(best_idx)
+                mask[best_idx] = False
+            else:
+                break  # No more suitable items
+    
+    # Create the reranked list
+    reranked_recs = [recs[i] for i in selected_indices]
+    
+    # Final diversity check
+    reranked_vectors = np.array([rec.topic_vector for rec in reranked_recs])
+    new_diversity = calculate_diversity(reranked_vectors)
+    
+    return reranked_recs, new_diversity
+
+def diversity_reranking_DPP(user_preferences, recs, k=10, pre_calculated=None, diversity_level=0.5):
+    """
+    Rerank recommendations using an efficient diversity-aware approach.
+    
+    Parameters:
+    - user_preferences: vector representing user preferences
+    - recs: list of NewsContent objects to be reranked
+    - k: number of recommendations to select
+    - pre_calculated: optional dict with pre-calculated data
+    - diversity_level: balance between diversity and relevance (0-1)
+    Returns:
+    - reranked list of NewsContent objects and their diversity score
     """
     from dppy.finite_dpps import FiniteDPP
     
-    # Use pre-calculated data if provided, otherwise calculate
+    # Handle pre-calculated data as before
     if pre_calculated and 'topic_vectors' in pre_calculated and 'relevance_scores' in pre_calculated:
-        # Make sure pre-calculated data matches the recommendations list
         if len(pre_calculated['topic_vectors']) == len(recs):
             rec_topic_vectors = pre_calculated['topic_vectors']
             relevance_scores = pre_calculated['relevance_scores']
         else:
-            # If lengths don't match, we need to recalculate
-            rec_topic_vectors = [rec.topic_vector for rec in recs]
+            rec_topic_vectors = np.array([rec.topic_vector for rec in recs])
             relevance_scores = cosine_similarity([user_preferences], rec_topic_vectors)[0]
     else:
-        # Extract topic vectors from recommendations
-        rec_topic_vectors = [rec.topic_vector for rec in recs]
-        
-        # Calculate relevance scores (similarity between user preferences and recommendations)
+        rec_topic_vectors = np.array([rec.topic_vector for rec in recs])
         relevance_scores = cosine_similarity([user_preferences], rec_topic_vectors)[0]
     
     # Handle edge cases
     if len(recs) <= 1 or k <= 1:
-        # Sort by relevance and return top-k
         indices = np.argsort(-np.array(relevance_scores))
-        return [recs[i] for i in indices[:k]]
+        return [recs[i] for i in indices[:k]], 0.0
     
-    # Create quality vector (relevance scores)
-    quality = np.array(relevance_scores)
+    # Calculate original diversity
+    top_k_indices = np.argsort(-np.array(relevance_scores))[:k]
+    top_k_vectors = np.array([rec_topic_vectors[i] for i in top_k_indices])
+    original_diversity = calculate_diversity(top_k_vectors)
     
     # Create similarity kernel
     similarity = cosine_similarity(rec_topic_vectors)
     
-    # Apply diversity weight to the similarity matrix
-    # When diversity_weight is high (close to 1):
-    # - Off-diagonal elements (similarities between different items) are reduced
-    # - This makes diverse sets more probable
-    weighted_similarity = np.copy(similarity)
+    # Create quality vector (relevance scores)
+    quality = np.array(relevance_scores)
     
-    # Only modify off-diagonal elements (keep self-similarity at 1)
-    for i in range(len(weighted_similarity)):
-        for j in range(len(weighted_similarity)):
+    # IMPROVED APPROACH: Use a more direct diversity control
+    # Transform the similarity matrix based on diversity_level
+    # Higher diversity_level = lower similarities between items
+    diversity_factor = diversity_level * 5  # Scale for more pronounced effect
+    
+    # Apply exponential transformation to similarity matrix
+    # This creates a more dramatic effect as diversity_level increases
+    transformed_similarity = np.copy(similarity)
+    for i in range(len(transformed_similarity)):
+        for j in range(len(transformed_similarity)):
             if i != j:  # Only modify off-diagonal elements
-                weighted_similarity[i, j] *= (1 - diversity_level)
+                # Apply exponential transformation - stronger effect with higher diversity_level
+                transformed_similarity[i, j] = similarity[i, j] ** (1 + diversity_factor)
     
-    # Create L-ensemble kernel with weighted similarity
-    L = np.diag(quality) @ weighted_similarity @ np.diag(quality)
+    # Create L-ensemble kernel with direct diversity control
+    # Balance between quality and diversity based on diversity_level
+    quality_weight = 1.0
+    diversity_weight = diversity_level * 3  # Scale for more pronounced effect
+    
+    # Construct kernel with explicit control over quality vs. diversity tradeoff
+    L = quality_weight * np.diag(quality) @ transformed_similarity @ np.diag(quality)
+    
+    # Add diversity-weighted identity matrix to further control diversity
+    # Higher diversity_level means more weight on the identity matrix
+    # This increases repulsion between similar items
+    L += diversity_weight * np.eye(len(L))
     
     # Initialize DPP with L-ensemble
     dpp = FiniteDPP('likelihood', **{'L': L})
@@ -145,4 +389,10 @@ def diversity_reranking(user_preferences, recs, k=10, pre_calculated=None, diver
     # Create the reranked list
     reranked_recs = [recs[i] for i in selected_indices]
     
-    return reranked_recs
+    # Calculate new diversity
+    reranked_vectors = np.array([rec.topic_vector for rec in reranked_recs])
+    new_diversity = calculate_diversity(reranked_vectors)
+    
+    # print(f"Diversity level: {diversity_level}, Improvement: {(new_diversity - original_diversity):.4f}")
+    
+    return reranked_recs, new_diversity

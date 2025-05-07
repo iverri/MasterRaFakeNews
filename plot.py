@@ -329,11 +329,11 @@ def plot_recommender_summary(data, output_path=None):
             # Sort by mean value for better visualization
             setting_data = setting_data.sort_values("mean")
             
-            # Create bar chart
-            bars = axes[i].barh(
+            # Create vertical bar chart
+            bars = axes[i].bar(
                 setting_data["recommender_type"],
                 setting_data["mean"],
-                xerr=setting_data["std"],
+                yerr=setting_data["std"],
                 capsize=5,
                 color=[RECOMMENDER_COLORS[rec] for rec in setting_data["recommender_type"]],
                 alpha=0.8
@@ -341,28 +341,31 @@ def plot_recommender_summary(data, output_path=None):
             
             # Add value labels
             for bar in bars:
-                width = bar.get_width()
+                height = bar.get_height()
                 axes[i].text(
-                    width + (0.01 * avg_data["mean"].max()),
-                    bar.get_y() + bar.get_height()/2,
-                    f'{width:.3f}', 
-                    va='center', 
+                    bar.get_x() + bar.get_width()/2,
+                    height + (0.01 * avg_data["mean"].max()),
+                    f'{height:.3f}', 
+                    ha='center', 
                     fontsize=10, 
                     fontweight='bold',
                     bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=1)
                 )
             
-            # Add a vertical line at x=0 for metrics where it makes sense
+            # Add a horizontal line at y=0 for metrics where it makes sense
             if metric == "Misinformation_Ratio_Difference":
-                axes[i].axvline(x=0, color='gray', linestyle='--', alpha=0.7)
+                axes[i].axhline(y=0, color='gray', linestyle='--', alpha=0.7)
             
             axes[i].set_title(f"{diversity}", fontsize=14)
-            axes[i].set_xlabel(label, fontsize=12)
-            axes[i].grid(True, linestyle='--', alpha=0.7, axis='x')
+            axes[i].set_ylabel(label, fontsize=12)
+            axes[i].grid(True, linestyle='--', alpha=0.7, axis='y')
             
-            # Only add y-label to the first subplot
+            # Rotate x-axis labels for better readability
+            axes[i].tick_params(axis='x', rotation=45)
+            
+            # Only add x-label to the first subplot
             if i == 0:
-                axes[i].set_ylabel("Recommender Type", fontsize=12)
+                axes[i].set_xlabel("Recommender Type", fontsize=12)
         
         # Add a main title
         plt.suptitle(f"{label} by Recommender Type", fontsize=16, y=1.02)
@@ -399,6 +402,7 @@ def create_recommender_ranking_table(data, output_path=None):
         "Misinformation_Count_In_Recommendations": {"label": "MC", "lower_better": True},
         "Echo_Chamber_Effect": {"label": "EC", "lower_better": True},
         "Average_Diversity_Score": {"label": "DS", "lower_better": False},
+        "Diversity_Improvement_Percentage": {"label": "DI", "lower_better": False},
     }
     
     # Get a consistent order of recommender types across all diversity settings
@@ -850,6 +854,20 @@ def plot_community_metrics_by_recommender(data, community_data_file, output_path
             echo_values = [(within_sims.get(comm_id, 0) + fake_ratio.get(comm_id, 0)) / 2 
                           for comm_id in community_ids]
         
+        # Find the actual min and max values in the data
+        min_val = min(echo_values) - 0.05  # Add a small padding below
+        max_val = max(echo_values) + 0.05  # Add a small padding above
+        
+        # Ensure we don't go below 0 or above 1
+        min_val = max(0, min_val)
+        max_val = min(1.0, max_val)
+        
+        # If the range is very small, expand it to show differences better
+        if max_val - min_val < 0.2:
+            mid_point = (max_val + min_val) / 2
+            min_val = max(0, mid_point - 0.1)
+            max_val = min(1.0, mid_point + 0.1)
+            
         bars = axes[i, 2].bar(
             [f"Comm {comm_id}" for comm_id in community_ids],
             echo_values,
@@ -869,7 +887,7 @@ def plot_community_metrics_by_recommender(data, community_data_file, output_path
         axes[i, 2].set_ylabel("Echo Chamber Score", fontsize=10)
         axes[i, 2].tick_params(axis='x', rotation=45)
         axes[i, 2].grid(True, linestyle='--', alpha=0.7, axis='y')
-        axes[i, 2].set_ylim(0, 1.1)
+        axes[i, 2].set_ylim(min_val, max_val)
     
     plt.suptitle("Community Metrics by Recommender Type", fontsize=16, y=1.02)
     
@@ -1098,6 +1116,7 @@ def generate_all_plots(csv_path, output_dir=None, community_data_file=None):
     plot_misinformation_ratio_difference(data, os.path.join(output_dir, "misinformation_ratio_difference_comparison.png"))
     plot_misinformation_count(data, os.path.join(output_dir, "misinformation_count_comparison.png"))
     plot_echo_chamber_effect(data, os.path.join(output_dir, "echo_chamber_effect_comparison.png"))
+    plot_diversity_impact_heatmap(data, os.path.join(output_dir, "diversity_impact_heatmap.png"))
     
     # Generate summary plots
     plot_recommender_summary(data, os.path.join(output_dir, "recommender_summary.png"))

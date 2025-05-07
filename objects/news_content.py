@@ -22,7 +22,7 @@ class NewsContent:
     
 def topic_likely_to_be_fake(topic_vector):
     """Determine if a topic vector is likely to be fake news."""
-    sum_of_first_three_elements = sum(topic_vector[:3])
+    sum_of_first_three_elements = sum(topic_vector[:2])
     return sum_of_first_three_elements > 0.3
 
 def generate_news_content(fake_news_percentage, news_amount, creation_step):

@@ -18,9 +18,11 @@ class UserAgent(Agent):
         self.feed = [] # feed with NewsContent
         self.recommended_content = []
         self.shared_content = []  # Track content this agent has shared
+        self.recent_content = []
         self.social_network = model.social_media_platform.social_network
         self.social_media_platform = model.social_media_platform
         self.diversity_score = 0
+        self.original_diversity_score = 0
         # Activity-related properties
         self.is_active = False
         self.activity_probability = min(max(random.gauss(0.3, 0.1), 0.1), 0.7)  # Base probability of being active
@@ -55,16 +57,13 @@ class UserAgent(Agent):
         
         # Manage feed size (even when inactive)
         self._manage_feed()
+
+
         
         # Only process feed if the agent is active
         if self.is_active:
             # Process both feed and recommendations
             all_content = self.feed + self.recommended_content
-
-            import recommender.diversity as diversity
-            
-            topic_vectors = [content.topic_vector for content in self.recommended_content]
-            self.diversity_score = diversity.calculate_diversity(topic_vectors)
 
             # Evaluate all content in feed and recommendations
             for content in all_content:
@@ -163,14 +162,41 @@ class UserAgent(Agent):
         for content in self.feed:
             content.update_engagement(self.model.steps)
         
-         # Clean up old shared content (keep only last 50 items or last 20 steps)
+        # Clean up old shared content (keep only last 50 items or last 20 steps)
         if len(self.shared_content) > 50:
             current_step = self.model.steps
             self.shared_content = [
                 item for item in self.shared_content 
                 if (current_step - item['step'] <= 20) or (len(self.shared_content) <= 50)
             ]
+
+        # Optimize recent_content management
+        current_step = self.model.steps
         
+        # Only process recent_content every few steps to reduce overhead
+        if current_step % 5 == 0:  # Only update every 3 steps
+            # Use a set to track content IDs for faster duplicate checking
+            existing_content_ids = {item['content'].content for item in self.recent_content}
+            
+            # Add new content to recent_content (avoiding duplicates)
+            for content in self.feed + self.recommended_content:
+                if content.content not in existing_content_ids:
+                    self.recent_content.append({'content': content, 'step': current_step})
+                    existing_content_ids.add(content.content)
+            
+            # Only sort and trim if we have more than the target number
+            if len(self.recent_content) > 20:
+                # Keep only the 20 most recent items
+                self.recent_content.sort(key=lambda x: x['step'], reverse=True)
+                self.recent_content = self.recent_content[:20]
+        
+        # Every 10 steps, do a more thorough cleanup to remove very old content
+        if current_step % 10 == 0 and self.recent_content:
+            self.recent_content = [
+                item for item in self.recent_content
+                if (current_step - item['step'] <= 20)
+            ]
+
     def post_content(self):
         """Generate and post new content."""
         # Determine if the agent decides to post content

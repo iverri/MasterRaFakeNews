@@ -4,7 +4,6 @@ import solara
 import matplotlib.pyplot as plt
 import networkx as nx
 import community  # python-louvain package
-from utils.metrics import calculate_agent_echo_chamber
 from utils.model_utils import get_agent_types
 from recommender.types import RecommenderType
 
@@ -147,7 +146,7 @@ def agent_portrayal(agent):
     
     portrayal["size"] *= agent.influence_level * 10
     return portrayal
-
+'''
 @solara.component
 def MisinformationDashboard(model):
     """Dashboard component showing misinformation metrics"""
@@ -216,180 +215,71 @@ def create_echo_chamber_histogram(scores):
     
     return fig
 
+'''
 
-@solara.component
-def EchoChamberNetwork(model):
-    """Visualize the network with echo chamber highlighting"""
-    visualize_echo_chamber_network(model)
-
-
-def visualize_echo_chamber_network(model):
-    """
-    Visualize the network with communities and echo chamber effects highlighted
-    """
-    # Get the directed network
-    directed_network = model.social_media_platform.social_network.network
-    agent_types = get_agent_types(model)
-    
-    plt.figure(figsize=(8, 4))
-    
-    # Convert to undirected graph ONLY for community detection
-    undirected_network = directed_network.to_undirected()
-    
-    # Detect communities using Louvain method on undirected network
-    communities = community.best_partition(undirected_network)
-    
-    # Count the number of communities
-    num_communities = len(set(communities.values()))
-    
-    # Get position layout that groups communities together
-    pos = nx.spring_layout(directed_network, seed=42)  # Fixed seed for consistent layout
-    
-    # Calculate echo chamber scores for each agent
-    echo_scores = {}
-    for agent in model.agents:
-        if hasattr(agent, "recommended_content") and agent.recommended_content:
-            echo_scores[agent.pos] = calculate_agent_echo_chamber(agent)
-        else:
-            echo_scores[agent.pos] = 0
-    
-    # Define colors for agent types
-    type_colors = {
-        'influencer': '#d057d9',  
-        'bot': '#53b028',        
-        'user': '#4e6ac7'    
-    }
-    
-    # Draw nodes with size based on echo chamber score
-    node_colors = []
-    node_sizes = []
-    
-    for node in directed_network.nodes():
-        # Base color on agent type
-        node_colors.append(type_colors[agent_types[node]])
-        
-        # Size based on echo chamber score (larger = stronger echo chamber)
-        base_size = 100
-        echo_factor = echo_scores.get(node, 0) * 2  # Scale up for visibility
-        node_sizes.append(base_size * (1 + echo_factor))
-    
-    # Draw nodes
-    nx.draw_networkx_nodes(directed_network, pos, 
-                         node_color=node_colors, 
-                         node_size=node_sizes,
-                         alpha=0.8)
-    
-    # Draw edges with color based on whether they connect same community
-    edge_colors = []
-    edge_widths = []
-    
-    for edge in directed_network.edges():
-        source, target = edge
-        # Check if nodes are in the same community
-        if communities[source] == communities[target]:
-            # Same community - stronger echo chamber connection
-            edge_colors.append('#ff9999')  # Light red
-            edge_widths.append(1.5)
-        else:
-            # Different communities - weaker echo chamber connection
-            edge_colors.append('#cccccc')  # Light gray
-            edge_widths.append(0.5)
-    
-    # Draw edges
-    nx.draw_networkx_edges(directed_network, pos, 
-                          edge_color=edge_colors,
-                          width=edge_widths,
-                          alpha=0.6,
-                          arrows=True,
-                          arrowsize=10)
-    
-    # Calculate average followers for each agent type DIRECTLY from the network
-    # This is the critical part that's likely causing the issue
-    num_influencers = int(model.influencer_percentage * model.num_agents)
-    num_bots = int(model.bot_percentage * model.num_agents)
-    num_agents = model.num_agents
-    
-    # Group nodes by type
-    bot_indices = list(range(num_agents - num_bots, num_agents))
-    user_indices = list(range(num_influencers, num_agents - num_bots))
-    influencer_indices = list(range(num_influencers))
-    
-    # Calculate follower counts using in_degree on the DIRECTED network
-    bot_followers = [directed_network.in_degree(i) for i in bot_indices]
-    user_followers = [directed_network.in_degree(i) for i in user_indices]
-    influencer_followers = [directed_network.in_degree(i) for i in influencer_indices]
-    
-    avg_bot_followers = sum(bot_followers) / len(bot_followers) if bot_followers else 0
-    avg_user_followers = sum(user_followers) / len(user_followers) if user_followers else 0
-    avg_influencer_followers = sum(influencer_followers) / len(influencer_followers) if influencer_followers else 0
-    
-    # Add legend with average followers information
-    legend_elements = [
-        plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=type_colors['influencer'], 
-                  markersize=10, label=f'Influencer (avg followers: {avg_influencer_followers:.1f})'),
-        plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=type_colors['bot'], 
-                  markersize=10, label=f'Bot (avg followers: {avg_bot_followers:.1f})'),
-        plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=type_colors['user'], 
-                  markersize=10, label=f'Regular User (avg followers: {avg_user_followers:.1f})'),
-        plt.Line2D([0], [0], color='#ff9999', lw=2, label='Same Community'),
-        plt.Line2D([0], [0], color='#cccccc', lw=1, label='Cross Community')
-    ]
-    plt.legend(handles=legend_elements, loc='upper left', fontsize=6)
-    
-    # Add title with metrics
-    plt.title(f'Echo Chamber Network Visualization\n'
-             f'Number of communities: {num_communities}\n')
-    
-    plt.axis('off')
-    plt.tight_layout()
-    plt.show()
     
 
+def create_plot_with_cleanup(plot_function, *args, **kwargs):
+    """Wrapper to ensure plots are properly cleaned up before creation."""
+    plt.close('all')  # Close all existing figures
+    return plot_function(*args, **kwargs)
+
+def create_metrics_trend_plot(model, metrics):
+    """Create a plot showing trends for multiple metrics."""
+    plt.close('all')  # Close all existing figures
+    # Rest of your function...
+
+'''
 @solara.component
 def MetricsTrendDashboard(model):
     """Dashboard component showing trends of fake news and echo chamber metrics over time"""
     # This is required to trigger updates when the model changes
     from mesa.visualization.utils import update_counter
-    update_counter.get()
+    update_id = update_counter.get()
+    component_key = f"metrics_trend_{id(model)}_{update_id}"
     
-    # Check if data has been collected
-    if hasattr(model, 'datacollector') and model.datacollector.model_vars:
-        # Get the metrics we want to track
-        metrics = {
-            "Misinformation Metrics": [
-                "Misinformation_Ratio_Difference",
-                "Misinformation_Count_In_Recommendations",
-            ],
-        }
-        
-        # Check if we have enough data points
-        if all(metric in model.datacollector.model_vars for metric in 
-               metrics["Misinformation Metrics"]):
+    with solara.Column():
+        # Check if data has been collected
+        if hasattr(model, 'datacollector') and model.datacollector.model_vars:
+            # Get the metrics we want to track
+            metrics = {
+                "Misinformation Metrics": [
+                    "Misinformation_Ratio_Difference",
+                    "Misinformation_Count_In_Recommendations",
+                ],
+            }
             
-            # Get the number of steps
-            steps = len(model.datacollector.model_vars[metrics["Misinformation Metrics"][0]])
-            
-            if steps > 1:  # Need at least 2 points for a line chart
-                with solara.Column():
-                    solara.Markdown("## Metrics Development Over Time")
-                    
-                    # Create misinformation metrics chart
-                    solara.FigureMatplotlib(create_metrics_line_chart(
-                        model, 
-                        metrics["Misinformation Metrics"], 
-                        "Misinformation Metrics Over Time"
-                    ))
-                    
+            # Check if we have enough data points
+            if all(metric in model.datacollector.model_vars for metric in 
+                   metrics["Misinformation Metrics"]):
+                
+                # Get the number of steps
+                steps = len(model.datacollector.model_vars[metrics["Misinformation Metrics"][0]])
+                
+                if steps > 1:  # Need at least 2 points for a line chart
+                    with solara.Column():
+                        solara.Markdown("## Metrics Development Over Time")
+                        
+                        # Create misinformation metrics chart
+                        solara.FigureMatplotlib(create_metrics_line_chart(
+                            model, 
+                            metrics["Misinformation Metrics"], 
+                            "Misinformation Metrics Over Time"
+                        ))
+                        
+                else:
+                    solara.Markdown("Not enough data points yet. Run the simulation longer to see trends.")
             else:
-                solara.Markdown("Not enough data points yet. Run the simulation longer to see trends.")
+                solara.Markdown("Some metrics are not available. Run the simulation to see trends.")
         else:
-            solara.Markdown("Some metrics are not available. Run the simulation to see trends.")
-    else:
-        solara.Markdown("No data available yet. Run the simulation to see trends.")
-
+            solara.Markdown("No data available yet. Run the simulation to see trends.")
+'''
 
 def create_metrics_line_chart(model, metric_names, title):
     """Create a line chart for the given metrics"""
+    # Close all existing figures to prevent accumulation
+    plt.close('all')
+    
     fig, ax = plt.subplots(figsize=(8, 4))
     
     # Get the data for each metric
@@ -441,6 +331,9 @@ def create_metrics_line_chart(model, metric_names, title):
 
 def create_content_propagation_plot(model):
     """Create a line plot for Content Propagation Clustering over time."""
+    # Close all existing figures to prevent accumulation
+    plt.close('all')
+    
     if not hasattr(model, "datacollector"):
         return None
     df = model.datacollector.get_model_vars_dataframe()
@@ -455,19 +348,13 @@ def create_content_propagation_plot(model):
     plt.tight_layout()
     return fig
 
-@solara.component
-def ContentPropagationClusteringDashboard(model):
-    """Dashboard component for Content Propagation Clustering metric."""
-    from mesa.visualization.utils import update_counter
-    update_counter.get()
-    fig = create_content_propagation_plot(model)
-    if fig is not None:
-        solara.FigureMatplotlib(fig)
-    else:
-        solara.Markdown("No data available yet. Run the simulation to see Content Propagation Clustering.")
+
 
 def create_cluster_content_similarity_plot(model):
     """Plot within- and between-cluster content similarity over time."""
+    # Close all existing figures to prevent accumulation
+    plt.close('all')
+    
     if not hasattr(model, "datacollector"):
         return None
     df = model.datacollector.get_model_vars_dataframe()
@@ -486,8 +373,6 @@ def create_cluster_content_similarity_plot(model):
 
 @solara.component
 def ClusterContentSimilarityDashboard(model):
-    from mesa.visualization.utils import update_counter
-    update_counter.get()
     fig = create_cluster_content_similarity_plot(model)
     if fig is not None:
         solara.FigureMatplotlib(fig)
@@ -496,6 +381,9 @@ def ClusterContentSimilarityDashboard(model):
 
 def create_echo_chamber_strength_plot(model):
     """Plot echo chamber strength (difference and ratio) over time."""
+    # Close all existing figures to prevent accumulation
+    plt.close('all')
+    
     if not hasattr(model, "datacollector"):
         return None
     df = model.datacollector.get_model_vars_dataframe()
@@ -518,13 +406,43 @@ def create_echo_chamber_strength_plot(model):
 
 @solara.component
 def EchoChamberStrengthDashboard(model):
-    from mesa.visualization.utils import update_counter
-    update_counter.get()
     fig = create_echo_chamber_strength_plot(model)
     if fig is not None:
         solara.FigureMatplotlib(fig)
     else:
         solara.Markdown("No data available yet. Run the simulation to see echo chamber strength.")
+
+def create_average_diversity_plot(model):
+    """Plot average diversity score over time."""
+    if not hasattr(model, "datacollector"):
+        return None
+    df = model.datacollector.get_model_vars_dataframe()
+    if "Average_Diversity_Score" not in df:
+        return None
+    
+    # Create a new figure and clear any previous plots
+    plt.close('all')  # Close all existing figures
+    fig, ax = plt.subplots(figsize=(8, 4))
+    
+    ax.plot(df["Average_Diversity_Score"], marker='o', color='#9370db')  # Medium purple color
+    ax.set_title("Average Recommendation Diversity Over Time")
+    ax.set_xlabel("Step")
+    ax.set_ylabel("Diversity Score (0-1)")
+    ax.grid(True, alpha=0.3)
+    # Set y-axis limits to better visualize changes
+    ax.set_ylim(0, 1)
+    plt.tight_layout()
+    return fig
+
+@solara.component
+def AverageDiversityDashboard(model):
+    """Dashboard component for Average Diversity metric."""
+    
+    fig = create_average_diversity_plot(model)
+    if fig is not None:
+        solara.FigureMatplotlib(fig)
+    else:
+        solara.Markdown("No diversity data available yet. Run the simulation to see average diversity scores.")
 
 # Model parameters for the UI controls
 model_params = {
@@ -579,7 +497,7 @@ model_params = {
     },
     "recommender_type": {
         "type": "Select",
-        "value": RecommenderType.RANDOM.value,
+        "value": RecommenderType.POPULAR.value,
         "label": "Type of recommender",
         "values": [type.value for type in RecommenderType]
     },
@@ -590,11 +508,6 @@ model_params = {
         "min": 5,
         "max": 20,
         "step": 1
-    },
-    "increase_diversity": {
-        "type": "Checkbox",
-        "value": False,
-        "label": "Increase diversity"
     },
     "diversity_level": {
         "type": "SliderFloat",
@@ -628,23 +541,16 @@ def create_visualization(model_class):
                 with solara.Column(style=column_style):
                     with solara.Card(title="Project Information", style={"width": "fit-content", "height": "100%"}):
                         ProjectInfo(model)
-                with solara.Column(style=column_style):
-                    with solara.Card(style={"width": "100%", "height": "100%"}):
-                        EchoChamberNetwork(model)
             with solara.Row(style=row_style):
-                with solara.Column(style=column_style):
-                    with solara.Card():
-                        MetricsTrendDashboard(model)
-                    with solara.Card(title="Content Propagation Clustering"):
-                        ContentPropagationClusteringDashboard(model)
                 with solara.Column(style=column_style):
                     with solara.Card(title="Agent States"):
                         make_plot_component(["Number_of_Infected", "Number_of_Susceptible", "Number_of_Exposed"])(model)
-            
-            with solara.Card(title="Cluster Content Similarity"):
-                ClusterContentSimilarityDashboard(model)
-            with solara.Card(title="Echo Chamber Strength"):
-                EchoChamberStrengthDashboard(model)
+                    with solara.Card(title="Echo Chamber Effect"):
+                        make_plot_component(["Echo_Chamber_Effect"])(model)
+            with solara.Row(style=row_style):
+                with solara.Column(style=column_style):
+                    with solara.Card(title="Average Recommendation Diversity"):
+                        make_plot_component(["Average_Diversity_Score"])(model)
     
     viz = SolaraViz(
         model=model,

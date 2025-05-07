@@ -8,7 +8,7 @@ from utils.network_storage import NetworkStorage
 
 class Social_Network:
 
-    def __init__(self, model, num_agents, m_links, preference_vectors=None, use_stored_network=False):
+    def __init__(self, model, num_agents, m_links, preference_vectors=None, use_stored_network=True):
         self.model = model
         self.num_agents = num_agents
         self.m_links = m_links
@@ -19,7 +19,7 @@ class Social_Network:
         self.num_regular = num_agents - (self.num_influencers + self.num_bots)
         
         # Check if we should use a stored network
-        storage = NetworkStorage()
+        storage = model.network_storage
         
         if use_stored_network and storage.has_stored_network():
             # Use the stored network
