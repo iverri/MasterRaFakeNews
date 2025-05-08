@@ -125,7 +125,6 @@ class UserAgent(Agent):
                 if self.state == "E":
                     self.state = "I"
                     self.infection_start_step = self.model.steps  # Record when infection started
-
         # Share content
         if adjusted_evaluation > 0.8:
             self.share_content(content, user_evaluation)
@@ -185,16 +184,16 @@ class UserAgent(Agent):
                     existing_content_ids.add(content.content)
             
             # Only sort and trim if we have more than the target number
-            if len(self.recent_content) > 20:
+            if len(self.recent_content) > 30:
                 # Keep only the 20 most recent items
                 self.recent_content.sort(key=lambda x: x['step'], reverse=True)
-                self.recent_content = self.recent_content[:20]
+                self.recent_content = self.recent_content[:30]
         
         # Every 10 steps, do a more thorough cleanup to remove very old content
         if current_step % 10 == 0 and self.recent_content:
             self.recent_content = [
                 item for item in self.recent_content
-                if (current_step - item['step'] <= 20)
+                if (current_step - item['step'] <= 30)
             ]
 
     def post_content(self):

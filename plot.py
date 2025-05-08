@@ -924,10 +924,10 @@ def plot_diversity_impact_table(data, community_data_file, output_path=None):
     recommender_types = sorted(data['recommender_type'].unique())
     
     # Create a figure for the table
-    fig = plt.figure(figsize=(12, len(recommender_types) * 5))
+    fig = plt.figure(figsize=(12, len(recommender_types) * 6))
     
     # Prepare metrics to display
-    metrics = ["Misinfo Ratio", "Cluster sim", "EC"]
+    metrics = ["Misinfo Ratio", "EC"]
     
     # Create a subplot for each recommender type
     for i, rec_type in enumerate(recommender_types):
@@ -989,7 +989,7 @@ def plot_diversity_impact_table(data, community_data_file, output_path=None):
             row.append(f"{int(np.mean(sizes)) if sizes else 0}")
             
             # For each metric and diversity level, get the value
-            for metric_name in ["fake_ratio", "within_sims", "echo_scores"]:
+            for metric_name in ["fake_ratio", "echo_scores"]:
                 for div_level in diversity_levels:
                     if div_level in data_by_diversity:
                         # Get values for this community across all runs with this diversity level
