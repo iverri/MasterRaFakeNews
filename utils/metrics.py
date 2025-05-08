@@ -232,7 +232,17 @@ def calculate_cluster_content_similarity(model):
             within_sims.append(avg_sim)
             community_within_sims[comm_id] = avg_sim
     
-    within_similarity = np.mean(within_sims) if within_sims else None
+    if within_sims and community_sizes:
+        # Create weights based on community sizes
+        weights = []
+        for comm_id in community_within_sims:
+            weights.append(community_sizes[comm_id])
+        
+        # Calculate weighted average
+        within_similarity = np.average(list(community_within_sims.values()), 
+                                      weights=weights) if weights else None
+    else:
+        within_similarity = None
 
     # Store community data in model for access by datacollector
     model.community_data = {

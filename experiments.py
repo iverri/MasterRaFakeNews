@@ -139,12 +139,10 @@ def run_recommender_comparison_experiment(
     model_vars = [
         "RunId", "iteration", "Step", "recommender_type", "num_recommendations", "fake_news_percentage","diversity_level",
         "Number_of_Infected", "Number_of_Susceptible", "Number_of_Exposed",
-        "Network_Density", "Average_Clustering", "Community_Modularity",
         "Average_Diversity_Score",
         "Misinformation_Count_In_Recommendations", "Misinformation_Ratio_Difference",
         "Misinformation_Spread_Percentage", "Echo_Chamber_Effect",
         "Diversity_Improvement_Percentage",
-        "Within_Community_Similarity", "Between_Community_Similarity",
         "Number_Of_Communities"
     ]
     
@@ -177,8 +175,6 @@ def run_recommender_comparison_experiment(
             "avg_echo_chamber_effect": recommender_data["Echo_Chamber_Effect"].mean(),
             "avg_misinfo_in_recs": recommender_data["Misinformation_Count_In_Recommendations"].mean(),
             "avg_misinfo_ratio_diff": recommender_data["Misinformation_Ratio_Difference"].mean() * 100,
-            "avg_within_similarity": recommender_data["Within_Community_Similarity"].mean(),
-            "avg_between_similarity": recommender_data["Between_Community_Similarity"].mean(),
         }
         
         final_step_data.append(summary)

@@ -223,7 +223,7 @@ def plot_misinformation_count(data, output_path=None):
     
     return fig
 
-def plot_echo_chamber_effect(data, output_path=None):
+def plot_echo_chamber_effect(data, output_path=None, skip_steps=5):
     """
     Plot echo chamber effect over time for each recommender type,
     with separate plots for different diversity levels.
@@ -234,9 +234,14 @@ def plot_echo_chamber_effect(data, output_path=None):
         DataFrame containing experiment results
     output_path : str, optional
         Path to save the plot. If None, the plot is not saved.
+    skip_steps : int, optional
+        Number of initial steps to skip in the plot
     """
     # Get unique diversity settings
     diversity_settings = sorted(data['diversity_setting'].unique())
+    
+    # Filter out the first few steps
+    filtered_data = data[data["Step"] > skip_steps]
     
     # Create a figure with subplots for each diversity setting
     fig, axes = plt.subplots(1, len(diversity_settings), figsize=(6*len(diversity_settings), 8), sharey=True)
@@ -248,10 +253,10 @@ def plot_echo_chamber_effect(data, output_path=None):
     # Plot for each diversity setting
     for i, diversity in enumerate(diversity_settings):
         # Filter data for this diversity setting
-        filtered_data = data[data["diversity_setting"] == diversity]
+        setting_filtered_data = filtered_data[filtered_data["diversity_setting"] == diversity]
         
         # Plot data
-        sns.lineplot(data=filtered_data, x="Step", y="Echo_Chamber_Effect", 
+        sns.lineplot(data=setting_filtered_data, x="Step", y="Echo_Chamber_Effect", 
                      hue="recommender_type", errorbar="sd", palette=RECOMMENDER_COLORS,
                      linewidth=2.5, ax=axes[i])
         
@@ -281,7 +286,7 @@ def plot_echo_chamber_effect(data, output_path=None):
     
     return fig
 
-def plot_recommender_summary(data, output_path=None):
+def plot_recommender_summary(data, output_path=None, skip_steps=5):
     """
     Create separate summary plots for each metric, with subplots for each diversity level,
     similar to the timeline plot layout.
@@ -292,6 +297,8 @@ def plot_recommender_summary(data, output_path=None):
         DataFrame containing experiment results
     output_path : str, optional
         Path to save the plots. If None, the plots are not saved.
+    skip_steps : int, optional
+        Number of initial steps to skip for Echo_Chamber_Effect metric
     """
     # Define metrics to plot
     metrics = {
@@ -307,6 +314,11 @@ def plot_recommender_summary(data, output_path=None):
     
     # Create a figure for each metric
     for metric, label in metrics.items():
+        # For Echo_Chamber_Effect, filter out the first few steps
+        metric_data = data.copy()
+        if metric == "Echo_Chamber_Effect":
+            metric_data = metric_data[metric_data["Step"] > skip_steps]
+        
         # Create a figure with subplots for each diversity setting
         fig, axes = plt.subplots(1, len(diversity_settings), 
                                 figsize=(16, 6), 
@@ -317,7 +329,7 @@ def plot_recommender_summary(data, output_path=None):
             axes = [axes]
         
         # Calculate average values for each recommender and diversity setting
-        avg_data = data.groupby(["recommender_type", "diversity_setting"])[metric].agg(
+        avg_data = metric_data.groupby(["recommender_type", "diversity_setting"])[metric].agg(
             ["mean", "std"]).reset_index()
         avg_data.columns = ["recommender_type", "diversity_setting", "mean", "std"]
         
@@ -382,7 +394,7 @@ def plot_recommender_summary(data, output_path=None):
     return fig
 
 
-def create_recommender_ranking_table(data, output_path=None):
+def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
     """
     Create a table ranking recommenders by different metrics,
     using average values across all simulation steps,
@@ -394,6 +406,8 @@ def create_recommender_ranking_table(data, output_path=None):
         DataFrame containing experiment results
     output_path : str, optional
         Path to save the table. If None, the table is not saved.
+    skip_steps : int, optional
+        Number of initial steps to skip for Echo_Chamber_Effect metric
     """
     # Define metrics and whether lower is better
     metrics = {
@@ -417,8 +431,13 @@ def create_recommender_ranking_table(data, output_path=None):
         summary = {}
         for metric, info in metrics.items():
             if metric in filtered_data.columns:
+                # For Echo_Chamber_Effect, filter out the first few steps
+                metric_data = filtered_data.copy()
+                if metric == "Echo_Chamber_Effect":
+                    metric_data = metric_data[metric_data["Step"] > skip_steps]
+                
                 # Group by recommender type and calculate mean across all steps
-                metric_summary = filtered_data.groupby("recommender_type")[metric].mean().reset_index()
+                metric_summary = metric_data.groupby("recommender_type")[metric].mean().reset_index()
                 
                 # Sort based on whether lower is better
                 metric_summary = metric_summary.sort_values(metric, ascending=info["lower_better"])
@@ -511,7 +530,7 @@ def create_recommender_ranking_table(data, output_path=None):
         print("No tables were created.")
         return None
 
-def plot_diversity_impact_heatmap(data, output_path=None):
+def plot_diversity_impact_heatmap(data, output_path=None, skip_steps=5):
     """
     Create a heatmap showing how different diversity levels affect each recommender type
     for key metrics.
@@ -522,6 +541,8 @@ def plot_diversity_impact_heatmap(data, output_path=None):
         DataFrame containing experiment results
     output_path : str, optional
         Path to save the plot. If None, the plot is not saved.
+    skip_steps : int, optional
+        Number of initial steps to skip for Echo_Chamber_Effect metric
     """
     # Define metrics to analyze
     metrics = {
@@ -541,11 +562,16 @@ def plot_diversity_impact_heatmap(data, output_path=None):
     
     # Process each metric
     for i, (metric, label) in enumerate(metrics.items()):
+        # For Echo_Chamber_Effect, filter out the first few steps
+        metric_data = data.copy()
+        if metric == "Echo_Chamber_Effect":
+            metric_data = metric_data[metric_data["Step"] > skip_steps]
+        
         # Calculate mean for the metric by recommender type and diversity level
-        metric_data = data.groupby(["recommender_type", "diversity_level"])[metric].mean().reset_index()
+        metric_summary = metric_data.groupby(["recommender_type", "diversity_level"])[metric].mean().reset_index()
         
         # Pivot the data for heatmap
-        pivot_data = metric_data.pivot(index="recommender_type", columns="diversity_level", values=metric)
+        pivot_data = metric_summary.pivot(index="recommender_type", columns="diversity_level", values=metric)
         
         # Create heatmap
         sns.heatmap(pivot_data, annot=True, fmt=".3f", cmap="RdYlGn_r" if metric != "Average_Diversity_Score" else "RdYlGn",
@@ -618,7 +644,6 @@ def plot_community_metrics_table_by_recommender(data, community_data_file, outpu
         communities = community_data['communities']
         fake_ratio = community_data['fake_ratio']
         sizes = community_data['sizes']
-        within_sims = community_data['within_sims']
         
         # Use the calculated echo chamber scores if available, otherwise calculate them
         if 'echo_scores' in community_data:
@@ -626,10 +651,6 @@ def plot_community_metrics_table_by_recommender(data, community_data_file, outpu
         else:
             # Fall back to the old calculation method
             echo_chamber_scores = {}
-            for comm_id in sorted(set(communities.values())):
-                if comm_id in within_sims and comm_id in fake_ratio:
-                    # Normalize both metrics to 0-1 range and combine them
-                    echo_chamber_scores[comm_id] = (within_sims.get(comm_id, 0) + fake_ratio.get(comm_id, 0)) / 2
         
         # Create a list of unique community IDs
         community_ids = sorted(set(communities.values()))
@@ -638,7 +659,7 @@ def plot_community_metrics_table_by_recommender(data, community_data_file, outpu
         table_data = []
         
         # Header row
-        header = ["Community", "Size", "Misinfo Ratio", "Cluster sim", "EC"]
+        header = ["Community", "Size", "Misinfo Ratio", "EC"]
         table_data.append(header)
         
         # Data rows - use shorter format for community ID
@@ -647,7 +668,6 @@ def plot_community_metrics_table_by_recommender(data, community_data_file, outpu
                 f"{comm_id}",  # Shorter community ID format
                 sizes.get(comm_id, 0),
                 f"{fake_ratio.get(comm_id, 0):.3f}",
-                f"{within_sims.get(comm_id, 0):.3f}",
                 f"{echo_chamber_scores.get(comm_id, 0):.3f}"
             ]
             table_data.append(row)
@@ -667,7 +687,7 @@ def plot_community_metrics_table_by_recommender(data, community_data_file, outpu
         table.scale(1.0, 1.2)
         
         # Set column widths - make first two columns narrower
-        table.auto_set_column_width([0, 1, 2, 3, 4])
+        table.auto_set_column_width([0, 1, 2, 3])
         
         # Manually adjust column widths - make first two columns narrower
         for j in range(len(table_data[0])):
@@ -687,13 +707,8 @@ def plot_community_metrics_table_by_recommender(data, community_data_file, outpu
             fake_val = float(fake_cell.get_text().get_text())
             fake_cell.set_facecolor((fake_val, 1 - fake_val, 0, 0.3))
             
-            # Color within similarity cell (blue = high similarity)
-            sim_cell = table[j+1, 3]
-            sim_val = float(sim_cell.get_text().get_text())
-            sim_cell.set_facecolor((0, 0, sim_val, 0.3))
-            
             # Color echo chamber score cell (purple = high echo chamber)
-            echo_cell = table[j+1, 4]
+            echo_cell = table[j+1, 3]  # Changed from index 4 to 3
             echo_val = float(echo_cell.get_text().get_text())
             echo_cell.set_facecolor((echo_val, 0, echo_val, 0.3))
         
@@ -1107,7 +1122,7 @@ def plot_diversity_impact_table(data, community_data_file, output_path=None):
     
     return fig
 
-def generate_all_plots(csv_path, output_dir=None, community_data_file=None):
+def generate_all_plots(csv_path, output_dir=None, community_data_file=None, skip_steps=5):
     """
     Generate all plots for the given experiment results.
     
@@ -1119,6 +1134,8 @@ def generate_all_plots(csv_path, output_dir=None, community_data_file=None):
         Directory to save the plots. If None, plots are saved in the current directory.
     community_data_file : str, optional
         Path to the pickle file containing community data
+    skip_steps : int, optional
+        Number of initial steps to skip for Echo_Chamber_Effect plots
     """
     # Create output directory if it doesn't exist
     if output_dir:
@@ -1133,14 +1150,14 @@ def generate_all_plots(csv_path, output_dir=None, community_data_file=None):
     plot_misinformation_spread(data, os.path.join(output_dir, "misinformation_infection_comparison.png"))
     plot_misinformation_ratio_difference(data, os.path.join(output_dir, "misinformation_ratio_difference_comparison.png"))
     plot_misinformation_count(data, os.path.join(output_dir, "misinformation_count_comparison.png"))
-    plot_echo_chamber_effect(data, os.path.join(output_dir, "echo_chamber_effect_comparison.png"))
-    plot_diversity_impact_heatmap(data, os.path.join(output_dir, "diversity_impact_heatmap.png"))
+    plot_echo_chamber_effect(data, os.path.join(output_dir, "echo_chamber_effect_comparison.png"), skip_steps)
+    plot_diversity_impact_heatmap(data, os.path.join(output_dir, "diversity_impact_heatmap.png"), skip_steps)
     
     # Generate summary plots
-    plot_recommender_summary(data, os.path.join(output_dir, "recommender_summary.png"))
+    plot_recommender_summary(data, os.path.join(output_dir, "recommender_summary.png"), skip_steps)
     
     # Generate ranking table
-    create_recommender_ranking_table(data, os.path.join(output_dir, "recommender_ranking_table.png"))
+    create_recommender_ranking_table(data, os.path.join(output_dir, "recommender_ranking_table.png"), skip_steps)
     
     # Generate community-specific plots if community data is available
     if community_data_file:
@@ -1163,9 +1180,10 @@ if __name__ == "__main__":
     parser.add_argument('csv_file', type=str, help='Path to the CSV file containing experiment results')
     parser.add_argument('--output-dir', type=str, default=None, help='Directory to save the plots')
     parser.add_argument('--community-data-file', type=str, default=None, help='Path to the pickle file containing community data')
+    parser.add_argument('--skip-steps', type=int, default=5, help='Number of initial steps to skip for Echo Chamber Effect plots')
     
     args = parser.parse_args()
     
-    generate_all_plots(args.csv_file, args.output_dir, args.community_data_file)
+    generate_all_plots(args.csv_file, args.output_dir, args.community_data_file, args.skip_steps)
 
 
