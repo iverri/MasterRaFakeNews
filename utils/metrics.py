@@ -173,7 +173,6 @@ def calculate_cluster_content_similarity(model):
         # Reuse globally cached communities
         communities = model.network_storage.global_communities
         model.cached_communities = communities
-        print("Reusing global community structure")
 
     # Map: community_id -> list of content topic vectors shared by members
     community_content = {}
