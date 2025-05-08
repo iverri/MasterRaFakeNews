@@ -17,8 +17,6 @@ def setup_datacollector(model):
             "Misinformation_Ratio_Difference": lambda m: calculate_misinformation_ratio_difference(m),
             "Misinformation_Spread_Percentage": lambda m: calculate_misinformation_spread(m),
             "Echo_Chamber_Effect": lambda m: calculate_echo_chamber_effect(m),
-            "Within_Community_Similarity": lambda m: calculate_cluster_content_similarity(m)[0],
-            "Between_Community_Similarity": lambda m: calculate_cluster_content_similarity(m)[1],
             "Community_Data": lambda m: getattr(m, 'community_data', None),
             "Number_Of_Communities": lambda m: len(set(m.community_data['communities'].values())) if hasattr(m, 'community_data') else 0,
         },

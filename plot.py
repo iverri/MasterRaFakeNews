@@ -805,7 +805,6 @@ def plot_community_metrics_by_recommender(data, community_data_file, output_path
         communities = community_data['communities']
         fake_ratio = community_data['fake_ratio']
         sizes = community_data['sizes']
-        within_sims = community_data['within_sims']
         echo_scores = community_data.get('echo_scores', {})
         
         # Create a list of unique community IDs
@@ -851,8 +850,7 @@ def plot_community_metrics_by_recommender(data, community_data_file, output_path
             echo_values = [echo_scores.get(comm_id, 0) for comm_id in community_ids]
         else:
             # Calculate echo scores from within similarity and fake ratio if not available
-            echo_values = [(within_sims.get(comm_id, 0) + fake_ratio.get(comm_id, 0)) / 2 
-                          for comm_id in community_ids]
+            echo_values = None
         
         # Find the actual min and max values in the data
         min_val = min(echo_values) - 0.05  # Add a small padding below
@@ -924,10 +922,10 @@ def plot_diversity_impact_table(data, community_data_file, output_path=None):
     recommender_types = sorted(data['recommender_type'].unique())
     
     # Create a figure for the table
-    fig = plt.figure(figsize=(12, len(recommender_types) * 5))
+    fig = plt.figure(figsize=(12, len(recommender_types) * 6))
     
     # Prepare metrics to display
-    metrics = ["Misinfo Ratio", "Cluster sim", "EC"]
+    metrics = ["Misinfo Ratio", "EC"]
     
     # Create a subplot for each recommender type
     for i, rec_type in enumerate(recommender_types):
@@ -988,42 +986,61 @@ def plot_diversity_impact_table(data, community_data_file, output_path=None):
             # Add average size to row
             row.append(f"{int(np.mean(sizes)) if sizes else 0}")
             
-            # For each metric and diversity level, get the value
-            for metric_name in ["fake_ratio", "within_sims", "echo_scores"]:
-                for div_level in diversity_levels:
-                    if div_level in data_by_diversity:
-                        # Get values for this community across all runs with this diversity level
-                        values = []
-                        for div_data in data_by_diversity[div_level]:
-                            # For echo_scores, calculate if not present
-                            if metric_name == "echo_scores" and "echo_scores" not in div_data:
-                                if ('fake_ratio' in div_data and 
-                                    'within_sims' in div_data and 
-                                    comm_id in div_data.get('fake_ratio', {}) and 
-                                    comm_id in div_data.get('within_sims', {})):
-                                    
-                                    echo_score = (div_data['fake_ratio'][comm_id] + 
-                                                 div_data['within_sims'][comm_id]) / 2
-                                    values.append(echo_score)
-                            elif metric_name in div_data and comm_id in div_data[metric_name]:
-                                values.append(div_data[metric_name][comm_id])
-                        
-                        # Calculate average value
-                        if values:
-                            avg_value = np.mean(values)
-                            row.append(f"{avg_value:.3f}")
-                        else:
-                            row.append("N/A")
+            # For each diversity level, get the misinformation ratio value
+            for div_level in diversity_levels:
+                if div_level in data_by_diversity:
+                    # Get values for this community across all runs with this diversity level
+                    values = []
+                    for div_data in data_by_diversity[div_level]:
+                        if 'fake_ratio' in div_data and comm_id in div_data['fake_ratio']:
+                            values.append(div_data['fake_ratio'][comm_id])
+                    
+                    # Calculate average value
+                    if values:
+                        avg_value = np.mean(values)
+                        row.append(f"{avg_value:.3f}")
                     else:
                         row.append("N/A")
+                else:
+                    row.append("N/A")
+            
+            # For each diversity level, get the echo chamber score
+            for div_level in diversity_levels:
+                if div_level in data_by_diversity:
+                    # Get values for this community across all runs with this diversity level
+                    values = []
+                    for div_data in data_by_diversity[div_level]:
+                        # For echo_scores, calculate if not present
+                        if "echo_scores" in div_data and comm_id in div_data["echo_scores"]:
+                            values.append(div_data["echo_scores"][comm_id])
+                        elif ('fake_ratio' in div_data and 
+                              'within_sims' in div_data and 
+                              comm_id in div_data.get('fake_ratio', {}) and 
+                              comm_id in div_data.get('within_sims', {})):
+                            
+                            echo_score = (div_data['fake_ratio'][comm_id] + 
+                                         div_data['within_sims'][comm_id]) / 2
+                            values.append(echo_score)
+                    
+                    # Calculate average value
+                    if values:
+                        avg_value = np.mean(values)
+                        row.append(f"{avg_value:.3f}")
+                    else:
+                        row.append("N/A")
+                else:
+                    row.append("N/A")
             
             table_data.append(row)
         
         # Create column labels
         col_labels = ["ID", "Size"]
-        for metric in metrics:
-            for level in diversity_levels:
-                col_labels.append(f"{level}")
+        # Add Misinfo Ratio columns for each diversity level
+        for level in diversity_levels:
+            col_labels.append(f"MR {level}")
+        # Add Echo Chamber columns for each diversity level
+        for level in diversity_levels:
+            col_labels.append(f"EC {level}")
         
         # Create table
         if len(table_data) > 0:  # Only create table if we have data rows
@@ -1060,14 +1077,12 @@ def plot_diversity_impact_table(data, community_data_file, output_path=None):
                         value = float(cell_text)
                         
                         # Determine which metric this column represents
-                        metric_idx = (k - 2) // len(diversity_levels)
+                        is_misinfo_ratio = 2 <= k < (2 + len(diversity_levels))
                         
                         # Color based on metric type
-                        if metric_idx == 0:  # Misinfo Ratio (red = high)
+                        if is_misinfo_ratio:  # Misinfo Ratio (red = high)
                             cell.set_facecolor((value, 1 - value, 0, 0.3))
-                        elif metric_idx == 1:  # Cluster sim (blue = high)
-                            cell.set_facecolor((0, 0, value, 0.3))
-                        elif metric_idx == 2:  # Echo Chamber (purple = high)
+                        else:  # Echo Chamber (purple = high)
                             cell.set_facecolor((value, 0, value, 0.3))
                     except ValueError:
                         # Skip cells that can't be converted to float
@@ -1077,7 +1092,10 @@ def plot_diversity_impact_table(data, community_data_file, output_path=None):
             for col in range(2, len(col_labels)):
                 cell = table[0, col]
                 current_text = cell.get_text().get_text()
-                cell.get_text().set_text(f"Div {current_text}")
+                if current_text.startswith("MR ") or current_text.startswith("EC "):
+                    level = current_text.split(" ")[1]
+                    prefix = current_text.split(" ")[0]
+                    cell.get_text().set_text(f"{prefix} Div {level}")
             
             ax.set_title(f"Community Metrics - {rec_type}", fontsize=14, pad=20)
     
