@@ -626,7 +626,7 @@ def plot_community_metrics_table_by_recommender(data, community_data_file, outpu
     # Create a figure with subplots - one per recommender type
     # Reduce the height per recommender and use tighter spacing
     fig, axes = plt.subplots(len(recommender_types), 1, 
-                            figsize=(10, 3 * len(recommender_types)),
+                            figsize=(10, 4 * len(recommender_types)),
                             gridspec_kw={'hspace': 0.4})
     
     # If only one recommender type, make axes iterable
@@ -938,8 +938,8 @@ def plot_diversity_impact_table(data, community_data_file, output_path=None):
     diversity_levels = sorted(data['diversity_level'].unique())
     recommender_types = sorted(data['recommender_type'].unique())
     
-    # Create a figure for the table
-    fig = plt.figure(figsize=(12, len(recommender_types) * 6))
+    # Create a figure for the table with wider width to allow for padding
+    fig = plt.figure(figsize=(14, len(recommender_types) * 8))  # Increased width from 14 to 16
     
     # Prepare metrics to display
     metrics = ["Misinfo Ratio", "EC"]
@@ -1117,7 +1117,9 @@ def plot_diversity_impact_table(data, community_data_file, output_path=None):
             ax.set_title(f"Community Metrics - {rec_type}", fontsize=14, pad=20)
     
     plt.suptitle("Community Metrics Analysis by Recommender Type", fontsize=16, y=0.99)
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    
+    # Use tight_layout with more padding on the sides
+    plt.tight_layout(rect=[0.05, 0, 0.95, 0.95])  # Added padding on left and right
     
     if output_path:
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
