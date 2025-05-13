@@ -1122,6 +1122,117 @@ def plot_diversity_impact_table(data, community_data_file, output_path=None):
     
     return fig
 
+def plot_single_diversity_timeline(data, metric_name, y_label, title, output_path=None, skip_steps=0):
+    """
+    Plot a single timeline for a specific diversity setting (No Diversity).
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        DataFrame containing experiment results
+    metric_name : str
+        Name of the metric column to plot
+    y_label : str
+        Label for the y-axis
+    title : str
+        Title for the plot
+    output_path : str, optional
+        Path to save the plot. If None, the plot is not saved.
+    skip_steps : int, optional
+        Number of initial steps to skip in the plot
+    """
+    # Filter data for No Diversity setting
+    filtered_data = data[data["diversity_setting"] == "No Diversity"]
+    
+    # Skip initial steps if specified
+    if skip_steps > 0:
+        filtered_data = filtered_data[filtered_data["Step"] > skip_steps]
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    # Plot data
+    sns.lineplot(data=filtered_data, x="Step", y=metric_name, 
+                 hue="recommender_type", errorbar="sd", palette=RECOMMENDER_COLORS,
+                 linewidth=2.5, ax=ax)
+    
+    ax.set_title(title, fontsize=16)
+    ax.set_xlabel("Step", fontsize=14)
+    ax.set_ylabel(y_label, fontsize=14)
+    ax.grid(True, linestyle='--', alpha=0.7)
+    
+    # Add horizontal line at y=0 for MRD
+    if metric_name == "Misinformation_Ratio_Difference":
+        ax.axhline(y=0, color='gray', linestyle='--', alpha=0.7)
+    
+    # Remove the legend from the plot
+    handles, labels = ax.get_legend_handles_labels()
+    ax.get_legend().remove()
+    
+    # Add the legend at the bottom of the plot
+    fig.legend(handles, labels, bbox_to_anchor=(0.5, 0), loc='upper center', 
+               ncol=len(labels), fontsize=12)
+    
+    plt.tight_layout(rect=[0, 0.05, 1, 1])  # Adjust the bottom margin to make room for the legend
+    
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    
+    return fig
+
+def generate_no_diversity_plots(data, output_dir=None, skip_steps=5):
+    """
+    Generate standalone plots for the No Diversity setting.
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        DataFrame containing experiment results
+    output_dir : str, optional
+        Directory to save the plots. If None, plots are saved in the current directory.
+    skip_steps : int, optional
+        Number of initial steps to skip for Echo_Chamber_Effect plots
+    """
+    # Create output directory if it doesn't exist
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    else:
+        output_dir = ""
+    
+    # Generate individual plots for No Diversity
+    plot_single_diversity_timeline(
+        data, 
+        "Misinformation_Spread_Percentage", 
+        "Infection Rate", 
+        "Misinformation Infection Rate (No Diversity)",
+        os.path.join(output_dir, "no_diversity_infection_rate.png")
+    )
+    
+    plot_single_diversity_timeline(
+        data, 
+        "Misinformation_Ratio_Difference", 
+        "MRD (positive = amplifying misinformation)", 
+        "Misinformation Ratio Difference (No Diversity)",
+        os.path.join(output_dir, "no_diversity_mrd.png")
+    )
+    
+    plot_single_diversity_timeline(
+        data, 
+        "Misinformation_Count_In_Recommendations", 
+        "Average Number of Misinformation Items", 
+        "Average Misinformation Count in Recommendations (No Diversity)",
+        os.path.join(output_dir, "no_diversity_misinfo_count.png")
+    )
+    
+    plot_single_diversity_timeline(
+        data, 
+        "Echo_Chamber_Effect", 
+        "Echo Chamber Index", 
+        "Echo Chamber Effect (No Diversity)",
+        os.path.join(output_dir, "no_diversity_echo_chamber.png"),
+        skip_steps
+    )
+
 def generate_all_plots(csv_path, output_dir=None, community_data_file=None, skip_steps=5):
     """
     Generate all plots for the given experiment results.
@@ -1152,6 +1263,9 @@ def generate_all_plots(csv_path, output_dir=None, community_data_file=None, skip
     plot_misinformation_count(data, os.path.join(output_dir, "misinformation_count_comparison.png"))
     plot_echo_chamber_effect(data, os.path.join(output_dir, "echo_chamber_effect_comparison.png"), skip_steps)
     plot_diversity_impact_heatmap(data, os.path.join(output_dir, "diversity_impact_heatmap.png"), skip_steps)
+    
+    # Generate No Diversity standalone plots
+    generate_no_diversity_plots(data, output_dir, skip_steps)
     
     # Generate summary plots
     plot_recommender_summary(data, os.path.join(output_dir, "recommender_summary.png"), skip_steps)
