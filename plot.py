@@ -359,7 +359,6 @@ def plot_recommender_summary(data, output_path=None, skip_steps=5):
                     height + (0.01 * avg_data["mean"].max()),
                     f'{height:.3f}', 
                     ha='center', 
-                    fontsize=10, 
                     fontweight='bold',
                     bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=1)
                 )
@@ -416,16 +415,19 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
         "Misinformation_Count_In_Recommendations": {"label": "MC", "lower_better": True},
         "Echo_Chamber_Effect": {"label": "EC", "lower_better": True},
         "Average_Diversity_Score": {"label": "DS", "lower_better": False},
-        "Diversity_Improvement_Percentage": {"label": "DI", "lower_better": False},
     }
-    
-    # Get a consistent order of recommender types across all diversity settings
-    all_recommender_types = sorted(data["recommender_type"].unique())
     
     # Create separate tables for each diversity setting
     for diversity_setting in sorted(data['diversity_setting'].unique()):
         # Filter data for the current diversity setting
         filtered_data = data[data["diversity_setting"] == diversity_setting]
+        
+        # For non-"No Diversity" settings, add the Diversity_Improvement_Percentage metric
+        if diversity_setting != "No Diversity" and "Diversity_Improvement_Percentage" in filtered_data.columns:
+            metrics["Diversity_Improvement_Percentage"] = {"label": "DI", "lower_better": False}
+        elif "Diversity_Improvement_Percentage" in metrics:
+            # Remove the metric if we're on "No Diversity" setting
+            del metrics["Diversity_Improvement_Percentage"]
         
         # Calculate average for each metric and recommender across all steps
         summary = {}
@@ -453,6 +455,9 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
             print(f"No metrics found for {diversity_setting}, skipping table creation.")
             continue
         
+        # Get a consistent order of recommender types across all diversity settings
+        all_recommender_types = sorted(filtered_data["recommender_type"].unique())
+        
         # Create a figure for the table
         fig, ax = plt.subplots(figsize=(10, len(all_recommender_types) * 0.5 + 2))
         ax.axis('tight')
@@ -467,9 +472,6 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
         
         # Data rows - use the consistent order of recommender types
         for rec_type in all_recommender_types:
-            if rec_type not in filtered_data["recommender_type"].unique():
-                continue  # Skip if this recommender type isn't in this diversity setting
-                
             row = [rec_type]
             for metric in metrics.keys():
                 if metric in summary:
