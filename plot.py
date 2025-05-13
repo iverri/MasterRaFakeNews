@@ -359,7 +359,6 @@ def plot_recommender_summary(data, output_path=None, skip_steps=5):
                     height + (0.01 * avg_data["mean"].max()),
                     f'{height:.3f}', 
                     ha='center', 
-                    fontsize=10, 
                     fontweight='bold',
                     bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=1)
                 )
@@ -416,16 +415,19 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
         "Misinformation_Count_In_Recommendations": {"label": "MC", "lower_better": True},
         "Echo_Chamber_Effect": {"label": "EC", "lower_better": True},
         "Average_Diversity_Score": {"label": "DS", "lower_better": False},
-        "Diversity_Improvement_Percentage": {"label": "DI", "lower_better": False},
     }
-    
-    # Get a consistent order of recommender types across all diversity settings
-    all_recommender_types = sorted(data["recommender_type"].unique())
     
     # Create separate tables for each diversity setting
     for diversity_setting in sorted(data['diversity_setting'].unique()):
         # Filter data for the current diversity setting
         filtered_data = data[data["diversity_setting"] == diversity_setting]
+        
+        # For non-"No Diversity" settings, add the Diversity_Improvement_Percentage metric
+        if diversity_setting != "No Diversity" and "Diversity_Improvement_Percentage" in filtered_data.columns:
+            metrics["Diversity_Improvement_Percentage"] = {"label": "DI", "lower_better": False}
+        elif "Diversity_Improvement_Percentage" in metrics:
+            # Remove the metric if we're on "No Diversity" setting
+            del metrics["Diversity_Improvement_Percentage"]
         
         # Calculate average for each metric and recommender across all steps
         summary = {}
@@ -453,6 +455,9 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
             print(f"No metrics found for {diversity_setting}, skipping table creation.")
             continue
         
+        # Get a consistent order of recommender types across all diversity settings
+        all_recommender_types = sorted(filtered_data["recommender_type"].unique())
+        
         # Create a figure for the table
         fig, ax = plt.subplots(figsize=(10, len(all_recommender_types) * 0.5 + 2))
         ax.axis('tight')
@@ -467,9 +472,6 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
         
         # Data rows - use the consistent order of recommender types
         for rec_type in all_recommender_types:
-            if rec_type not in filtered_data["recommender_type"].unique():
-                continue  # Skip if this recommender type isn't in this diversity setting
-                
             row = [rec_type]
             for metric in metrics.keys():
                 if metric in summary:
@@ -624,7 +626,7 @@ def plot_community_metrics_table_by_recommender(data, community_data_file, outpu
     # Create a figure with subplots - one per recommender type
     # Reduce the height per recommender and use tighter spacing
     fig, axes = plt.subplots(len(recommender_types), 1, 
-                            figsize=(10, 3 * len(recommender_types)),
+                            figsize=(10, 4 * len(recommender_types)),
                             gridspec_kw={'hspace': 0.4})
     
     # If only one recommender type, make axes iterable
@@ -936,8 +938,8 @@ def plot_diversity_impact_table(data, community_data_file, output_path=None):
     diversity_levels = sorted(data['diversity_level'].unique())
     recommender_types = sorted(data['recommender_type'].unique())
     
-    # Create a figure for the table
-    fig = plt.figure(figsize=(12, len(recommender_types) * 6))
+    # Create a figure for the table with wider width to allow for padding
+    fig = plt.figure(figsize=(14, len(recommender_types) * 8))  # Increased width from 14 to 16
     
     # Prepare metrics to display
     metrics = ["Misinfo Ratio", "EC"]
@@ -1115,12 +1117,125 @@ def plot_diversity_impact_table(data, community_data_file, output_path=None):
             ax.set_title(f"Community Metrics - {rec_type}", fontsize=14, pad=20)
     
     plt.suptitle("Community Metrics Analysis by Recommender Type", fontsize=16, y=0.99)
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    
+    # Use tight_layout with more padding on the sides
+    plt.tight_layout(rect=[0.05, 0, 0.95, 0.95])  # Added padding on left and right
     
     if output_path:
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
     
     return fig
+
+def plot_single_diversity_timeline(data, metric_name, y_label, title, output_path=None, skip_steps=0):
+    """
+    Plot a single timeline for a specific diversity setting (No Diversity).
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        DataFrame containing experiment results
+    metric_name : str
+        Name of the metric column to plot
+    y_label : str
+        Label for the y-axis
+    title : str
+        Title for the plot
+    output_path : str, optional
+        Path to save the plot. If None, the plot is not saved.
+    skip_steps : int, optional
+        Number of initial steps to skip in the plot
+    """
+    # Filter data for No Diversity setting
+    filtered_data = data[data["diversity_setting"] == "No Diversity"]
+    
+    # Skip initial steps if specified
+    if skip_steps > 0:
+        filtered_data = filtered_data[filtered_data["Step"] > skip_steps]
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    # Plot data
+    sns.lineplot(data=filtered_data, x="Step", y=metric_name, 
+                 hue="recommender_type", errorbar="sd", palette=RECOMMENDER_COLORS,
+                 linewidth=2.5, ax=ax)
+    
+    ax.set_title(title, fontsize=16)
+    ax.set_xlabel("Step", fontsize=14)
+    ax.set_ylabel(y_label, fontsize=14)
+    ax.grid(True, linestyle='--', alpha=0.7)
+    
+    # Add horizontal line at y=0 for MRD
+    if metric_name == "Misinformation_Ratio_Difference":
+        ax.axhline(y=0, color='gray', linestyle='--', alpha=0.7)
+    
+    # Remove the legend from the plot
+    handles, labels = ax.get_legend_handles_labels()
+    ax.get_legend().remove()
+    
+    # Add the legend at the bottom of the plot
+    fig.legend(handles, labels, bbox_to_anchor=(0.5, 0), loc='upper center', 
+               ncol=len(labels), fontsize=12)
+    
+    plt.tight_layout(rect=[0, 0.05, 1, 1])  # Adjust the bottom margin to make room for the legend
+    
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    
+    return fig
+
+def generate_no_diversity_plots(data, output_dir=None, skip_steps=5):
+    """
+    Generate standalone plots for the No Diversity setting.
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        DataFrame containing experiment results
+    output_dir : str, optional
+        Directory to save the plots. If None, plots are saved in the current directory.
+    skip_steps : int, optional
+        Number of initial steps to skip for Echo_Chamber_Effect plots
+    """
+    # Create output directory if it doesn't exist
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    else:
+        output_dir = ""
+    
+    # Generate individual plots for No Diversity
+    plot_single_diversity_timeline(
+        data, 
+        "Misinformation_Spread_Percentage", 
+        "Infection Rate", 
+        "Misinformation Infection Rate (No Diversity)",
+        os.path.join(output_dir, "no_diversity_infection_rate.png")
+    )
+    
+    plot_single_diversity_timeline(
+        data, 
+        "Misinformation_Ratio_Difference", 
+        "MRD (positive = amplifying misinformation)", 
+        "Misinformation Ratio Difference (No Diversity)",
+        os.path.join(output_dir, "no_diversity_mrd.png")
+    )
+    
+    plot_single_diversity_timeline(
+        data, 
+        "Misinformation_Count_In_Recommendations", 
+        "Average Number of Misinformation Items", 
+        "Average Misinformation Count in Recommendations (No Diversity)",
+        os.path.join(output_dir, "no_diversity_misinfo_count.png")
+    )
+    
+    plot_single_diversity_timeline(
+        data, 
+        "Echo_Chamber_Effect", 
+        "Echo Chamber Index", 
+        "Echo Chamber Effect (No Diversity)",
+        os.path.join(output_dir, "no_diversity_echo_chamber.png"),
+        skip_steps
+    )
 
 def generate_all_plots(csv_path, output_dir=None, community_data_file=None, skip_steps=5):
     """
@@ -1152,6 +1267,9 @@ def generate_all_plots(csv_path, output_dir=None, community_data_file=None, skip
     plot_misinformation_count(data, os.path.join(output_dir, "misinformation_count_comparison.png"))
     plot_echo_chamber_effect(data, os.path.join(output_dir, "echo_chamber_effect_comparison.png"), skip_steps)
     plot_diversity_impact_heatmap(data, os.path.join(output_dir, "diversity_impact_heatmap.png"), skip_steps)
+    
+    # Generate No Diversity standalone plots
+    generate_no_diversity_plots(data, output_dir, skip_steps)
     
     # Generate summary plots
     plot_recommender_summary(data, os.path.join(output_dir, "recommender_summary.png"), skip_steps)
