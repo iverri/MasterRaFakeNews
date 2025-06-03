@@ -7,6 +7,16 @@ from utils.agents_utils import (
 import random
 
 class UserAgent(Agent):
+    # Define class constants
+    INFECTION_DURATION = 40  # Steps before infected agents can recover
+    FEED_CLEANUP_INTERVAL = 5  # Steps between feed cleanup operations
+    THOROUGH_CLEANUP_INTERVAL = 10  # Steps between thorough cleanup
+    MAX_RECENT_CONTENT = 30  # Maximum items in recent_content
+    MAX_SHARED_CONTENT = 50  # Maximum items in shared_content
+    ENGAGEMENT_THRESHOLD = 0.2  # Minimum engagement to keep content
+    LIKE_THRESHOLD = 0.6  # Threshold for liking content
+    SHARE_THRESHOLD = 0.8  # Threshold for sharing content
+    
     # Initialize the agent
     def __init__(self, model, preference_vector ):
         super().__init__(model)
@@ -47,7 +57,7 @@ class UserAgent(Agent):
         """Execute one step for the agent"""
         # Update infection state if infected
         if self.state == "I":
-            if self.model.steps - self.infection_start_step >= 40:  # After 40 timesteps
+            if self.model.steps - self.infection_start_step >= self.INFECTION_DURATION:
                 # Check if agent still has fake news in feed
                 has_fake_news = any(content.isFake for content in self.feed)
                 self.state = "E" if has_fake_news else "S"
@@ -115,7 +125,7 @@ class UserAgent(Agent):
         adjusted_evaluation = user_evaluation * engagement_factor
         
         # Like content but not share
-        if adjusted_evaluation > 0.6:
+        if adjusted_evaluation > self.LIKE_THRESHOLD:
             self.model.social_media_platform.recommender.add_interaction(
                 self.pos,
                 content.content,
@@ -126,7 +136,7 @@ class UserAgent(Agent):
                     self.state = "I"
                     self.infection_start_step = self.model.steps  # Record when infection started
         # Share content
-        if adjusted_evaluation > 0.8:
+        if adjusted_evaluation > self.SHARE_THRESHOLD:
             self.share_content(content, user_evaluation)
     
     def share_content(self, content, user_evaluation):
@@ -162,18 +172,18 @@ class UserAgent(Agent):
             content.update_engagement(self.model.steps)
         
         # Clean up old shared content (keep only last 50 items or last 20 steps)
-        if len(self.shared_content) > 50:
+        if len(self.shared_content) > self.MAX_SHARED_CONTENT:
             current_step = self.model.steps
             self.shared_content = [
                 item for item in self.shared_content 
-                if (current_step - item['step'] <= 20) or (len(self.shared_content) <= 50)
+                if (current_step - item['step'] <= 20) or (len(self.shared_content) <= self.MAX_SHARED_CONTENT)
             ]
 
         # Optimize recent_content management
         current_step = self.model.steps
         
         # Only process recent_content every few steps to reduce overhead
-        if current_step % 5 == 0:  # Only update every 3 steps
+        if current_step % self.FEED_CLEANUP_INTERVAL == 0:  # Only update every 3 steps
             # Use a set to track content IDs for faster duplicate checking
             existing_content_ids = {item['content'].content for item in self.recent_content}
             
@@ -184,13 +194,13 @@ class UserAgent(Agent):
                     existing_content_ids.add(content.content)
             
             # Only sort and trim if we have more than the target number
-            if len(self.recent_content) > 30:
+            if len(self.recent_content) > self.MAX_RECENT_CONTENT:
                 # Keep only the 20 most recent items
                 self.recent_content.sort(key=lambda x: x['step'], reverse=True)
-                self.recent_content = self.recent_content[:30]
+                self.recent_content = self.recent_content[:self.MAX_RECENT_CONTENT]
         
         # Every 10 steps, do a more thorough cleanup to remove very old content
-        if current_step % 10 == 0 and self.recent_content:
+        if current_step % self.THOROUGH_CLEANUP_INTERVAL == 0 and self.recent_content:
             self.recent_content = [
                 item for item in self.recent_content
                 if (current_step - item['step'] <= 30)

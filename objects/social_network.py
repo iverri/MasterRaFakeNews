@@ -2,7 +2,6 @@ import numpy as np
 from utils.objects_utils import (
     create_preference_based_network,
     create_basic_network,
-    adjust_node_connectivity,
 )
 from utils.network_storage import NetworkStorage
 import os

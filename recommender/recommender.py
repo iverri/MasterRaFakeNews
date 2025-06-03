@@ -91,7 +91,7 @@ class Recommender():
     def _create_dataset(self):
         """Create a LensKit Dataset from interactions"""
         if not self.user_interactions:
-            return None
+            return Nonec
         
         # Convert interactions to DataFrame - only if needed
         if hasattr(self, '_cached_dataset') and len(self.user_interactions) == self._last_dataset_size:
@@ -120,26 +120,35 @@ class Recommender():
             return None
         
     def collaborative_filtering(self, agent, type):
-        """Recommend content using item-based collaborative filtering"""
+        """
+        Recommend content using collaborative filtering.
         
-        # Get content pool from model
-        if not hasattr(agent.model, 'news_content') or not agent.model.news_content:
-            return
-
-        # Check if this specific user has enough interactions (at least 2)
-        # Use dictionary comprehension instead of list comprehension for filtering
-        user_interactions_count = sum(1 for inter in self.user_interactions if inter['user_id'] == agent.pos)
-        
-        # Check if the system as a whole has enough interactions
-        min_interactions = max(150, agent.model.num_agents // 2)  # Minimum total interactions needed
-        if len(self.user_interactions) < min_interactions or user_interactions_count < 3:
-            # Fall back to random recommendations if not enough data overall
-            recommendations = self.random_recommendation(agent, add_to_feed=False)
-            agent.recommended_content.extend(recommendations)
-            agent.diversity_score = calculate_diversity(np.array([rec.topic_vector for rec in recommendations]))
-            return
-        
+        Parameters:
+        -----------
+        agent : UserAgent
+            The agent to generate recommendations for
+        type : str
+            Type of collaborative filtering ("item" or "user")
+        """
         try:
+            # Get content pool from model
+            if not hasattr(agent.model, 'news_content') or not agent.model.news_content:
+                self.random_recommendation(agent)
+                return
+
+            # Check if this specific user has enough interactions (at least 2)
+            # Use dictionary comprehension instead of list comprehension for filtering
+            user_interactions_count = sum(1 for inter in self.user_interactions if inter['user_id'] == agent.pos)
+            
+            # Check if the system as a whole has enough interactions
+            min_interactions = max(150, agent.model.num_agents // 2)  # Minimum total interactions needed
+            if len(self.user_interactions) < min_interactions or user_interactions_count < 3:
+                # Fall back to random recommendations if not enough data overall
+                recommendations = self.random_recommendation(agent, add_to_feed=False)
+                agent.recommended_content.extend(recommendations)
+                agent.diversity_score = calculate_diversity(np.array([rec.topic_vector for rec in recommendations]))
+                return
+            
             # Create dataset only if needed
             dataset = self._create_dataset()
             if dataset is None:
@@ -231,8 +240,8 @@ class Recommender():
                 self.random_recommendation(agent)
                 
         except Exception as e:
-            print(f"Error in collaborative filtering: {e}")
-            traceback.print_exc()  # Add traceback for better debugging
+            print(f"Error in collaborative filtering for agent {agent.pos}: {e}")
+            # Fallback to random recommendations
             self.random_recommendation(agent)
             
     def content_based(self, agent):

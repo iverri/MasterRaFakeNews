@@ -1,4 +1,4 @@
-# TODO: check the diversity score of the recommendations before and after reranking
+
 
 '''
     Use Maximal Marginal Relevance (MMR) to rerank the recommendations
@@ -306,93 +306,5 @@ def diversity_reranking(user_preferences, recs, k=10, pre_calculated=None, diver
     # Final diversity check
     reranked_vectors = np.array([rec.topic_vector for rec in reranked_recs])
     new_diversity = calculate_diversity(reranked_vectors)
-    
-    return reranked_recs, new_diversity
-
-def diversity_reranking_DPP(user_preferences, recs, k=10, pre_calculated=None, diversity_level=0.5):
-    """
-    Rerank recommendations using an efficient diversity-aware approach.
-    
-    Parameters:
-    - user_preferences: vector representing user preferences
-    - recs: list of NewsContent objects to be reranked
-    - k: number of recommendations to select
-    - pre_calculated: optional dict with pre-calculated data
-    - diversity_level: balance between diversity and relevance (0-1)
-    Returns:
-    - reranked list of NewsContent objects and their diversity score
-    """
-    from dppy.finite_dpps import FiniteDPP
-    
-    # Handle pre-calculated data as before
-    if pre_calculated and 'topic_vectors' in pre_calculated and 'relevance_scores' in pre_calculated:
-        if len(pre_calculated['topic_vectors']) == len(recs):
-            rec_topic_vectors = pre_calculated['topic_vectors']
-            relevance_scores = pre_calculated['relevance_scores']
-        else:
-            rec_topic_vectors = np.array([rec.topic_vector for rec in recs])
-            relevance_scores = cosine_similarity([user_preferences], rec_topic_vectors)[0]
-    else:
-        rec_topic_vectors = np.array([rec.topic_vector for rec in recs])
-        relevance_scores = cosine_similarity([user_preferences], rec_topic_vectors)[0]
-    
-    # Handle edge cases
-    if len(recs) <= 1 or k <= 1:
-        indices = np.argsort(-np.array(relevance_scores))
-        return [recs[i] for i in indices[:k]], 0.0
-    
-    # Calculate original diversity
-    top_k_indices = np.argsort(-np.array(relevance_scores))[:k]
-    top_k_vectors = np.array([rec_topic_vectors[i] for i in top_k_indices])
-    original_diversity = calculate_diversity(top_k_vectors)
-    
-    # Create similarity kernel
-    similarity = cosine_similarity(rec_topic_vectors)
-    
-    # Create quality vector (relevance scores)
-    quality = np.array(relevance_scores)
-    
-    # IMPROVED APPROACH: Use a more direct diversity control
-    # Transform the similarity matrix based on diversity_level
-    # Higher diversity_level = lower similarities between items
-    diversity_factor = diversity_level * 5  # Scale for more pronounced effect
-    
-    # Apply exponential transformation to similarity matrix
-    # This creates a more dramatic effect as diversity_level increases
-    transformed_similarity = np.copy(similarity)
-    for i in range(len(transformed_similarity)):
-        for j in range(len(transformed_similarity)):
-            if i != j:  # Only modify off-diagonal elements
-                # Apply exponential transformation - stronger effect with higher diversity_level
-                transformed_similarity[i, j] = similarity[i, j] ** (1 + diversity_factor)
-    
-    # Create L-ensemble kernel with direct diversity control
-    # Balance between quality and diversity based on diversity_level
-    quality_weight = 1.0
-    diversity_weight = diversity_level * 3  # Scale for more pronounced effect
-    
-    # Construct kernel with explicit control over quality vs. diversity tradeoff
-    L = quality_weight * np.diag(quality) @ transformed_similarity @ np.diag(quality)
-    
-    # Add diversity-weighted identity matrix to further control diversity
-    # Higher diversity_level means more weight on the identity matrix
-    # This increases repulsion between similar items
-    L += diversity_weight * np.eye(len(L))
-    
-    # Initialize DPP with L-ensemble
-    dpp = FiniteDPP('likelihood', **{'L': L})
-    
-    # Sample from DPP
-    dpp.sample_exact_k_dpp(size=min(k, len(recs)))
-    selected_indices = list(dpp.list_of_samples[0])
-    
-    # Create the reranked list
-    reranked_recs = [recs[i] for i in selected_indices]
-    
-    # Calculate new diversity
-    reranked_vectors = np.array([rec.topic_vector for rec in reranked_recs])
-    new_diversity = calculate_diversity(reranked_vectors)
-    
-    # print(f"Diversity level: {diversity_level}, Improvement: {(new_diversity - original_diversity):.4f}")
     
     return reranked_recs, new_diversity

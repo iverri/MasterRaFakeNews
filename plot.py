@@ -10,15 +10,40 @@ from matplotlib.patches import Patch
 import networkx as nx
 import pickle
 
-# Define a global color mapping for all recommender types
+# Define a global color mapping for all recommender types using label names
 RECOMMENDER_COLORS = {
-    'random': '#1f77b4',           # blue
-    'popular': '#e377c2',       # pink
-    'content_based': '#2ca02c',    # green
-    'user_knn': '#ff7f0e',    # orange
-    'item_knn': '#d62728',           # red
+    'Rnd': '#1f77b4',           # blue
+    'Pop': '#e377c2',       # pink
+    'CBF': '#2ca02c',    # green
+    'UB-CF': '#ff7f0e',    # orange
+    'IB-CF': '#d62728',           # red
 }
 
+# Define a global label mapping for recommender types
+RECOMMENDER_LABELS = {
+    'random': 'Rnd',
+    'popular': 'Pop',
+    'content_based': 'CBF',
+    'user_knn': 'UB-CF',
+    'item_knn': 'IB-CF',
+}
+
+# Helper function to map recommender types to their display labels
+def get_recommender_label(recommender_type):
+    """
+    Map a recommender type to its display label.
+    
+    Parameters:
+    -----------
+    recommender_type : str
+        The original recommender type name
+    
+    Returns:
+    --------
+    str
+        The display label for the recommender type
+    """
+    return RECOMMENDER_LABELS.get(recommender_type, recommender_type)
 
 def load_experiment_data(csv_path):
     """
@@ -70,14 +95,18 @@ def plot_misinformation_spread(data, output_path=None):
     if len(diversity_settings) == 1:
         axes = [axes]
     
+    # Create a copy of the data with mapped labels
+    plot_data = data.copy()
+    plot_data['recommender_label'] = plot_data['recommender_type'].apply(get_recommender_label)
+    
     # Plot for each diversity setting
     for i, diversity in enumerate(diversity_settings):
         # Filter data for this diversity setting
-        filtered_data = data[data["diversity_setting"] == diversity]
+        filtered_data = plot_data[plot_data["diversity_setting"] == diversity]
         
-        # Plot data
+        # Plot data using the label column instead of recommender_type
         sns.lineplot(data=filtered_data, x="Step", y="Misinformation_Spread_Percentage", 
-                     hue="recommender_type", errorbar="sd", palette=RECOMMENDER_COLORS,
+                     hue="recommender_label", errorbar="sd", palette=RECOMMENDER_COLORS,
                      linewidth=2.5, ax=axes[i])
         
         axes[i].set_title(f"{diversity}", fontsize=16)
@@ -128,14 +157,18 @@ def plot_misinformation_ratio_difference(data, output_path=None):
     if len(diversity_settings) == 1:
         axes = [axes]
     
+    # Create a copy of the data with mapped labels
+    plot_data = data.copy()
+    plot_data['recommender_label'] = plot_data['recommender_type'].apply(get_recommender_label)
+    
     # Plot for each diversity setting
     for i, diversity in enumerate(diversity_settings):
         # Filter data for this diversity setting
-        filtered_data = data[data["diversity_setting"] == diversity]
+        filtered_data = plot_data[plot_data["diversity_setting"] == diversity]
         
         # Plot data
         sns.lineplot(data=filtered_data, x="Step", y="Misinformation_Ratio_Difference", 
-                     hue="recommender_type", errorbar="sd", palette=RECOMMENDER_COLORS,
+                     hue="recommender_label", errorbar="sd", palette=RECOMMENDER_COLORS,
                      linewidth=2.5, ax=axes[i])
         
         axes[i].set_title(f"{diversity}", fontsize=16)
@@ -187,14 +220,18 @@ def plot_misinformation_count(data, output_path=None):
     if len(diversity_settings) == 1:
         axes = [axes]
     
+    # Create a copy of the data with mapped labels
+    plot_data = data.copy()
+    plot_data['recommender_label'] = plot_data['recommender_type'].apply(get_recommender_label)
+    
     # Plot for each diversity setting
     for i, diversity in enumerate(diversity_settings):
         # Filter data for this diversity setting
-        filtered_data = data[data["diversity_setting"] == diversity]
+        filtered_data = plot_data[plot_data["diversity_setting"] == diversity]
         
         # Plot data
         sns.lineplot(data=filtered_data, x="Step", y="Misinformation_Count_In_Recommendations", 
-                     hue="recommender_type", errorbar="sd", palette=RECOMMENDER_COLORS,
+                     hue="recommender_label", errorbar="sd", palette=RECOMMENDER_COLORS,
                      linewidth=2.5, ax=axes[i])
         
         axes[i].set_title(f"{diversity}", fontsize=16)
@@ -243,6 +280,10 @@ def plot_echo_chamber_effect(data, output_path=None, skip_steps=5):
     # Filter out the first few steps
     filtered_data = data[data["Step"] > skip_steps]
     
+    # Create a copy of the data with mapped labels
+    plot_data = filtered_data.copy()
+    plot_data['recommender_label'] = plot_data['recommender_type'].apply(get_recommender_label)
+    
     # Create a figure with subplots for each diversity setting
     fig, axes = plt.subplots(1, len(diversity_settings), figsize=(6*len(diversity_settings), 8), sharey=True)
     
@@ -253,11 +294,11 @@ def plot_echo_chamber_effect(data, output_path=None, skip_steps=5):
     # Plot for each diversity setting
     for i, diversity in enumerate(diversity_settings):
         # Filter data for this diversity setting
-        setting_filtered_data = filtered_data[filtered_data["diversity_setting"] == diversity]
+        setting_filtered_data = plot_data[plot_data["diversity_setting"] == diversity]
         
         # Plot data
         sns.lineplot(data=setting_filtered_data, x="Step", y="Echo_Chamber_Effect", 
-                     hue="recommender_type", errorbar="sd", palette=RECOMMENDER_COLORS,
+                     hue="recommender_label", errorbar="sd", palette=RECOMMENDER_COLORS,
                      linewidth=2.5, ax=axes[i])
         
         axes[i].set_title(f"{diversity}", fontsize=16)
@@ -308,14 +349,17 @@ def plot_recommender_summary(data, output_path=None, skip_steps=5):
         "Echo_Chamber_Effect": "EC"
     }
     
+    # Create a copy of the data with mapped labels
+    plot_data = data.copy()
+    plot_data['recommender_label'] = plot_data['recommender_type'].apply(get_recommender_label)
+    
     # Get unique diversity settings and recommender types
-    diversity_settings = sorted(data["diversity_setting"].unique())
-    recommender_types = sorted(data["recommender_type"].unique())
+    diversity_settings = sorted(plot_data["diversity_setting"].unique())
     
     # Create a figure for each metric
     for metric, label in metrics.items():
         # For Echo_Chamber_Effect, filter out the first few steps
-        metric_data = data.copy()
+        metric_data = plot_data.copy()
         if metric == "Echo_Chamber_Effect":
             metric_data = metric_data[metric_data["Step"] > skip_steps]
         
@@ -329,9 +373,9 @@ def plot_recommender_summary(data, output_path=None, skip_steps=5):
             axes = [axes]
         
         # Calculate average values for each recommender and diversity setting
-        avg_data = metric_data.groupby(["recommender_type", "diversity_setting"])[metric].agg(
+        avg_data = metric_data.groupby(["recommender_type", "recommender_label", "diversity_setting"])[metric].agg(
             ["mean", "std"]).reset_index()
-        avg_data.columns = ["recommender_type", "diversity_setting", "mean", "std"]
+        avg_data.columns = ["recommender_type", "recommender_label", "diversity_setting", "mean", "std"]
         
         # Plot for each diversity setting
         for i, diversity in enumerate(diversity_settings):
@@ -341,13 +385,13 @@ def plot_recommender_summary(data, output_path=None, skip_steps=5):
             # Sort by mean value for better visualization
             setting_data = setting_data.sort_values("mean")
             
-            # Create vertical bar chart
+            # Create vertical bar chart - use recommender_label for color mapping
             bars = axes[i].bar(
-                setting_data["recommender_type"],
+                setting_data["recommender_label"],
                 setting_data["mean"],
                 yerr=setting_data["std"],
                 capsize=5,
-                color=[RECOMMENDER_COLORS[rec] for rec in setting_data["recommender_type"]],
+                color=[RECOMMENDER_COLORS[label] for label in setting_data["recommender_label"]],
                 alpha=0.8
             )
             
@@ -392,7 +436,6 @@ def plot_recommender_summary(data, output_path=None, skip_steps=5):
     # Return the last created figure
     return fig
 
-
 def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
     """
     Create a table ranking recommenders by different metrics,
@@ -417,10 +460,14 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
         "Average_Diversity_Score": {"label": "DS", "lower_better": False},
     }
     
+    # Create a copy of the data with mapped labels
+    plot_data = data.copy()
+    plot_data['recommender_label'] = plot_data['recommender_type'].apply(get_recommender_label)
+    
     # Create separate tables for each diversity setting
-    for diversity_setting in sorted(data['diversity_setting'].unique()):
+    for diversity_setting in sorted(plot_data['diversity_setting'].unique()):
         # Filter data for the current diversity setting
-        filtered_data = data[data["diversity_setting"] == diversity_setting]
+        filtered_data = plot_data[plot_data["diversity_setting"] == diversity_setting]
         
         # For non-"No Diversity" settings, add the Diversity_Improvement_Percentage metric
         if diversity_setting != "No Diversity" and "Diversity_Improvement_Percentage" in filtered_data.columns:
@@ -439,7 +486,7 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
                     metric_data = metric_data[metric_data["Step"] > skip_steps]
                 
                 # Group by recommender type and calculate mean across all steps
-                metric_summary = metric_data.groupby("recommender_type")[metric].mean().reset_index()
+                metric_summary = metric_data.groupby(["recommender_type", "recommender_label"])[metric].mean().reset_index()
                 
                 # Sort based on whether lower is better
                 metric_summary = metric_summary.sort_values(metric, ascending=info["lower_better"])
@@ -472,7 +519,8 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
         
         # Data rows - use the consistent order of recommender types
         for rec_type in all_recommender_types:
-            row = [rec_type]
+            rec_label = get_recommender_label(rec_type)
+            row = [rec_label]
             for metric in metrics.keys():
                 if metric in summary:
                     # Find the rank and value for this recommender type
@@ -503,7 +551,7 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
         # Color the cells based on rank
         for i in range(len(table_data) - 1):  # -1 to exclude header
             for j in range(1, len(header)):
-                cell = table[i+1, j]
+                cell = table[i+1, j]  # +1 to account for header row
                 cell_text = cell.get_text().get_text()
                 
                 # Skip cells with N/A
@@ -589,8 +637,6 @@ def plot_diversity_impact_heatmap(data, output_path=None, skip_steps=5):
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
     
     return fig
-
-
 
 def plot_community_metrics_table_by_recommender(data, community_data_file, output_path=None):
     """
@@ -726,7 +772,6 @@ def plot_community_metrics_table_by_recommender(data, community_data_file, outpu
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
     
     return fig
-
 
 def organize_community_data_by_recommender(community_data_file):
     """
@@ -1148,16 +1193,20 @@ def plot_single_diversity_timeline(data, metric_name, y_label, title, output_pat
     # Filter data for No Diversity setting
     filtered_data = data[data["diversity_setting"] == "No Diversity"]
     
+    # Create a copy with mapped labels
+    plot_data = filtered_data.copy()
+    plot_data['recommender_label'] = plot_data['recommender_type'].apply(get_recommender_label)
+    
     # Skip initial steps if specified
     if skip_steps > 0:
-        filtered_data = filtered_data[filtered_data["Step"] > skip_steps]
+        plot_data = plot_data[plot_data["Step"] > skip_steps]
     
     # Create figure
     fig, ax = plt.subplots(figsize=(10, 8))
     
     # Plot data
-    sns.lineplot(data=filtered_data, x="Step", y=metric_name, 
-                 hue="recommender_type", errorbar="sd", palette=RECOMMENDER_COLORS,
+    sns.lineplot(data=plot_data, x="Step", y=metric_name, 
+                 hue="recommender_label", errorbar="sd", palette=RECOMMENDER_COLORS,
                  linewidth=2.5, ax=ax)
     
     ax.set_title(title, fontsize=16)

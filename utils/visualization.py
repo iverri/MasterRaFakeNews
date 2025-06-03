@@ -44,7 +44,7 @@ def visualize_network(network, agent_types=None):
     - network: networkx graph object
     - agent_types: dictionary mapping node ids to agent types ('influencer', 'bot', 'user')
     """
-    plt.figure(figsize=(12, 8))
+    plt.figure(figsize=(9, 5))
     
     # Convert to undirected graph for community detection
     undirected_network = network.to_undirected()
@@ -116,9 +116,7 @@ def visualize_network(network, agent_types=None):
     # Add title with metrics
     clustering_coef = nx.average_clustering(undirected_network)
     modularity = community.modularity(communities, undirected_network)
-    plt.title(f'Network Communities (Total: {num_communities})\nClustering Coefficient: {clustering_coef:.3f}\n'
-             f'Modularity: {modularity:.3f}\n'
-             f'Total Connections: {network.number_of_edges()}')
+    plt.title(f'Network Communities (Total: {num_communities})')
     
     plt.axis('off')
     plt.show()
@@ -497,7 +495,7 @@ model_params = {
     },
     "recommender_type": {
         "type": "Select",
-        "value": RecommenderType.POPULAR.value,
+        "value": RecommenderType.RANDOM.value,
         "label": "Type of recommender",
         "values": [type.value for type in RecommenderType]
     },
@@ -532,7 +530,7 @@ def create_visualization(model_class):
     @solara.component
     def DashboardLayout(model):
         # Apply some basic styling with inline styles
-        container_style = {"max-width": "100%", "margin": "0 auto", "padding": "20px"}
+        container_style = {"max-width": "100%", "margin": "0 auto", "padding": "10px"}
         row_style = {"display": "flex", "margin-bottom": "20px", "width": "100%"}
         column_style = {"min-width": "100%"}
         
@@ -541,16 +539,17 @@ def create_visualization(model_class):
                 with solara.Column(style=column_style):
                     with solara.Card(title="Project Information", style={"width": "fit-content", "height": "100%"}):
                         ProjectInfo(model)
+                with solara.Column(style=column_style):
+                    with solara.Card(title="Social Network", style={"width": "fit-content", "height": "100%", "max-height": "500px"}):
+                        SocialNetwork(model)
             with solara.Row(style=row_style):
                 with solara.Column(style=column_style):
                     with solara.Card(title="Agent States"):
                         make_plot_component(["Number_of_Infected", "Number_of_Susceptible", "Number_of_Exposed"])(model)
-                    with solara.Card(title="Echo Chamber Effect"):
-                        make_plot_component(["Echo_Chamber_Effect"])(model)
-            with solara.Row(style=row_style):
                 with solara.Column(style=column_style):
-                    with solara.Card(title="Average Recommendation Diversity"):
-                        make_plot_component(["Average_Diversity_Score"])(model)
+                    with solara.Card(title="Misinformation Metrics"):
+                        make_plot_component(["Misinformation_Ratio_Difference", "Misinformation_Count_In_Recommendations"])(model)
+
     
     viz = SolaraViz(
         model=model,

@@ -11,7 +11,6 @@ import numpy as np
 # NETWORK CREATION FUNCTIONS
 #------------------------------------------------------------------------------
 
-# TODO: look at bot handling
 
 def create_preference_based_network(model, num_agents, m_links, preference_vectors):
     """
@@ -223,39 +222,5 @@ def swap_node_connections(G, node1, node2):
     # Add swapped edges
     G.add_edges_from([(node2, n) for n in node1_neighbors])
     G.add_edges_from([(node1, n) for n in node2_neighbors])
-
-def adjust_node_connectivity(G, num_agents, num_influencers, num_bots):
-    """
-    Adjust network to ensure proper connectivity for different agent types.
-    
-    Args:
-        G (nx.Graph): The network graph
-        num_agents (int): Total number of agents
-        num_influencers (int): Number of influencer agents
-        num_bots (int): Number of bot agents
-    """
-    # Get node degrees
-    degrees = dict(G.degree())
-    nodes_by_degree = sorted(degrees.items(), key=lambda x: x[1], reverse=True)
-    
-    # Ensure influencers have high connectivity
-    for i in range(num_influencers):
-        old_node = nodes_by_degree[i][0]
-        if i >= num_influencers:  # If high-degree node isn't an influencer
-            # Swap with a lower degree node that should be an influencer
-            new_node = i
-            swap_node_connections(G, old_node, new_node)
-    
-    # Ensure bots have low connectivity
-    bot_start_idx = num_agents - num_bots
-    for i in range(bot_start_idx, num_agents):
-        old_node = nodes_by_degree[-i][0]
-        if i < bot_start_idx:  # If low-degree node isn't a bot
-            # Swap with a higher degree node that should be a bot
-            new_node = i
-            swap_node_connections(G, old_node, new_node)
-
-
-
 
 

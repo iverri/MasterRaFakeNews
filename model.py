@@ -9,25 +9,64 @@ from utils.visualization import project_info
 from utils.model_utils import (
     distribute_news,
     random_preferences,
-    get_agent_types
-    
 )
 from utils.datacollector import setup_datacollector
 from objects.social_media_platform import SocialMediaPlatform
+from typing import Optional, List
 
 # Create a model class
 class FakeNewsModel(Model):
-    '''This model simulates the spread of fake news in a social network.  
+    '''
+    This model simulates the spread of fake news in a social network.  
     At each timestep, users receive a content feed, engage with news,  
     and may transition from Susceptible (S) → Exposed (E) → Infected (I).  
     Bots and influencers accelerate spread, while moderation reduces visibility.  
-    The process repeats over multiple timesteps, influencing network dynamics. 
+    The process repeats over multiple timesteps, influencing network dynamics.
+    
+    Parameters:
+    -----------
+    N : int, default=200
+        Number of agents in the simulation
+    m_links : int, default=10
+        Average number of connections per agent in the network
+    news_amount : int, default=500
+        Initial amount of news content to generate
+    fake_news_percentage : int, default=10
+        Percentage of news content that is fake (0-100)
+    recommender_type : str, default="random"
+        Type of recommendation algorithm to use
+    bot_percentage : int, default=5
+        Percentage of agents that are bots (0-100)
+    influencer_percentage : int, default=5
+        Percentage of agents that are influencers (0-100)
+    diversity_level : float, default=0
+        Level of diversity in recommendations (0-1)
+    num_recommendations : int, default=10
+        Number of recommendations to show each agent per step
+    use_stored_network : bool, default=True
+        Whether to use a pre-generated network structure
+    stored_network : NetworkStorage, optional
+        Pre-existing network storage object
+    network_file : str, optional
+        Path to stored network file for parallel processing
+    seed : int, optional
+        Random seed for reproducibility
     '''
     #Initialize agents
-    def __init__(self, N=200, m_links=10, news_amount=500, fake_news_percentage=10, 
-                 recommender_type="random", bot_percentage=5, influencer_percentage=5, diversity_level=0, 
-                 num_recommendations=10, use_stored_network=True, stored_network=None, network_file=None,
-                 seed: int = None):
+    def __init__(self, 
+                 N: int = 200, 
+                 m_links: int = 10, 
+                 news_amount: int = 500, 
+                 fake_news_percentage: int = 10,
+                 recommender_type: str = "random", 
+                 bot_percentage: int = 5, 
+                 influencer_percentage: int = 5, 
+                 diversity_level: float = 0,
+                 num_recommendations: int = 10, 
+                 use_stored_network: bool = True, 
+                 stored_network: Optional[NetworkStorage] = None, 
+                 network_file: Optional[str] = None,
+                 seed: Optional[int] = None) -> None:
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
         
@@ -103,7 +142,21 @@ class FakeNewsModel(Model):
         self.datacollector.collect(self)
 
     def _validate_parameters(self, N, m_links):
-        """Validate model parameters."""
+        """
+        Validate model parameters to ensure they are within acceptable ranges.
+        
+        Parameters:
+        -----------
+        N : int
+            Number of agents (must be positive)
+        m_links : int
+            Number of edges (must be less than number of nodes)
+            
+        Raises:
+        -------
+        ValueError
+            If parameters are invalid
+        """
         if N <= 0:
             raise ValueError("Number of agents must be positive")
         if m_links >= N:
@@ -111,7 +164,10 @@ class FakeNewsModel(Model):
             
         
     def _setup_grid(self):
-        """Setup the grid for Mesa."""
+        """
+        Setup the Mesa grid using the social network structure.
+        Creates a NetworkGrid from the directed social network graph.
+        """
         G = nx.Graph()
         G.add_nodes_from(range(self.num_agents))
         undirected_edges = list(self.social_media_platform.social_network.network.to_undirected().edges())
@@ -119,7 +175,11 @@ class FakeNewsModel(Model):
         self.grid = NetworkGrid(G)
 
     def _create_agents(self):
-        """Create and place agents in the grid."""
+        """
+        Create and place agents in the grid according to their types.
+        Agents are created based on their index position, with influencers
+        having the lowest indices, followed by bots, then regular users.
+        """
  
         for i in range(self.num_agents):
             user = self._create_agent_by_type(i)
