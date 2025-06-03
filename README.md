@@ -19,12 +19,14 @@ This project implements an agent-based model (ABM) to simulate the propagation o
 ### Model Architecture
 
 FakeNewsModel
+```
 ├── SocialMediaPlatform
 │ ├── SocialNetwork (NetworkX directed graph)
 │ └── Recommender (Multiple algorithm implementations)
 ├── Agents (UserAgent, BotAgent, InfluencerAgent)
 ├── NewsContent (Real/fake news with topic vectors)
 └── DataCollector (Metrics and visualization)
+```
 
 
 
@@ -55,6 +57,8 @@ The Solara dashboard provides an interactive interface to run and visualize the 
 
 
 ## Project Structure
+
+```
 ├── model.py # Main simulation model
 ├── config.py # Configuration parameters
 ├── agents/
@@ -78,7 +82,7 @@ The Solara dashboard provides an interactive interface to run and visualize the 
 ├── experiment_results/ # Output directory
 ├── plots/ # Generated visualizations
 └── diagrams/ # Documentation diagrams
-
+```
 
 ## Installation
 
