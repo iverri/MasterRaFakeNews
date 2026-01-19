@@ -100,6 +100,14 @@ python3.11 -m venv .venv
 source .venv/bin/activate
 ```
 
+For windows:
+
+```bash
+python3.11 -m venv .venv
+.venv\Scripts\activate
+```
+
+
 3. Install dependencies:
 
 ```bash
