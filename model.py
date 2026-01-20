@@ -215,14 +215,18 @@ class FakeNewsModel(Model):
     def _create_agent_by_type(self, index):
         """Create an agent based on its index/type."""
         if index < int(self.influencer_percentage * self.num_agents):  # Influencers
-            return InfluencerAgent(self, self.preference_vectors[index])
+            return InfluencerAgent(
+                self, self.preference_vectors[index], self.personality_vectors[index]
+            )
         elif index < int(
             self.influencer_percentage * self.num_agents
             + self.bot_percentage * self.num_agents
         ):  # Bots
-            return BotAgent(self, self.preference_vectors[index])
+            return BotAgent(self, self.preference_vectors[index], [0, 0, 0, 0, 0])
         else:  # Regular users
-            return UserAgent(self, self.preference_vectors[index])
+            return UserAgent(
+                self, self.preference_vectors[index], self.personality_vectors[index]
+            )
 
 
 if __name__ == "__main__":
