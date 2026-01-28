@@ -70,3 +70,24 @@ def get_agent_types(model):
         else:
             agent_types[node_id] = "user"
     return agent_types
+
+
+def get_personality_types(model):
+    personality_types = {}
+
+    for agent in model.agents:
+        node_id = agent.pos
+        dominant_trait = agent.personality_vector.index(max(agent.personality_vector))
+
+        match dominant_trait:
+            case 0:
+                personality_types[node_id] = "extraversion"
+            case 1:
+                personality_types[node_id] = "agreeableness"
+            case 2:
+                personality_types[node_id] = "conscientiousness"
+            case 3:
+                personality_types[node_id] = "neuroticism"
+            case 4:
+                personality_types[node_id] = "openness"
+    return personality_types

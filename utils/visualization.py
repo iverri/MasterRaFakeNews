@@ -4,7 +4,7 @@ import solara
 import matplotlib.pyplot as plt
 import networkx as nx
 import community  # python-louvain package
-from utils.model_utils import get_agent_types
+from utils.model_utils import get_agent_types, get_personality_types
 from recommender.types import RecommenderType
 
 project_info = """
@@ -34,18 +34,41 @@ def ProjectInfo(model):
 
 @solara.component
 def SocialNetwork(model):
+    # Visualize based on agent type
     visualize_network(
-        model.social_media_platform.social_network.network, get_agent_types(model)
+        model.social_media_platform.social_network.network,
+        get_agent_types(model),
+        get_personality_types(model),
+        legend="agent_type",
+    )
+
+    # Visualize based on community
+    visualize_network(
+        model.social_media_platform.social_network.network,
+        get_agent_types(model),
+        get_personality_types(model),
+        legend="community",
+    )
+
+    # Visualize based on highest valued personality trait
+    visualize_network(
+        model.social_media_platform.social_network.network,
+        get_agent_types(model),
+        get_personality_types(model),
+        legend="personality_type",
     )
 
 
-def visualize_network(network, agent_types=None):
+def visualize_network(
+    network, agent_types=None, personality_types=None, legend="agent_type"
+):
     """
     Visualize the network with communities and agent types
 
     Parameters:
     - network: networkx graph object
     - agent_types: dictionary mapping node ids to agent types ('influencer', 'bot', 'user')
+    - legend: determines how the plot legend is defined ('agent_type', 'personality_type', 'community')
     """
     plt.figure(figsize=(9, 5))
 
@@ -63,6 +86,13 @@ def visualize_network(network, agent_types=None):
 
     # Define colors for agent types - using lighter colors
     type_colors = {"influencer": "#d057d9", "bot": "#53b028", "user": "#4e6ac7"}
+    personality_colors = {
+        "extraversion": "#d03333",
+        "agreeableness": "#780993",
+        "conscientiousness": "#3228ed",
+        "neuroticism": "#e99b00",
+        "openness": "#40e2d7",
+    }
 
     # Draw nodes
     node_colors = []
@@ -71,27 +101,61 @@ def visualize_network(network, agent_types=None):
     num_agents = network.number_of_nodes()
 
     for node in network.nodes():
-        # Set node size based on agent type and in-degree (number of followers)
-        if agent_types:
-            base_size = 100
-            in_degree = network.in_degree(node)
-            in_degree_factor = min(
-                in_degree / (num_agents * 0.1), 2.0
-            )  # Cap the scaling factor
 
-            if agent_types[node] == "influencer":
-                node_colors.append(type_colors["influencer"])
-                node_sizes.append(
-                    base_size * 1.5 * (1 + in_degree_factor * 0.5)
-                )  # Reduced size multiplier
-            elif agent_types[node] == "bot":
-                node_colors.append(type_colors["bot"])
-                node_sizes.append(base_size * 0.7 * (1 + in_degree_factor * 0.3))
-            else:
-                node_colors.append(type_colors["user"])
-                node_sizes.append(base_size * (1 + in_degree_factor * 0.3))
-        else:
-            # If no agent types provided, color by community
+        in_degree = network.in_degree(node)
+        in_degree_factor = min(in_degree / num_agents * 0.1, 2.0)
+
+        if agent_types and personality_types:
+
+            match legend:
+                case "agent_type":
+                    node_colors.append(type_colors[agent_types[node]])
+
+                    # Legend nodes by agent type
+                    legend_elements = [
+                        plt.Line2D(
+                            [0],
+                            [0],
+                            marker="o",
+                            color="w",
+                            markerfacecolor=type_colors[type_name],
+                            markersize=10,
+                            label=f"{type_name} (avg followers: {_get_avg_followers(network, type_name, agent_types):.1f})",
+                        )
+                        for type_name in type_colors.keys()
+                    ]
+
+                    plt.title(f"Network by Agent Type")
+
+                case "community":
+                    node_colors.append(communities[node])
+                    legend_elements = None
+
+                    plt.title(f"Network by Communities (Total: {num_communities})")
+
+                case "personality_type":
+                    node_colors.append(personality_colors[personality_types[node]])
+
+                    # Legend nodes by dominant personality trait
+                    legend_elements = [
+                        plt.Line2D(
+                            [0],
+                            [0],
+                            marker="o",
+                            color="w",
+                            markerfacecolor=personality_colors[trait],
+                            markersize=10,
+                            label=f"{trait} (avg followers: {_get_avg_followers(network, trait, personality_types):.1f})",
+                        )
+                        for trait in personality_colors.keys()
+                    ]
+
+                    plt.title(f"Network by Personality Traits")
+
+            # Determine size based on agent type
+            node_sizes.append(_calculate_node_size(agent_types[node], in_degree_factor))
+
+        else:  # If no agent type or personality, color by community with uniform size
             node_colors.append(communities[node])
             node_sizes.append(100)
 
@@ -103,37 +167,39 @@ def visualize_network(network, agent_types=None):
         network, pos, alpha=0.2, arrows=True, arrowsize=10  # Show direction of edges
     )  # Size of arrow head
 
-    # Add labels for agent types if provided
-    if agent_types:
-        legend_elements = [
-            plt.Line2D(
-                [0],
-                [0],
-                marker="o",
-                color="w",
-                markerfacecolor=type_colors[type_name],
-                markersize=15,
-                label=f"{type_name} (avg followers: {_get_avg_followers(network, type_name, agent_types):.1f})",
-            )
-            for type_name in ["influencer", "bot", "user"]
-        ]
+    # Show legend if it has been created
+    if legend_elements:
         plt.legend(handles=legend_elements, loc="upper left")
 
     # Add title with metrics
     clustering_coef = nx.average_clustering(undirected_network)
     modularity = community.modularity(communities, undirected_network)
-    plt.title(f"Network Communities (Total: {num_communities})")
 
     plt.axis("off")
     plt.show()
 
 
-def _get_avg_followers(network, agent_type, agent_types):
+def _calculate_node_size(agent_type, in_degree_factor):
+
+    base_size = 100
+
+    match agent_type:
+        case "influencer":
+            return base_size * 1.5 * (1 + in_degree_factor * 0.5)
+        case "user":
+            return base_size * (1 + in_degree_factor * 0.3)
+        case "bot":
+            return base_size * 0.7 * (1 + in_degree_factor * 0.3)
+        case _:
+            return base_size
+
+
+def _get_avg_followers(network, group_type, group_types):
     """Helper method to calculate average followers for each agent type"""
     followers = [
         network.in_degree(node)
-        for node, type_ in agent_types.items()
-        if type_ == agent_type
+        for node, type_ in group_types.items()
+        if type_ == group_type
     ]
     return sum(followers) / len(followers) if followers else 0
 
@@ -598,8 +664,7 @@ def create_visualization(model_class):
                         title="Social Network",
                         style={
                             "width": "fit-content",
-                            "height": "100%",
-                            "max-height": "500px",
+                            "height": "fit_content",
                         },
                     ):
                         SocialNetwork(model)
