@@ -95,6 +95,7 @@ def run_recommender_comparison_experiment(
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
         "recommender_type": [type.value for type in RecommenderType],
+        "collect_community_data": False,  # Disable community data collection
     }
 
     print(f"Starting batch run with {iterations} iterations per recommender type...")
@@ -106,9 +107,9 @@ def run_recommender_comparison_experiment(
         parameters=parameters,
         iterations=iterations,
         max_steps=max_steps,
-        number_processes=5,  # Set to higher number for parallel processing
-        data_collection_period=1,  # Collect data at each step
-        display_progress=True,
+        number_processes=8,  # Set to higher number for parallel processing
+        data_collection_period=10,  # Collect data at each step
+        display_progress=True
     )
 
     # Convert results to DataFrame
