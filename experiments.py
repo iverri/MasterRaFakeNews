@@ -6,6 +6,8 @@ from datetime import datetime
 from model import FakeNewsModel
 from recommender.types import RecommenderType
 from utils.network_storage import NetworkStorage
+import cProfile, pstats, io
+from pstats import SortKey
 
 
 def run_recommender_comparison_experiment(
@@ -106,8 +108,8 @@ def run_recommender_comparison_experiment(
         parameters=parameters,
         iterations=iterations,
         max_steps=max_steps,
-        number_processes=5,  # Set to higher number for parallel processing
-        data_collection_period=1,  # Collect data at each step
+        number_processes=8,  # Set to higher number for parallel processing
+        data_collection_period=10,  # Collect data at each step
         display_progress=True,
     )
 
@@ -264,6 +266,9 @@ def analyze_results(model_data, summary_df):
 
 
 if __name__ == "__main__":
+
+    pr = cProfile.Profile()
+    pr.enable()
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = (
         run_recommender_comparison_experiment(
@@ -278,6 +283,12 @@ if __name__ == "__main__":
             num_recommendations=10,  # Number of recommendations
         )
     )
+
+    pr.disable()
+    s = io.StringIO()
+    ps = pstats.Stats(pr, stream=s).sort_stats("cumtime")
+    ps.print_stats()
+    ps.dump_stats("performance_stats.txt")
 
     # Analyze the results
     analyze_results(model_data, summary_df)
