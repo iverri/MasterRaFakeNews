@@ -10,7 +10,6 @@ from utils.metrics import (
 def setup_datacollector(model):
     """Initialize the datacollector with metrics."""
 
-    # --- build reporters dict first ---
     model_reporters = {
         "Number_of_Infected": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "I"),
         "Number_of_Susceptible": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "S"),
@@ -34,7 +33,6 @@ def setup_datacollector(model):
         "Echo_Chamber_Effect": lambda m: calculate_echo_chamber_effect(m),
     }
 
-    # --- conditionally add heavy community reporters ---
     if getattr(model, "collect_community_data", False):
         model_reporters["Community_Data"] = lambda m: getattr(m, "community_data", None)
         model_reporters["Number_Of_Communities"] = lambda m: (
@@ -43,7 +41,6 @@ def setup_datacollector(model):
             else 0
         )
 
-    # --- agent reporters ---
     agent_reporters = {
         "State": lambda a: getattr(a, "state", None),
         "Followers": lambda a: a.social_media_platform.social_network.network.in_degree(a.pos),
