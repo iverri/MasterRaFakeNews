@@ -8,6 +8,12 @@ from recommender.types import RecommenderType
 from utils.network_storage import NetworkStorage
 import cProfile, pstats, io
 from pstats import SortKey
+import multiprocessing
+import warnings
+import sys
+
+# Suppress resource tracker warnings
+warnings.filterwarnings("ignore", message=".*resource_tracker.*")
 
 
 def run_recommender_comparison_experiment(
@@ -102,16 +108,41 @@ def run_recommender_comparison_experiment(
     print(f"Starting batch run with {iterations} iterations per recommender type...")
     print(f"Recommender types: {[type.value for type in RecommenderType]}")
 
-    # Run the batch experiment
-    results = mesa.batch_run(
-        FakeNewsModel,
-        parameters=parameters,
-        iterations=iterations,
-        max_steps=max_steps,
-        number_processes=8,  # Set to higher number for parallel processing
-        data_collection_period=10,  # Collect data at each step
-        display_progress=True,
-    )
+    # Set the start method to 'fork' or 'spawn' depending on OS
+    # On macOS/Unix, 'fork' is more efficient, on Windows use 'spawn'
+    try:
+        if sys.platform == "win32":
+            multiprocessing.set_start_method("spawn", force=True)
+        else:
+            # Use fork for better performance on Unix systems
+            if multiprocessing.get_start_method() != "fork":
+                multiprocessing.set_start_method("fork", force=True)
+    except RuntimeError:
+        pass  # Already set
+
+    # Run the batch experiment with proper resource management
+    try:
+        results = mesa.batch_run(
+            FakeNewsModel,
+            parameters=parameters,
+            iterations=iterations,
+            max_steps=max_steps,
+            number_processes=4,  # Reduced from 8 to prevent resource exhaustion
+            data_collection_period=10,  # Collect data at each step
+            display_progress=True,
+        )
+    except BrokenPipeError as e:
+        print(f"BrokenPipeError encountered: {e}")
+        print("Attempting to recover by reducing number of processes...")
+        results = mesa.batch_run(
+            FakeNewsModel,
+            parameters=parameters,
+            iterations=iterations,
+            max_steps=max_steps,
+            number_processes=1,  # Fallback to single process
+            data_collection_period=10,
+            display_progress=True,
+        )
 
     # Convert results to DataFrame
     results_df = pd.DataFrame(results)
@@ -266,29 +297,35 @@ def analyze_results(model_data, summary_df):
 
 
 if __name__ == "__main__":
+    # Ensure proper multiprocessing setup
+    multiprocessing.set_start_method("fork", force=True)
 
     pr = cProfile.Profile()
     pr.enable()
-    # Run the experiment
-    results_df, model_data, summary_df, community_data_file = (
-        run_recommender_comparison_experiment(
-            iterations=5,  # Number of runs per recommender type
-            max_steps=700,  # Steps per run
-            n_agents=200,  # Number of agents
-            m_links=8,  # Links per new node
-            news_amount=400,  # Initial news items
-            fake_news_percentage=10,  # Percentage of fake news
-            bot_percentage=7,  # Percentage of bots
-            influencer_percentage=3,  # Percentage of influencers
-            num_recommendations=10,  # Number of recommendations
-        )
-    )
 
-    pr.disable()
-    s = io.StringIO()
-    ps = pstats.Stats(pr, stream=s).sort_stats("cumtime")
-    ps.print_stats()
-    ps.dump_stats("performance_stats.txt")
+    try:
+        # Run the experiment
+        results_df, model_data, summary_df, community_data_file = (
+            run_recommender_comparison_experiment(
+                iterations=5,  # Number of runs per recommender type
+                max_steps=700,  # Steps per run
+                n_agents=200,  # Number of agents
+                m_links=8,  # Links per new node
+                news_amount=400,  # Initial news items
+                fake_news_percentage=10,  # Percentage of fake news
+                bot_percentage=7,  # Percentage of bots
+                influencer_percentage=3,  # Percentage of influencers
+                num_recommendations=10,  # Number of recommendations
+            )
+        )
+    finally:
+        # Ensure proper cleanup
+        multiprocessing.active_children()  # Check for zombie processes
+        pr.disable()
+        s = io.StringIO()
+        ps = pstats.Stats(pr, stream=s).sort_stats("cumtime")
+        ps.print_stats()
+        ps.dump_stats("performance_stats.txt")
 
     # Analyze the results
     analyze_results(model_data, summary_df)
