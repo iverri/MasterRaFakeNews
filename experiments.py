@@ -6,7 +6,7 @@ from datetime import datetime
 from model import FakeNewsModel
 from recommender.types import RecommenderType
 from utils.network_storage import NetworkStorage
-import cProfile, pstats, io
+import cProfile, pstats, io, glob
 from pstats import SortKey
 
 
@@ -70,7 +70,8 @@ def run_recommender_comparison_experiment(
         num_recommendations=num_recommendations,
         use_stored_network=True,
         stored_network=None,  # Force creation of new network
-        recommender_type=RecommenderType.RANDOM.value,  # Use any recommender for initial setup
+        recommender_type=RecommenderType.RANDOM.value, # Use any recommender for initial setup
+        max_steps=max_steps
     )
 
     # Store the network to a file that can be accessed by all processes
@@ -97,6 +98,7 @@ def run_recommender_comparison_experiment(
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
         "recommender_type": [type.value for type in RecommenderType],
+        "max_steps": max_steps
     }
 
     print(f"Starting batch run with {iterations} iterations per recommender type...")
@@ -109,7 +111,7 @@ def run_recommender_comparison_experiment(
         iterations=iterations,
         max_steps=max_steps,
         number_processes=8,  # Set to higher number for parallel processing
-        data_collection_period=10,  # Collect data at each step
+        data_collection_period=50,  # Collect data at each step
         display_progress=True,
     )
 
@@ -267,13 +269,11 @@ def analyze_results(model_data, summary_df):
 
 if __name__ == "__main__":
 
-    pr = cProfile.Profile()
-    pr.enable()
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = (
         run_recommender_comparison_experiment(
-            iterations=5,  # Number of runs per recommender type
-            max_steps=700,  # Steps per run
+            iterations=1,  # Number of runs per recommender type
+            max_steps=100,  # Steps per run
             n_agents=200,  # Number of agents
             m_links=8,  # Links per new node
             news_amount=400,  # Initial news items
@@ -284,11 +284,12 @@ if __name__ == "__main__":
         )
     )
 
-    pr.disable()
-    s = io.StringIO()
-    ps = pstats.Stats(pr, stream=s).sort_stats("cumtime")
-    ps.print_stats()
-    ps.dump_stats("performance_stats.txt")
-
+    files = glob.glob("profile_*.prof")
+    
+    stats = pstats.Stats(files[0])
+    for f in files[1:]:
+        stats.add(f)
+        
+    stats.dump_stats("merged.prof")
     # Analyze the results
     analyze_results(model_data, summary_df)
