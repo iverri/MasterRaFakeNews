@@ -70,8 +70,8 @@ def run_recommender_comparison_experiment(
         num_recommendations=num_recommendations,
         use_stored_network=True,
         stored_network=None,  # Force creation of new network
-        recommender_type=RecommenderType.RANDOM.value, # Use any recommender for initial setup
-        max_steps=max_steps
+        recommender_type=RecommenderType.RANDOM.value,  # Use any recommender for initial setup
+        max_steps=max_steps,
     )
 
     # Store the network to a file that can be accessed by all processes
@@ -98,7 +98,7 @@ def run_recommender_comparison_experiment(
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
         "recommender_type": [type.value for type in RecommenderType],
-        "max_steps": max_steps
+        "max_steps": max_steps,
     }
 
     print(f"Starting batch run with {iterations} iterations per recommender type...")
@@ -110,8 +110,8 @@ def run_recommender_comparison_experiment(
         parameters=parameters,
         iterations=iterations,
         max_steps=max_steps,
-        number_processes=8,  # Set to higher number for parallel processing
-        data_collection_period=50,  # Collect data at each step
+        number_processes=5,  # Set to higher number for parallel processing
+        data_collection_period=1,  # Collect data at each step
         display_progress=True,
     )
 
@@ -284,12 +284,14 @@ if __name__ == "__main__":
         )
     )
 
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     files = glob.glob("profile_*.prof")
-    
+
     stats = pstats.Stats(files[0])
     for f in files[1:]:
         stats.add(f)
-        
-    stats.dump_stats("merged.prof")
+        os.remove(f)
+
+    stats.dump_stats(f"profiler_runs/merged_{timestamp}.prof")
     # Analyze the results
     analyze_results(model_data, summary_df)

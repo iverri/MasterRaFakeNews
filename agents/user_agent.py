@@ -132,9 +132,7 @@ class UserAgent(Agent):
         # Base interest based on topic similarity and credibility
         user_preference = np.array(self.preference_vector).reshape(1, -1)
         content_topic = np.array(content.topic_vector).reshape(1, -1)
-        user_evaluation = (
-            cosine_similarity(user_preference, content_topic)[0][0] * self.naivety_level
-        )
+        user_evaluation = self._cosine_similarity(user_preference, content_topic)
 
         # Adjust probability based on content engagement
         engagement_factor = min(1.5, content.engagement)  # Cap the boost at 1.5x
@@ -291,6 +289,17 @@ class UserAgent(Agent):
         )
 
         return max(0, min(p_share, 1))  # restrict value between 0 and 1
+
+    def _cosine_similarity(self, preference_vector, topic_vector):
+        x = np.asarray(preference_vector).ravel()
+        y = np.asarray(topic_vector).ravel()
+
+        denominator = np.linalg.norm(x) * np.linalg.norm(y)
+
+        if denominator == 0:
+            return 0.0
+        else:
+            return (x @ y) / denominator
 
 
 class BotAgent(UserAgent):
