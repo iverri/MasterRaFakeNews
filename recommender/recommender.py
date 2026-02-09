@@ -22,6 +22,13 @@ class Recommender:
         self.diversity_level = diversity_level
         self.num_recommendations = num_recommendations
         self.user_interactions = {}  # Dict to store user interactions
+        self.user_interactions_count = (
+            {}
+        )  # Dict to store number of interactions with specific user for collaborative filtering
+
+        self._user_interactions_cache = []
+        self._user_interactions_cache_dirty = True
+
         self._last_training_count = (
             0  # Add this line to track when retraining is needed
         )
@@ -76,6 +83,11 @@ class Recommender:
         # Ensure rating is between 0 and 1
         rating = max(0.0, min(1.0, float(rating)))
 
+        if (agent_id, content_id) not in self.user_interactions:
+            self.user_interactions_count[agent_id] = (
+                self.user_interactions_count.get(agent_id, 0) + 1
+            )
+
         # Create new interaction, overwrites preexisting interaction
         self.user_interactions[(agent_id, content_id)] = {
             "user_id": agent_id,
@@ -83,12 +95,14 @@ class Recommender:
             "rating": rating,
         }
 
+        self._user_interactions_cache_dirty = True
+
     def _create_dataset(self):
         """Create a LensKit Dataset from interactions"""
         if not self.user_interactions:
             return None
 
-        interaction_list = list(self.user_interactions.values())
+        interaction_list = self._get_interaction_list()
         n_interactions = len(interaction_list)
 
         # Convert interactions to DataFrame - only if needed
@@ -137,14 +151,11 @@ class Recommender:
                 self.random_recommendation(agent)
                 return
 
-            interaction_list = list(self.user_interactions.values())
+            interaction_list = self._get_interaction_list()
             n_interactions = len(interaction_list)
 
             # Check if this specific user has enough interactions (at least 2)
-            # Use dictionary comprehension instead of list comprehension for filtering
-            user_interactions_count = sum(
-                1 for inter in interaction_list if inter["user_id"] == agent.pos
-            )
+            user_interactions_count = self.user_interactions_count.get(agent.pos, 0)
 
             # Check if the system as a whole has enough interactions
             min_interactions = max(
@@ -284,8 +295,6 @@ class Recommender:
     def content_based(self, agent):
         """Recommend content based on topic vector similarity."""
 
-        interaction_list = list(self.user_interactions.values())
-        n_interactions = len(interaction_list)
         # Cache content if needed
         current_step = agent.model.steps
         if (
@@ -370,8 +379,7 @@ class Recommender:
     def random_recommendation(self, agent, num_recommendations=None, add_to_feed=True):
         """Recommend random news content to an agent"""
 
-        interaction_list = list(self.user_interactions.values())
-        n_interactions = len(interaction_list)
+        interaction_list = self._get_interaction_list()
         # Use provided num_recommendations or default to self.num_recommendations
         if num_recommendations is None:
             num_recommendations = self.num_recommendations
@@ -411,7 +419,7 @@ class Recommender:
         if not hasattr(agent.model, "news_content") or not agent.model.news_content:
             return
 
-        interaction_list = list(self.user_interactions.values())
+        interaction_list = self._get_interaction_list()
         n_interactions = len(interaction_list)
 
         # Create a dataset from interactions if we have enough
@@ -581,3 +589,10 @@ class Recommender:
         )
 
         return reranked, new_diversity
+
+    def _get_interaction_list(self):
+        if self._user_interactions_cache_dirty:
+            self._user_interactions_cache = list(self.user_interactions.values())
+            self._user_interactions_cache_dirty = False
+
+        return self._user_interactions_cache
