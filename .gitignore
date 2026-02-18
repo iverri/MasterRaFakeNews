@@ -5,3 +5,4 @@ __pycache__
 
 /experiment_results/*
 /plots/*
+/profiler_runs/*

@@ -15,6 +15,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from recommender.diversity import calculate_diversity, diversity_reranking
 from recommender.types import RecommenderType
 
+# from utils.agents_utils import cosine_similarity
+
 
 class Recommender:
     def __init__(self, recommender_type, diversity_level, num_recommendations):
