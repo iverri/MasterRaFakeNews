@@ -15,15 +15,3 @@ def get_network_neighbors(model, social_network, pos, direction="predecessors"):
         raise ValueError(f"Unknown direction: {direction}")
 
     return [agent for agent in model.agents if agent.pos in neighbor_ids]
-
-
-def cosine_similarity(preference_vector, topic_vector):
-    x = np.asarray(preference_vector).ravel()
-    y = np.asarray(topic_vector).ravel()
-
-    denominator = np.linalg.norm(x) * np.linalg.norm(y)
-
-    if denominator == 0:
-        return 0.0
-    else:
-        return (x @ y) / denominator

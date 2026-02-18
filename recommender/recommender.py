@@ -9,13 +9,11 @@ from lenskit.knn import ItemKNNScorer, ItemKNNConfig, UserKNNScorer, UserKNNConf
 from lenskit.data import ItemList, from_interactions_df
 from lenskit.pipeline import topn_pipeline
 from lenskit import recommend
-from sklearn.metrics.pairwise import cosine_similarity
 
 # Local imports
 from recommender.diversity import calculate_diversity, diversity_reranking
 from recommender.types import RecommenderType
-
-# from utils.agents_utils import cosine_similarity
+from utils.metrics import vec_mat_cosine_similarity
 
 
 class Recommender:
@@ -331,7 +329,7 @@ class Recommender:
         )
 
         # Calculate all similarities at once using cosine_similarity
-        similarities = cosine_similarity(user_preference, content_topics)[0]
+        similarities = vec_mat_cosine_similarity(user_preference, content_topics)
 
         # Create scores list with content and similarity pairs
         scores = list(zip(available_content, similarities))
@@ -487,9 +485,9 @@ class Recommender:
 
             # Calculate personalization component using cosine_similarity
             user_preference = np.array(agent.preference_vector).reshape(1, -1)
-            preference_similarities = cosine_similarity(user_preference, topic_vectors)[
-                0
-            ]
+            preference_similarities = vec_mat_cosine_similarity(
+                user_preference, topic_vectors
+            )
 
             # Calculate novelty boost
             interaction_counts = np.array(
@@ -571,7 +569,7 @@ class Recommender:
 
             # Calculate relevance scores using cosine_similarity
             user_preference = np.array(preference_vector).reshape(1, -1)
-            relevance_scores = cosine_similarity(user_preference, topic_vectors)[0]
+            relevance_scores = vec_mat_cosine_similarity(user_preference, topic_vectors)
 
             pre_calculated = {
                 "topic_vectors": topic_vectors,

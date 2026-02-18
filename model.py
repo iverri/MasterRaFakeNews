@@ -15,8 +15,6 @@ from utils.datacollector import setup_datacollector
 from objects.social_media_platform import SocialMediaPlatform
 from typing import Optional, List
 
-import cProfile, os
-
 
 # Create a model class
 class FakeNewsModel(Model):
@@ -73,7 +71,7 @@ class FakeNewsModel(Model):
         stored_network: Optional[NetworkStorage] = None,
         network_file: Optional[str] = None,
         seed: Optional[int] = None,
-        max_steps: int = 100
+        max_steps: int = 100,
     ) -> None:
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
@@ -99,9 +97,6 @@ class FakeNewsModel(Model):
             if use_stored_network and stored_network
             else NetworkStorage()
         )
-        
-        self._profiler = None
-        self._profile_file = f"profile_{os.getpid()}_{id(self)}.prof"
         self.max_steps = max_steps
 
         # Generate preference vectors first (these might be replaced if using stored network)
@@ -147,10 +142,6 @@ class FakeNewsModel(Model):
     def step(self):
         """Advance the model by one step."""
 
-        if self._profiler is None:
-            self._profiler = cProfile.Profile()
-            self._profiler.enable()
-        
         print(f"Step: {self.steps}")
         # Update the current hour
         self.current_hour = (self.current_hour + self.hours_per_step) % 24
@@ -176,11 +167,6 @@ class FakeNewsModel(Model):
 
         # Collect data
         self.datacollector.collect(self)
-        
-        if self.steps >= self.max_steps - 1 and self._profiler is not None:
-            self._profiler.disable()
-            self._profiler.dump_stats(self._profile_file)
-            self._profiler = None
 
     def _validate_parameters(self, N, m_links):
         """

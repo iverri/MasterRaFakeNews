@@ -6,8 +6,6 @@ from datetime import datetime
 from model import FakeNewsModel
 from recommender.types import RecommenderType
 from utils.network_storage import NetworkStorage
-import cProfile, pstats, io, glob
-from pstats import SortKey
 
 
 def run_recommender_comparison_experiment(
@@ -272,8 +270,8 @@ if __name__ == "__main__":
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = (
         run_recommender_comparison_experiment(
-            iterations=1,  # Number of runs per recommender type
-            max_steps=100,  # Steps per run
+            iterations=5,  # Number of runs per recommender type
+            max_steps=700,  # Steps per run
             n_agents=200,  # Number of agents
             m_links=8,  # Links per new node
             news_amount=400,  # Initial news items
@@ -284,15 +282,5 @@ if __name__ == "__main__":
         )
     )
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    files = glob.glob("profile_*.prof")
-
-    stats = pstats.Stats(files[0])
-    for f in files[1:]:
-        stats.add(f)
-        os.remove(f)
-    os.remove(files[0])
-
-    stats.dump_stats(f"profiler_runs/merged_{timestamp}.prof")
     # Analyze the results
     analyze_results(model_data, summary_df)

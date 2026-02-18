@@ -1,6 +1,7 @@
 from mesa import Agent
 import numpy as np
-from utils.agents_utils import get_network_neighbors, cosine_similarity
+from utils.agents_utils import get_network_neighbors
+from utils.metrics import cosine_similarity
 import random
 
 
