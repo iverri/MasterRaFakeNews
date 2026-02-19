@@ -66,7 +66,7 @@ def run_recommender_comparison_experiment(
         influencer_percentage=influencer_percentage,
         diversity_level=0,
         num_recommendations=num_recommendations,
-        use_stored_network=True,
+        use_stored_network=False,
         stored_network=None,  # Force creation of new network
         recommender_type=RecommenderType.RANDOM.value,  # Use any recommender for initial setup
         max_steps=max_steps,
@@ -96,7 +96,7 @@ def run_recommender_comparison_experiment(
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
         "recommender_type": [type.value for type in RecommenderType],
-        "max_steps": max_steps,
+        "collect_personality_data_metrics": True,  # Enable personality data collection
     }
 
     print(f"Starting batch run with {iterations} iterations per recommender type...")
@@ -165,6 +165,27 @@ def run_recommender_comparison_experiment(
         "Diversity_Improvement_Percentage",
         "Number_Of_Communities",
     ]
+   
+
+    include_personality_metrics = results_df["collect_personality_data_metrics"].iloc[0]
+    if include_personality_metrics:
+        trait_letters = ["E", "A", "C", "N", "O"]
+
+        for t in trait_letters:
+            model_vars += [
+                f"Dom_{t}_Count",
+                f"Dom_{t}_Followers_Mean",
+                f"Dom_{t}_Following_Mean",]
+
+        model_vars += [
+            "Mean_Personality_Similarity_On_Edges_RegularOnly"
+        ]
+
+        for i in range(5):
+            for j in range(5):
+                model_vars += [f"DomFollowShare_{i}_{j}", f"DomFollowCount_{i}_{j}"]
+
+
 
     # Filter for model-level variables
     model_data = results_df[[col for col in model_vars if col in results_df.columns]]

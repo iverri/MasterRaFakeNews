@@ -1286,6 +1286,120 @@ def generate_no_diversity_plots(data, output_dir=None, skip_steps=5):
         skip_steps
     )
 
+def plot_dominant_trait_degree_bar_final_step(data,degree_type,diversity_setting,recommender_type,output_path=None):
+
+    if 'Dom_E_Count' not in data.columns:
+        print("[plot.py] Skipping dominant trait degree plot — missing Dom_E_Count")
+        return None
+
+    
+    import matplotlib.pyplot as plt
+
+    trait_letters = ["E", "A", "C", "N", "O"]
+    col_suffix = f"{degree_type}_Mean"
+
+    cols = [f"Dom_{t}_{col_suffix}" for t in trait_letters]
+    count_cols = [f"Dom_{t}_Count" for t in trait_letters]
+
+    df = data[
+        (data["diversity_setting"] == diversity_setting)
+        & (data["recommender_type"] == recommender_type)
+    ].copy()
+
+    # final step per run
+    df["RunKey"] = df["RunId"].astype(str) + "_" + df["iteration"].astype(str)
+    last_steps = df.groupby("RunKey")["Step"].transform("max")
+    final_df = df[df["Step"] == last_steps]
+
+    means = final_df[cols].mean()
+    stds = final_df[cols].std()
+    counts = final_df[count_cols].mean().round().astype(int)
+
+    labels = [
+        f"{t}\n(n={counts[f'Dom_{t}_Count']})"
+        for t in trait_letters
+    ]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.bar(labels, means.values, yerr=stds.values, capsize=5)
+
+    ax.set_title(
+        f"Final-Step {degree_type} by Dominant Trait\n"
+        f"Recommender={get_recommender_label(recommender_type)}, {diversity_setting}"
+    )
+    ax.set_xlabel("Dominant Trait (regular users only)")
+    ax.set_ylabel(f"Mean {degree_type}")
+
+    # optional decimal ticks
+    import matplotlib.ticker as mtick
+    ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.1f'))
+
+    ax.grid(True, linestyle="--", alpha=0.6, axis="y")
+
+    plt.tight_layout()
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    return fig
+
+
+def plot_dominant_trait_follow_matrix_final_step(data, diversity_setting,recommender_type,output_path=None):
+
+    if 'DomFollowCount_0_0' not in data.columns:
+        print("[plot.py] Skipping follow matrix heatmap — missing DomFollowCount_0_0")
+        return None
+
+
+    share_cols = [f"DomFollowShare_{i}_{j}" for i in range(5) for j in range(5)]
+    trait_names = ["E", "A", "C", "N", "O"]
+    missing = [c for c in share_cols if c not in data.columns]
+    if missing:
+        raise ValueError(f"Missing matrix columns in CSV: {missing}")
+
+    df = data[
+        (data["diversity_setting"] == diversity_setting) &
+        (data["recommender_type"] == recommender_type)
+    ].copy()
+
+    df["RunKey"] = df["RunId"].astype(str) + "_" + df["iteration"].astype(str)
+    last_steps = df.groupby("RunKey")["Step"].transform("max")
+    final_df = df[df["Step"] == last_steps]
+
+    # average matrix across runs
+    mat = np.zeros((5, 5))
+    for i in range(5):
+        for j in range(5):
+            mat[i, j] = final_df[f"DomFollowShare_{i}_{j}"].mean()
+
+    fig, ax = plt.subplots(figsize=(6, 5))
+    sns.heatmap(
+        mat,
+        annot=True,
+        fmt=".2f",
+        cmap="Blues",
+        vmin=0,
+        vmax=1,
+        xticklabels=trait_names,
+        yticklabels=trait_names,
+        ax=ax,
+    )
+
+    ax.set_xlabel("Followed dominant trait")
+    ax.set_ylabel("Follower dominant trait")
+    ax.set_title(
+        "Dominant-Trait Follow Matrix (Regular Users)\n"
+        f"{get_recommender_label(recommender_type)}, {diversity_setting}"
+    )
+
+    plt.tight_layout()
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    return fig
+
+
+
 def generate_all_plots(csv_path, output_dir=None, community_data_file=None, skip_steps=5):
     """
     Generate all plots for the given experiment results.
@@ -1335,7 +1449,15 @@ def generate_all_plots(csv_path, output_dir=None, community_data_file=None, skip
                                             os.path.join(output_dir, "community_metrics_by_recommender.png"))
         plot_diversity_impact_table(data, community_data_file, 
                                     os.path.join(output_dir, "diversity_impact_table.png"))
-    
+
+   
+   # Generate dominant trait degree bar plots and follow share/matrix for No Diversity + random recommender at final step
+    plot_dominant_trait_degree_bar_final_step(data,degree_type="Followers",diversity_setting="No Diversity",recommender_type="random",output_path=os.path.join(output_dir, "dominant_trait_followers_final.png"))
+    plot_dominant_trait_degree_bar_final_step(data,degree_type="Following",diversity_setting="No Diversity",recommender_type="random",output_path=os.path.join(output_dir, "dominant_trait_following_final.png"))
+    plot_dominant_trait_follow_matrix_final_step(data,diversity_setting="No Diversity",recommender_type="random",output_path=os.path.join(output_dir, "dominant_trait_follow_matrix.png"))
+
+
+
     # Show all plots
     plt.show()
 

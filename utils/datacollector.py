@@ -20,6 +20,27 @@ def setup_datacollector(model):
             "Community_Data": lambda m: getattr(m, 'community_data', None),
             "Number_Of_Communities": lambda m: len(set(m.community_data['communities'].values())) if hasattr(m, 'community_data') else 0,
         },
+        if getattr(model, "collect_personality_data_metrics", False):
+            for idx, name in enumerate(TRAIT_NAMES):
+                model_reporters[f"Dom_{name}_Count"] = lambda m, i=idx: count_by_dominant_trait(m, i)
+                model_reporters[f"Dom_{name}_Followers_Mean"] = lambda m, i=idx: mean_degree_by_dominant_trait(m, i, "in")
+                model_reporters[f"Dom_{name}_Following_Mean"] = lambda m, i=idx: mean_degree_by_dominant_trait(m, i, "out")
+
+            model_reporters["Mean_Personality_Similarity_On_Edges_RegularOnly"] = lambda m: mean_personality_similarity_on_edges_regular_only(m)
+    
+            for i in range(5):
+                for j in range(5):
+                    model_reporters[f"DomFollowShare_{i}_{j}"] = (
+                        lambda ii=i, jj=j: (
+                            lambda m: dominant_trait_follow_matrix(m).get(f"DomFollowShare_{ii}_{jj}", 0.0)
+                        )
+                    )()
+                    model_reporters[f"DomFollowCount_{i}_{j}"] = (
+                        lambda ii=i, jj=j: (
+                            lambda m: dominant_trait_follow_matrix(m).get(f"DomFollowCount_{ii}_{jj}", 0)
+                        )
+                    )()
+
         agent_reporters={
             "State": lambda a: getattr(a, "state", None),
             "Followers": lambda a: a.social_media_platform.social_network.network.in_degree(a.pos),

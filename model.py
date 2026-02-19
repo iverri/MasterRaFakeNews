@@ -54,25 +54,22 @@ class FakeNewsModel(Model):
     seed : int, optional
         Random seed for reproducibility
     """
-
-    # Initialize agents
-    def __init__(
-        self,
-        N: int = 200,
-        m_links: int = 10,
-        news_amount: int = 500,
-        fake_news_percentage: int = 10,
-        recommender_type: str = "random",
-        bot_percentage: int = 5,
-        influencer_percentage: int = 5,
-        diversity_level: float = 0,
-        num_recommendations: int = 10,
-        use_stored_network: bool = True,
-        stored_network: Optional[NetworkStorage] = None,
-        network_file: Optional[str] = None,
-        seed: Optional[int] = None,
-        max_steps: int = 100,
-    ) -> None:
+    #Initialize agents
+    def __init__(self, 
+            N: int = 200, 
+            m_links: int = 10, 
+            news_amount: int = 500, 
+            fake_news_percentage: int = 10,
+            recommender_type: str = "random", 
+            bot_percentage: int = 5, 
+            influencer_percentage: int = 5, 
+            diversity_level: float = 0,
+            num_recommendations: int = 10, 
+            use_stored_network: bool = True, 
+            stored_network: Optional[NetworkStorage] = None, 
+            network_file: Optional[str] = None,
+            collect_personality_data_metrics: bool = True,
+            seed: Optional[int] = None) -> None:
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
 
@@ -98,6 +95,7 @@ class FakeNewsModel(Model):
             else NetworkStorage()
         )
         self.max_steps = max_steps
+        self.collect_personality_data_metrics = collect_personality_data_metrics
 
         # Generate preference vectors first (these might be replaced if using stored network)
         self.preference_vectors = [random_preferences() for _ in range(self.num_agents)]

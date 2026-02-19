@@ -2,6 +2,7 @@ import networkx as nx
 import numpy as np
 from utils.network_storage import NetworkStorage
 
+TRAIT_NAMES = ["E", "A", "C", "N", "O"]  # Extraversion, Agreeableness, Conscientiousness, Neuroticism, Openness
 
 def calculate_misinformation_count(model):
     """Calculate the average number of fake news items in agents' recommendation lists."""
@@ -339,3 +340,132 @@ def matrix_cosine_similarity(matrix):
     norms[norms == 0] = 1e-12
     x_normalized = x / norms
     return x_normalized @ x_normalized.T
+def get_graph_and_personality(model):
+    G = model.social_media_platform.social_network.network
+    P = np.asarray(model.personality_vectors, dtype=float)
+    return G, P
+
+
+def _regular_user_mask(model):
+    """
+    Boolean mask selecting only regular users (exclude influencers + bots)
+    based on index ranges defined in the model.
+    """
+    N = model.num_agents
+    n_inf = int(model.influencer_percentage * N)
+    n_bot = int(model.bot_percentage * N)
+
+    mask = np.ones(N, dtype=bool)
+    mask[:n_inf] = False                # exclude influencers
+    if n_bot > 0:
+        mask[N - n_bot:] = False        # exclude bots
+    return mask
+
+
+def dominant_trait_indices(model):
+    _, P = get_graph_and_personality(model)
+    if P.ndim != 2:
+        return np.array([])
+    return np.argmax(P, axis=1)
+
+
+def count_by_dominant_trait(model, trait_index):
+    _, P = get_graph_and_personality(model)
+    if P.ndim != 2 or trait_index >= P.shape[1]:
+        return 0
+
+    dom = np.argmax(P, axis=1)
+    reg_mask = _regular_user_mask(model)
+    return int(np.sum((dom == trait_index) & reg_mask))
+
+
+def mean_degree_by_dominant_trait(model, trait_index, mode="in"):
+    G, P = get_graph_and_personality(model)
+    if P.ndim != 2 or trait_index >= P.shape[1]:
+        return 0.0
+
+    dom = np.argmax(P, axis=1)
+    reg_mask = _regular_user_mask(model)
+
+    deg = np.array([
+        G.in_degree(i) if mode == "in" else G.out_degree(i)
+        for i in range(model.num_agents)
+    ], dtype=float)
+
+    mask = (dom == trait_index) & reg_mask
+    return float(np.mean(deg[mask])) if np.any(mask) else 0.0
+
+
+def mean_personality_similarity_on_edges_regular_only(model):
+    """
+    Homophily metric using only edges where BOTH endpoints are regular users.
+    """
+    G, P = get_graph_and_personality(model)
+    if P.ndim != 2:
+        return 0.0
+
+    reg_mask = _regular_user_mask(model)
+
+    sims = []
+    for i, j in G.edges():
+        if not (reg_mask[i] and reg_mask[j]):
+            continue
+
+        a = P[i]
+        b = P[j]
+        da = np.linalg.norm(a)
+        db = np.linalg.norm(b)
+
+        if da == 0 or db == 0:
+            sims.append(0.0)
+        else:
+            sims.append(float(np.dot(a, b) / (da * db)))
+
+    return float(np.mean(sims)) if sims else 0.0
+
+def dominant_trait_follow_matrix(model):
+    """
+    Compute 5x5 matrix M where:
+      M[i,j] = share of outgoing follows from dominant-trait i users
+               that go to dominant-trait j users.
+
+    Only counts REGULAR users (excludes influencers + bots).
+    Returns flattened dict for DataCollector.
+    """
+    G = model.social_media_platform.social_network.network
+    P = np.asarray(model.personality_vectors, dtype=float)
+    N = model.num_agents
+
+    n_inf = int(model.influencer_percentage * N)
+    n_bot = int(model.bot_percentage * N)
+
+    reg = np.ones(N, dtype=bool)
+    reg[:n_inf] = False
+    if n_bot > 0:
+        reg[N - n_bot:] = False
+
+    if P.ndim != 2 or P.shape[0] != N:
+        return {}
+
+    dom = np.argmax(P, axis=1)
+    K = P.shape[1]
+
+    counts = np.zeros((K, K), dtype=int)
+
+    for i, j in G.edges():
+        if not (reg[i] and reg[j]):
+            continue
+        counts[dom[i], dom[j]] += 1
+
+    # row-normalize → shares
+    row_sums = counts.sum(axis=1, keepdims=True)
+    shares = np.divide(counts, row_sums, out=np.zeros_like(counts, dtype=float), where=row_sums > 0)
+
+    result = {}
+    for i in range(K):
+        for j in range(K):
+            result[f"DomFollowShare_{i}_{j}"] = float(shares[i, j])
+            result[f"DomFollowCount_{i}_{j}"] = int(counts[i, j])
+
+    return result
+
