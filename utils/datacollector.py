@@ -27,7 +27,7 @@ def setup_datacollector(model):
                 model_reporters[f"Dom_{name}_Following_Mean"] = lambda m, i=idx: mean_degree_by_dominant_trait(m, i, "out")
 
             model_reporters["Mean_Personality_Similarity_On_Edges_RegularOnly"] = lambda m: mean_personality_similarity_on_edges_regular_only(m)
-    
+
             for i in range(5):
                 for j in range(5):
                     model_reporters[f"DomFollowShare_{i}_{j}"] = (

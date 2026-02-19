@@ -110,7 +110,7 @@ def run_recommender_comparison_experiment(
         max_steps=max_steps,
         number_processes=8,  # Set to higher number for parallel processing
         data_collection_period=1,  # Collect data at each step
-        display_progress=True,
+        display_progress=True
     )
 
     # Convert results to DataFrame
