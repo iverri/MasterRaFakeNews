@@ -69,6 +69,7 @@ def run_recommender_comparison_experiment(
         use_stored_network=True,
         stored_network=None,  # Force creation of new network
         recommender_type=RecommenderType.RANDOM.value,  # Use any recommender for initial setup
+        max_steps=max_steps,
     )
 
     # Store the network to a file that can be accessed by all processes
@@ -95,6 +96,7 @@ def run_recommender_comparison_experiment(
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
         "recommender_type": [type.value for type in RecommenderType],
+        "max_steps": max_steps,
     }
 
     print(f"Starting batch run with {iterations} iterations per recommender type...")
@@ -106,7 +108,7 @@ def run_recommender_comparison_experiment(
         parameters=parameters,
         iterations=iterations,
         max_steps=max_steps,
-        number_processes=5,  # Set to higher number for parallel processing
+        number_processes=8,  # Set to higher number for parallel processing
         data_collection_period=1,  # Collect data at each step
         display_progress=True,
     )
@@ -264,6 +266,7 @@ def analyze_results(model_data, summary_df):
 
 
 if __name__ == "__main__":
+
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = (
         run_recommender_comparison_experiment(

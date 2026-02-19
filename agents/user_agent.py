@@ -1,7 +1,7 @@
 from mesa import Agent
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
 from utils.agents_utils import get_network_neighbors
+from utils.metrics import cosine_similarity
 import random
 
 
@@ -133,7 +133,7 @@ class UserAgent(Agent):
         user_preference = np.array(self.preference_vector).reshape(1, -1)
         content_topic = np.array(content.topic_vector).reshape(1, -1)
         user_evaluation = (
-            cosine_similarity(user_preference, content_topic)[0][0] * self.naivety_level
+            cosine_similarity(user_preference, content_topic) * self.naivety_level
         )
 
         # Adjust probability based on content engagement
