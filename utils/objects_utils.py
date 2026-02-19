@@ -121,9 +121,9 @@ def _create_initial_connections(G, num_agents, num_influencers, num_bots, simila
             att = (att -0.3)/0.5  # Normalize to roughly -1 to +1 range
 
             #homophily_strength : how much similarity matters (0 = no effect) 
-            homophily_strength = 0.2
+            homophily_strength = 0.3
             #attractiveness_strength : how much personality attracts followers
-            attractiveness_strength = 0.3
+            attractiveness_strength = 0.4
 
             prob *= (1.0 + attractiveness_strength * att)
             prob *= (1.0 + homophily_strength * pers_sim)
