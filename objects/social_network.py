@@ -62,7 +62,7 @@ class Social_Network:
                     model.preference_vectors = stored_preferences
             else:
                 # Create a new network if no stored network is available
-                self._create_new_network(model, num_agents, m_links, preference_vectors)
+                self._create_new_network(model, num_agents, m_links, preference_vectors, personality_vectors)
         else:
             # Create a new network
             self._create_new_network(model, num_agents, m_links, preference_vectors, personality_vectors)
