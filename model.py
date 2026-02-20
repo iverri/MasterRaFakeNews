@@ -69,7 +69,8 @@ class FakeNewsModel(Model):
             stored_network: Optional[NetworkStorage] = None, 
             network_file: Optional[str] = None,
             collect_personality_data_metrics: bool = True,
-            seed: Optional[int] = None) -> None:
+            seed: Optional[int] = None,
+            max_steps: int = 100) -> None:
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
 

@@ -1286,7 +1286,7 @@ def generate_no_diversity_plots(data, output_dir=None, skip_steps=5):
         skip_steps
     )
 
-def plot_dominant_trait_degree_bar_final_step(data,degree_type,diversity_setting,recommender_type,output_path=None):
+def plot_dominant_trait_degree_bar(data,degree_type,diversity_setting,recommender_type,output_path=None):
 
     if 'Dom_E_Count' not in data.columns:
         print("[plot.py] Skipping dominant trait degree plot — missing Dom_E_Count")
@@ -1344,7 +1344,7 @@ def plot_dominant_trait_degree_bar_final_step(data,degree_type,diversity_setting
     return fig
 
 
-def plot_dominant_trait_follow_matrix_final_step(data, diversity_setting,recommender_type,output_path=None):
+def plot_dominant_trait_follow_matrix(data, diversity_setting,recommender_type,output_path=None):
 
     if 'DomFollowCount_0_0' not in data.columns:
         print("[plot.py] Skipping follow matrix heatmap — missing DomFollowCount_0_0")
@@ -1452,9 +1452,9 @@ def generate_all_plots(csv_path, output_dir=None, community_data_file=None, skip
 
    
    # Generate dominant trait degree bar plots and follow share/matrix for No Diversity + random recommender at final step
-    plot_dominant_trait_degree_bar_final_step(data,degree_type="Followers",diversity_setting="No Diversity",recommender_type="random",output_path=os.path.join(output_dir, "dominant_trait_followers_final.png"))
-    plot_dominant_trait_degree_bar_final_step(data,degree_type="Following",diversity_setting="No Diversity",recommender_type="random",output_path=os.path.join(output_dir, "dominant_trait_following_final.png"))
-    plot_dominant_trait_follow_matrix_final_step(data,diversity_setting="No Diversity",recommender_type="random",output_path=os.path.join(output_dir, "dominant_trait_follow_matrix.png"))
+    plot_dominant_trait_degree_bar(data,degree_type="Followers",diversity_setting="No Diversity",recommender_type="random",output_path=os.path.join(output_dir, "dominant_trait_followers_final.png"))
+    plot_dominant_trait_degree_bar(data,degree_type="Following",diversity_setting="No Diversity",recommender_type="random",output_path=os.path.join(output_dir, "dominant_trait_following_final.png"))
+    plot_dominant_trait_follow_matrix(data,diversity_setting="No Diversity",recommender_type="random",output_path=os.path.join(output_dir, "dominant_trait_follow_matrix.png"))
 
 
 

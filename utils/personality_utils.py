@@ -14,7 +14,7 @@ def personality_similarity(personality_a, personality_b):
     """Calculate similarity between two personality vectors."""
     return cosine_similarity(personality_a, personality_b)
 
-def follow_propensity(personality_vector):
+def likely_to_follow(personality_vector):
     """Calculate follow propensity based on personality traits.
     Higher -> agent follows more accounts, Lower -> agent follows fewer accounts.
     """
@@ -25,7 +25,7 @@ def follow_propensity(personality_vector):
 
     return (0.4 * E) + (0.2 * O) + (0.1 * A) - (0.2 * N) - (0.2 * C)
 
-def attractiveness(personality_vector):
+def likely_to_be_followed(personality_vector):
     """Calculate attractiveness based on personality traits.
     Higher -> agent is more likely to be followed, Lower -> agent is less likely to be followed.
     """

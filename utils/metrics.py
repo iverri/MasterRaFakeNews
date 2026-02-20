@@ -469,3 +469,32 @@ def dominant_trait_follow_matrix(model):
 
     return result
 
+#used for datacollection
+def ensure_personality_metrics_cache(m):
+    step = getattr(m, "schedule", None).steps if hasattr(m, "schedule") else getattr(m, "steps", None)
+
+    # If already computed for this step, do nothing
+    if getattr(m, "_pm_cache_step", None) == step:
+        return
+
+    # Compute ONCE
+    cache = {}
+    for idx, name in enumerate(TRAIT_NAMES):
+        cache[f"Dom_{name}_Count"] = count_by_dominant_trait(m, idx)
+        cache[f"Dom_{name}_Followers_Mean"] = mean_degree_by_dominant_trait(m, idx, "in")
+        cache[f"Dom_{name}_Following_Mean"] = mean_degree_by_dominant_trait(m, idx, "out")
+
+    cache["Mean_Personality_Similarity_On_Edges_RegularOnly"] = mean_personality_similarity_on_edges_regular_only(m)
+
+    # Compute matrix ONCE
+    mat = dominant_trait_follow_matrix(m)
+    for i in range(5):
+        for j in range(5):
+            cache[f"DomFollowShare_{i}_{j}"] = mat.get(f"DomFollowShare_{i}_{j}", 0.0)
+            cache[f"DomFollowCount_{i}_{j}"] = mat.get(f"DomFollowCount_{i}_{j}", 0)
+
+    m._pm_cache = cache
+    m._pm_cache_step = step
+
+def final_only(m):
+    return m.steps >= (m.max_steps - 1) 

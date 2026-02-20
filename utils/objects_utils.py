@@ -5,7 +5,7 @@ Contains helper functions for network creation, manipulation, and analysis.
 
 import networkx as nx
 import numpy as np
-from utils.personality_utils import personality_similarity, follow_propensity, attractiveness, clip
+from utils.personality_utils import personality_similarity, likely_to_follow, likely_to_be_followed, clip
 # import community  # python-louvain package
 
 #------------------------------------------------------------------------------
@@ -79,7 +79,7 @@ def _create_initial_connections(G, num_agents, num_influencers, num_bots, simila
         else:
             agent_type = 'regular'
             base = np.random.randint(max(1, m_links - 4), m_links + 5)  # make a bigger interval of how many out links a regular user can have
-            fp = follow_propensity(personality_vectors[i])
+            fp = likely_to_follow(personality_vectors[i])
             k_out = clip(int(round(base * (1 + fp))), 1, num_agents - 1)
 
         
@@ -116,7 +116,7 @@ def _create_initial_connections(G, num_agents, num_influencers, num_bots, simila
                 prob = base_sim  # Regular case
             
             pers_sim = personality_similarity(personality_vectors[i], personality_vectors[j])
-            att_j = attractiveness(personality_vectors[j])
+            att_j = likely_to_be_followed(personality_vectors[j])
             att = clip(att_j, -0.2, 0.8)  # Ensure attractiveness is within bounds
             att = (att -0.3)/0.5  # Normalize to roughly -1 to +1 range
 
@@ -172,7 +172,7 @@ def _adjust_follower_distributions(G, m_links, influencer_indices, user_indices,
         rank_factor = 1.0 - (i / max(1, len(influencer_indices) - 1)) * 0.7
         random_factor = np.random.uniform(0.3, 1.7)
         target = int(target_user_followers * 6 * random_factor * (0.3 + 0.7 * rank_factor))
-        att = attractiveness(personality_vectors[influencer])
+        att = likely_to_be_followed(personality_vectors[influencer])
         target = int(target * (1.0 + 0.25*att))
 
         # Add followers if needed
