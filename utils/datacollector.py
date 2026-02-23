@@ -5,13 +5,8 @@ from utils.metrics import (
     calculate_misinformation_ratio_difference,
     calculate_misinformation_spread,
     calculate_diversity_improvement,
-    mean_degree_by_dominant_trait,
-    count_by_dominant_trait,
-    mean_personality_similarity_on_edges_regular_only,
-    dominant_trait_follow_matrix,
     TRAIT_NAMES,
-    ensure_personality_metrics_cache,
-    final_only
+    make_cached_reporter,
 )
 
 import numpy as np
@@ -44,43 +39,28 @@ def setup_datacollector(model):
     }
 
     if getattr(model, "collect_personality_data_metrics", False):
-        for idx, name in enumerate(TRAIT_NAMES):
-            model_reporters[f"Dom_{name}_Count"] = (
-                lambda m, k=f"Dom_{name}_Count":
-                    (ensure_personality_metrics_cache(m) or m._pm_cache[k]) if final_only(m) else np.nan
-            )
-            model_reporters[f"Dom_{name}_Followers_Mean"] = (
-                lambda m, k=f"Dom_{name}_Followers_Mean":
-                    (ensure_personality_metrics_cache(m) or m._pm_cache[k]) if final_only(m) else np.nan
-            )
-            model_reporters[f"Dom_{name}_Following_Mean"] = (
-                lambda m, k=f"Dom_{name}_Following_Mean":
-                    (ensure_personality_metrics_cache(m) or m._pm_cache[k]) if final_only(m) else np.nan
-            )
+        for name in TRAIT_NAMES:
+            for suffix in ("Count", "Followers_Mean", "Following_Mean"):
+                key = f"Dom_{name}_{suffix}"
+                model_reporters[key] = make_cached_reporter(key, model)
 
-        model_reporters["Mean_Personality_Similarity_On_Edges_RegularOnly"] = (
-            lambda m, k="Mean_Personality_Similarity_On_Edges_RegularOnly":
-                (ensure_personality_metrics_cache(m) or m._pm_cache[k]) if final_only(m) else np.nan
-        )
 
-        for i in range(len(TRAIT_NAMES)):
-            for j in range(len(TRAIT_NAMES)):
-                model_reporters[f"DomFollowShare_{i}_{j}"] = (
-                    lambda m, k=f"DomFollowShare_{i}_{j}":
-                        (ensure_personality_metrics_cache(m) or m._pm_cache[k]) if final_only(m) else np.nan
-                )
-                model_reporters[f"DomFollowCount_{i}_{j}"] = (
-                    lambda m, k=f"DomFollowCount_{i}_{j}":
-                        (ensure_personality_metrics_cache(m) or m._pm_cache[k]) if final_only(m) else np.nan
-                )
-        agent_reporters = {
-            "State": lambda a: getattr(a, "state", None),
-            "Followers": lambda a: a.social_media_platform.social_network.network.in_degree(a.pos),
-            "Following": lambda a: a.social_media_platform.social_network.network.out_degree(a.pos),
-            "Misinformation_In_Recommendations": lambda a: sum(
-                1 for c in getattr(a, "recommended_content", []) if c.isFake
-            ),
-        }
+        ##see if this really slows down the model too much before adding it back in
+        ##T = len(TRAIT_NAMES)
+        ##for i in range(T):
+        ##    for j in range(T):
+        ##        for prefix in ("DomFollowShare", "DomFollowCount"):
+        ##            key = f"{prefix}_{i}_{j}"
+        ##            model_reporters[key] = make_cached_reporter(key, model)
+    
+    agent_reporters = {
+        "State": lambda a: getattr(a, "state", None),
+        "Followers": lambda a: a.social_media_platform.social_network.network.in_degree(a.pos),
+        "Following": lambda a: a.social_media_platform.social_network.network.out_degree(a.pos),
+        "Misinformation_In_Recommendations": lambda a: sum(
+            1 for c in getattr(a, "recommended_content", []) if c.isFake
+        ),
+    }
 
     return DataCollector(
         model_reporters=model_reporters,

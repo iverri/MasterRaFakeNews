@@ -178,13 +178,10 @@ def run_recommender_comparison_experiment(
                 f"Dom_{t}_Followers_Mean",
                 f"Dom_{t}_Following_Mean",]
 
-        model_vars += [
-            "Mean_Personality_Similarity_On_Edges_RegularOnly"
-        ]
-
-        for i in range(5):
-            for j in range(5):
-                model_vars += [f"DomFollowShare_{i}_{j}", f"DomFollowCount_{i}_{j}"]
+    
+        #for i in range(5):
+        #    for j in range(5):
+        #        model_vars += [f"DomFollowShare_{i}_{j}", f"DomFollowCount_{i}_{j}"]
 
 
 

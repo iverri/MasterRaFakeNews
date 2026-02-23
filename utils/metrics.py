@@ -484,17 +484,24 @@ def ensure_personality_metrics_cache(m):
         cache[f"Dom_{name}_Followers_Mean"] = mean_degree_by_dominant_trait(m, idx, "in")
         cache[f"Dom_{name}_Following_Mean"] = mean_degree_by_dominant_trait(m, idx, "out")
 
-    cache["Mean_Personality_Similarity_On_Edges_RegularOnly"] = mean_personality_similarity_on_edges_regular_only(m)
 
     # Compute matrix ONCE
-    mat = dominant_trait_follow_matrix(m)
-    for i in range(5):
-        for j in range(5):
-            cache[f"DomFollowShare_{i}_{j}"] = mat.get(f"DomFollowShare_{i}_{j}", 0.0)
-            cache[f"DomFollowCount_{i}_{j}"] = mat.get(f"DomFollowCount_{i}_{j}", 0)
+    #mat = dominant_trait_follow_matrix(m)
+    #for i in range(5):
+    #    for j in range(5):
+    #        cache[f"DomFollowShare_{i}_{j}"] = mat.get(f"DomFollowShare_{i}_{j}", 0.0)
+    #        cache[f"DomFollowCount_{i}_{j}"] = mat.get(f"DomFollowCount_{i}_{j}", 0)
 
     m._pm_cache = cache
     m._pm_cache_step = step
 
 def final_only(m):
     return m.steps >= (m.max_steps - 1) 
+
+def make_cached_reporter(key, m):
+    def f(m):
+        if not final_only(m):
+            return np.nan
+        ensure_personality_metrics_cache(m)   # ensure cache exists
+        return m._pm_cache.get(key, np.nan)  # always return numeric-ish
+    return f
