@@ -471,7 +471,9 @@ def dominant_trait_follow_matrix(model):
 
 #used for datacollection
 def ensure_personality_metrics_cache(m):
-    step = getattr(m, "schedule", None).steps if hasattr(m, "schedule") else getattr(m, "steps", None)
+    if not is_final_step(m):
+        return
+    step = getattr(m, "steps", None)
 
     # If already computed for this step, do nothing
     if getattr(m, "_pm_cache_step", None) == step:
@@ -495,12 +497,18 @@ def ensure_personality_metrics_cache(m):
     m._pm_cache = cache
     m._pm_cache_step = step
 
-def final_only(m):
-    return m.steps >= (m.max_steps - 1) 
+def is_final_step(m):
+    steps = getattr(m, "steps", 0)
+    max_steps = getattr(m, "max_steps", None)
 
-def make_cached_reporter(key, m):
+    if max_steps is None:
+        return False
+    # Accept both conventions
+    return steps >= (max_steps - 1) or steps >= max_steps
+
+def make_cached_reporter(key):
     def f(m):
-        if not final_only(m):
+        if not is_final_step(m):
             return np.nan
         ensure_personality_metrics_cache(m)   # ensure cache exists
         return m._pm_cache.get(key, np.nan)  # always return numeric-ish
