@@ -42,7 +42,7 @@ def setup_datacollector(model):
         for name in TRAIT_NAMES:
             for suffix in ("Count", "Followers_Mean", "Following_Mean"):
                 key = f"Dom_{name}_{suffix}"
-                model_reporters[key] = make_cached_reporter(key, model)
+                model_reporters[key] = make_cached_reporter(key)
 
 
         ##see if this really slows down the model too much before adding it back in
