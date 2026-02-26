@@ -2,6 +2,8 @@ import networkx as nx
 import numpy as np
 from utils.network_storage import NetworkStorage
 
+TRAIT_NAMES = ["E", "A", "C", "N", "O"]
+
 
 def calculate_misinformation_count(model):
     """Calculate the average number of fake news items in agents' recommendation lists."""
@@ -305,6 +307,65 @@ def calculate_diversity_improvement(model):
 
     return (total_improvement / count * 100) if count > 0 else 0
 
+def calculate_mean_degree_by_dominant_personality(model, trait_index, mode="in"):
+    G = model.social_media_platform.social_network.network
+    P = np.asarray(model.personality_vectors, dtype=float)
+    if P.ndim != 2 or trait_index >= P.shape[1]:
+        return 0.0
+
+    dom = np.argmax(P, axis=1)
+    reg_mask = _regular_user_mask(model)
+
+    deg = np.array([
+        G.in_degree(i) if mode == "in" else G.out_degree(i)
+        for i in range(model.num_agents)
+    ], dtype=float)
+
+    mask = (dom == trait_index) & reg_mask
+    return float(np.mean(deg[mask])) if np.any(mask) else 0.0
+
+
+def calculate_count_by_dominant_personality(model, trait_index):
+    P = np.asarray(model.personality_vectors, dtype=float)
+    if P.ndim != 2 or trait_index >= P.shape[1]:
+        return 0
+
+    dom = np.argmax(P, axis=1)
+    reg_mask = _regular_user_mask(model)
+    return int(np.sum((dom == trait_index) & reg_mask))
+
+#def update_personality_degree_stats(model):
+#    G = model.social_media_platform.social_network.network
+#
+#    P = np.asarray(model.personality_vectors, dtype=float)
+#    if P.ndim != 2:
+#        model.mean_followers_by_trait = np.zeros(len(TRAIT_NAMES))
+#        model.mean_following_by_trait = np.zeros(len(TRAIT_NAMES))
+#        model.count_by_trait = np.zeros(len(TRAIT_NAMES), dtype=int)
+#        return
+#
+#    dom = np.argmax(P, axis=1)
+#    reg_mask = _regular_user_mask(model)
+#
+#    # Degrees for all agents once
+#    indeg = np.fromiter((G.in_degree(i) for i in range(model.num_agents)), dtype=float)
+#    outdeg = np.fromiter((G.out_degree(i) for i in range(model.num_agents)), dtype=float)
+#
+#    means_in = np.zeros(len(TRAIT_NAMES), dtype=float)
+#    means_out = np.zeros(len(TRAIT_NAMES), dtype=float)
+#    counts = np.zeros(len(TRAIT_NAMES), dtype=int)
+#
+#    for t in range(len(TRAIT_NAMES)):
+#        mask = (dom == t) & reg_mask
+#        c = int(np.sum(mask))
+#        counts[t] = c
+#        if c > 0:
+#            means_in[t] = float(np.mean(indeg[mask]))
+#            means_out[t] = float(np.mean(outdeg[mask]))
+#
+#    model.mean_followers_by_trait = means_in
+#    model.mean_following_by_trait = means_out
+#    model.count_by_trait = counts
 
 # ------------------------------------------------------------------------------
 # CONTENT EVALUATION METRICS
@@ -339,3 +400,20 @@ def matrix_cosine_similarity(matrix):
     norms[norms == 0] = 1e-12
     x_normalized = x / norms
     return x_normalized @ x_normalized.T
+
+
+
+def _regular_user_mask(model):
+    """
+    Boolean mask selecting only regular users (exclude influencers + bots)
+    based on index ranges defined in the model.
+    """
+    N = model.num_agents
+    n_inf = int(model.influencer_percentage * N)
+    n_bot = int(model.bot_percentage * N)
+    mask = np.ones(N, dtype=bool)
+    mask[:n_inf] = False                # exclude influencers
+    if n_bot > 0:
+        mask[N - n_bot:] = False        # exclude bots
+    return mask
+

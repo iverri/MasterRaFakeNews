@@ -5,6 +5,8 @@ Contains helper functions for network creation, manipulation, and analysis.
 
 import networkx as nx
 import numpy as np
+
+from utils.personality_utils import personality_similarity, likely_to_follow, likely_to_be_followed
 # import community  # python-louvain package
 
 #------------------------------------------------------------------------------
@@ -12,7 +14,7 @@ import numpy as np
 #------------------------------------------------------------------------------
 
 
-def create_preference_based_network(model, num_agents, m_links, preference_vectors):
+def create_preference_based_network(model, num_agents, m_links, preference_vectors, personality_vectors):
     """
     Create directed network with communities based on preference similarity.
     
@@ -21,7 +23,7 @@ def create_preference_based_network(model, num_agents, m_links, preference_vecto
         num_agents (int): Number of agents in the network
         m_links (int): Base number of links per node (average)
         preference_vectors (list): List of preference vectors for each agent
-        
+        personality_vectors (list): List of personality vectors for each agent
     Returns:
         nx.DiGraph: Directed graph with preference-based connections
     """
@@ -47,7 +49,7 @@ def create_preference_based_network(model, num_agents, m_links, preference_vecto
     
     # Create initial connections based on agent types and preferences
     _create_initial_connections(G, num_agents, num_influencers, num_bots, 
-                               similarity_matrix, m_links)
+                               similarity_matrix, m_links, personality_vectors)
     
     # Ensure the graph is weakly connected
     if not nx.is_weakly_connected(G):
@@ -58,14 +60,14 @@ def create_preference_based_network(model, num_agents, m_links, preference_vecto
             G.add_edge(node1, node2)
     
     # Adjust follower distributions to match expected patterns
-    _adjust_follower_distributions(G, m_links, influencer_indices, user_indices, bot_indices)
+    _adjust_follower_distributions(G, m_links, influencer_indices, user_indices, bot_indices, personality_vectors)
     
     # Print network statistics
     _print_network_stats(G, influencer_indices, user_indices, bot_indices)
     
     return G
 
-def _create_initial_connections(G, num_agents, num_influencers, num_bots, similarity_matrix, m_links):
+def _create_initial_connections(G, num_agents, num_influencers, num_bots, similarity_matrix, m_links, personality_vectors):
     """Create initial connections based on agent types and preferences."""
     for i in range(num_agents):
         # Determine agent type and target outgoing connections
@@ -77,7 +79,9 @@ def _create_initial_connections(G, num_agents, num_influencers, num_bots, simila
             k_out = min(int(m_links * 3 * np.random.uniform(0.9, 1.3)), num_agents-1)
         else:
             agent_type = 'regular'
-            k_out = max(1, int(m_links * np.random.uniform(0.7, 1.3)))
+            base = np.random.randint(max(1,m_links - 4), m_links+5) # Regular users have more variability in connections
+            fp = likely_to_follow(personality_vectors[i])
+            k_out = max(min(int(base * (1 + fp)), 1), num_agents - 1)  # Adjust based on personality follow propensity
         
         # Calculate connection probabilities
         potential_edges = []
@@ -110,7 +114,21 @@ def _create_initial_connections(G, num_agents, num_influencers, num_bots, simila
                 prob = min(base_sim ** (1/multiplier), 0.60)  # Influencers are followed more
             else:
                 prob = base_sim  # Regular case
+
+
+            pers_sim = personality_similarity(personality_vectors[i], personality_vectors[j])
+            att_j = likely_to_be_followed(personality_vectors[j])
+            att = max(min(att_j, 0.8), -0.2)  # Ensure attractiveness is between -0.2 and 0.8
+            att = 2 * (att - 0.2) / 0.6 - 1  # Normalize to range [-1, 1]
+
+            #homophily strength: how much personality similarity influences connection probability
+            homophily_strength = 0.4
+            #attractiveness strength: how much target attractiveness influences connection probability
+            attractiveness_strength = 0.5
                 
+            prob *= (1 + homophily_strength * pers_sim) * (1 + attractiveness_strength * att)
+
+            prob = max(min(prob, 0.999), 0.001)  # Ensure final probability is between 0.001 and 0.999
             potential_edges.append((j, prob))
         
         # Sort by probability and create connections
@@ -124,7 +142,7 @@ def _create_initial_connections(G, num_agents, num_influencers, num_bots, simila
                 G.add_edge(i, j)
                 edges_added += 1
 
-def _adjust_follower_distributions(G, m_links, influencer_indices, user_indices, bot_indices):
+def _adjust_follower_distributions(G, m_links, influencer_indices, user_indices, bot_indices, personality_vectors):
     """Adjust follower distributions to match expected patterns."""
     # Calculate current average user followers
     user_followers = [G.in_degree(i) for i in user_indices]
@@ -152,6 +170,8 @@ def _adjust_follower_distributions(G, m_links, influencer_indices, user_indices,
         rank_factor = 1.0 - (i / max(1, len(influencer_indices) - 1)) * 0.7
         random_factor = np.random.uniform(0.3, 1.7)
         target = int(target_user_followers * 6 * random_factor * (0.3 + 0.7 * rank_factor))
+        att = likely_to_be_followed(personality_vectors[influencer])
+        target = int(target * (1 + 0.4 * att))  # Adjust target based on attractiveness
         
         # Add followers if needed
         current = G.in_degree(influencer)
