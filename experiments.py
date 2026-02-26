@@ -97,11 +97,10 @@ def run_recommender_comparison_experiment(
         "stored_network": None,  # No longer needed
         "recommender_type": [type.value for type in RecommenderType],
         "max_steps": max_steps,
-        "collect_personality_degree_stats": True,
-        "collect_community_data": False,
-        "collect_agent_stats": False,
+        "collect_personality_degree_stats": False,
+        "collect_community_data": True,
+        "collect_agent_stats": True,
     }
-
     print(f"Starting batch run with {iterations} iterations per recommender type...")
     print(f"Recommender types: {[type.value for type in RecommenderType]}")
 
@@ -282,8 +281,8 @@ if __name__ == "__main__":
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = (
         run_recommender_comparison_experiment(
-            iterations=1,  # Number of runs per recommender type
-            max_steps=300,  # Steps per run
+            iterations=5,  # Number of runs per recommender type
+            max_steps=700,  # Steps per run
             n_agents=200,  # Number of agents
             m_links=8,  # Links per new node
             news_amount=400,  # Initial news items
