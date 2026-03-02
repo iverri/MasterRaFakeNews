@@ -956,6 +956,8 @@ def plot_community_metrics_by_recommender(data, community_data_file, output_path
     
     return fig
 
+
+
 def plot_diversity_impact_table(data, community_data_file, output_path=None):
     """
     Create table visualizations showing how different diversity levels affect metrics
@@ -1286,6 +1288,149 @@ def generate_no_diversity_plots(data, output_dir=None, skip_steps=5):
         skip_steps
     )
 
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
+
+def plot_dominant_trait_degree_bar(data,degree_type,diversity_setting,recommender_type,output_path=None):
+    trait_letters = ["E", "A", "C", "N", "O"]
+    trait_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+
+    if 'Count_By_Dominant_Personality_O' not in data.columns:
+        print("[plot.py] Skipping dominant trait degree plot — missing personality data")
+        return None
+    # Map plot arg -> datacollector column prefix
+    if degree_type.lower() in ["followers", "in"]:
+        mean_prefix = "Mean_Followers_"
+        y_label = "Mean Followers"
+    elif degree_type.lower() in ["following", "out"]:
+        mean_prefix = "Mean_Following_"
+        y_label = "Mean Following"
+    else:
+        raise ValueError("degree_type must be 'Followers' or 'Following' (or 'in'/'out').")
+
+    cols = [f"{mean_prefix}{t}" for t in trait_letters]
+    count_cols = [f"Count_By_Dominant_Personality_{t}" for t in trait_letters]
+
+    df = data[
+        (data["diversity_setting"] == diversity_setting)
+        & (data["recommender_type"] == recommender_type)
+    ].copy()
+
+    # final step per run
+    df["RunKey"] = df["RunId"].astype(str) + "_" + df["iteration"].astype(str)
+    last_steps = df.groupby("RunKey")["Step"].transform("max")
+    final_df = df[df["Step"] == last_steps]
+
+    means = final_df[cols].mean()
+    stds = final_df[cols].std()
+    counts = final_df[count_cols].mean().round().astype(int)
+
+    labels = [
+        f"{t}\n(n={counts[f'Count_By_Dominant_Personality_{t}']})"
+        for t in trait_letters
+    ]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.bar(labels, means.values, yerr=stds.values, capsize=5, color=trait_colors)
+
+    ax.set_title(
+        f"Final-Step {degree_type} by Dominant Trait\n"
+        f"Recommender={get_recommender_label(recommender_type)}, {diversity_setting}"
+    )
+    ax.set_xlabel("Dominant Trait (regular users only)")
+    ax.set_ylabel(y_label)
+
+    ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.1f'))
+    ax.grid(True, linestyle="--", alpha=0.6, axis="y")
+
+    plt.tight_layout()
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    return fig
+
+def plot_dominant_trait_degree_bar_all_recommenders(data,degree_type,diversity_setting,output_path=None):
+
+    trait_letters = ["E", "A", "C", "N", "O"]
+    trait_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+
+    if "Count_By_Dominant_Personality_O" not in data.columns:
+        print("[plot.py] Skipping dominant trait degree plot — missing personality data")
+        return None
+
+    if degree_type.lower() in ["followers", "in"]:
+        mean_prefix = "Mean_Followers_"
+        y_label = "Mean Followers"
+    elif degree_type.lower() in ["following", "out"]:
+        mean_prefix = "Mean_Following_"
+        y_label = "Mean Following"
+    else:
+        raise ValueError("degree_type must be 'Followers' or 'Following' (or 'in'/'out').")
+
+    cols = [f"{mean_prefix}{t}" for t in trait_letters]
+    count_cols = [f"Count_By_Dominant_Personality_{t}" for t in trait_letters]
+
+    df = data[data["diversity_setting"] == diversity_setting].copy()
+
+    recommenders = sorted(df["recommender_type"].unique())
+    n_rec = len(recommenders)
+
+    # create subplot grid
+    fig, axes = plt.subplots(
+        1,
+        n_rec,
+        figsize=(5 * n_rec, 5),
+        sharey=True
+    )
+
+    if n_rec == 1:
+        axes = [axes]
+    df["RunKey"] = df["RunId"].astype(str) + "_" + df["iteration"].astype(str)
+    last_steps = df.groupby("RunKey")["Step"].transform("max")
+    final_df = df[df["Step"] == last_steps]
+
+    for ax, recommender_type in zip(axes, recommenders):
+
+        sub = final_df[final_df["recommender_type"] == recommender_type]
+
+        if sub.empty:
+            ax.set_visible(False)
+            continue
+
+        means = sub[cols].mean()
+        stds = sub[cols].std()
+        counts = sub[count_cols].mean().round().astype(int)
+
+        labels = [
+            f"{t}\n(n={counts[f'Count_By_Dominant_Personality_{t}']})"
+            for t in trait_letters
+        ]
+
+        ax.bar(labels, means.values, yerr=stds.values,
+               capsize=5, color=trait_colors)
+
+        ax.set_title(get_recommender_label(recommender_type))
+        ax.set_xlabel("Dominant Trait")
+
+        ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.1f'))
+        ax.grid(True, linestyle="--", alpha=0.6, axis="y")
+
+    axes[0].set_ylabel(y_label)
+
+    fig.suptitle(
+        f"Final-Step {degree_type} by Dominant Trait\n{diversity_setting}",
+        fontsize=14
+    )
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    return fig
+
+
 def generate_all_plots(csv_path, output_dir=None, community_data_file=None, skip_steps=5):
     """
     Generate all plots for the given experiment results.
@@ -1336,6 +1481,11 @@ def generate_all_plots(csv_path, output_dir=None, community_data_file=None, skip
         plot_diversity_impact_table(data, community_data_file, 
                                     os.path.join(output_dir, "diversity_impact_table.png"))
     
+    
+    plot_dominant_trait_degree_bar(data,degree_type="Followers",diversity_setting="No Diversity",recommender_type="random",output_path=os.path.join(output_dir, "dominant_trait_followers_final.png"))
+    plot_dominant_trait_degree_bar(data,degree_type="Following",diversity_setting="No Diversity",recommender_type="random",output_path=os.path.join(output_dir, "dominant_trait_following_final.png"))
+    plot_dominant_trait_degree_bar_all_recommenders(data,degree_type="Followers",diversity_setting="No Diversity",output_path=os.path.join(output_dir, "dominant_trait_followers_final_all_recommenders.png"))
+    plot_dominant_trait_degree_bar_all_recommenders(data,degree_type="Following",diversity_setting="No Diversity",output_path=os.path.join(output_dir, "dominant_trait_following_final_all_recommenders.png"))
     # Show all plots
     plt.show()
 

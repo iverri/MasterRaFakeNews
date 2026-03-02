@@ -97,8 +97,10 @@ def run_recommender_comparison_experiment(
         "stored_network": None,  # No longer needed
         "recommender_type": [type.value for type in RecommenderType],
         "max_steps": max_steps,
+        "collect_personality_degree_stats": False,
+        "collect_community_data": True,
+        "collect_agent_stats": True,
     }
-
     print(f"Starting batch run with {iterations} iterations per recommender type...")
     print(f"Recommender types: {[type.value for type in RecommenderType]}")
 
@@ -165,6 +167,15 @@ def run_recommender_comparison_experiment(
         "Diversity_Improvement_Percentage",
         "Number_Of_Communities",
     ]
+
+    include_personality_metrics = results_df["collect_personality_degree_stats"].iloc[0]
+    if include_personality_metrics:
+
+        trait_names = ["E", "A", "C", "N", "O"]
+        for name in trait_names:
+            model_vars.append(f"Mean_Followers_{name}")
+            model_vars.append(f"Mean_Following_{name}")
+            model_vars.append(f"Count_By_Dominant_Personality_{name}")
 
     # Filter for model-level variables
     model_data = results_df[[col for col in model_vars if col in results_df.columns]]

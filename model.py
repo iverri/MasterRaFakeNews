@@ -72,6 +72,9 @@ class FakeNewsModel(Model):
         network_file: Optional[str] = None,
         seed: Optional[int] = None,
         max_steps: int = 100,
+        collect_personality_degree_stats: bool = True,
+        collect_community_data: bool = True,
+        collect_agent_stats: bool = True,
     ) -> None:
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
@@ -98,6 +101,9 @@ class FakeNewsModel(Model):
             else NetworkStorage()
         )
         self.max_steps = max_steps
+        self.collect_personality_degree_stats = collect_personality_degree_stats
+        self.collect_community_data = collect_community_data
+        self.collect_agent_stats = collect_agent_stats
 
         # Generate preference vectors first (these might be replaced if using stored network)
         self.preference_vectors = [random_preferences() for _ in range(self.num_agents)]
