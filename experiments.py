@@ -1,3 +1,8 @@
+import os
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["OMP_NUM_THREADS"] = "1"
+
 import mesa
 import pandas as pd
 import numpy as np
@@ -110,7 +115,7 @@ def run_recommender_comparison_experiment(
         parameters=parameters,
         iterations=iterations,
         max_steps=max_steps,
-        number_processes=8,  # Set to higher number for parallel processing
+        number_processes=5,  # Set to higher number for parallel processing
         data_collection_period=1,  # Collect data at each step
         display_progress=True,
     )

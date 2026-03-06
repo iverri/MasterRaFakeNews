@@ -11,10 +11,10 @@ infomap
 
 # ABM
 mesa
-lenskit>=2025.1.0
 altair
 
 # Data Visualization
 matplotlib
 seaborn
 solara
+

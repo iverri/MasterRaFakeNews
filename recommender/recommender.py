@@ -32,6 +32,8 @@ class Recommender:
         self._last_training_count = (
             0  # Add this line to track when retraining is needed
         )
+        self._training_threshold = 200
+
         self.content_dict_cache = {}  # Add cache for content dictionaries
         self.last_content_update = -1  # Track when content was last updated
         print(
