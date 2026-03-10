@@ -1,6 +1,5 @@
 # Data Processing
-pandas
-numpy
+numpy==1.26.1
 scikit-learn
 
 # Social network

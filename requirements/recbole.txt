@@ -2,3 +2,4 @@
 
 recbole
 torch==2.3.1
+pandas==1.5.3

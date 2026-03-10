@@ -14,6 +14,7 @@ from utils.network_storage import NetworkStorage
 
 
 def run_recommender_comparison_experiment(
+    library,
     iterations,
     max_steps,
     n_agents,
@@ -63,6 +64,7 @@ def run_recommender_comparison_experiment(
     # Create an initial model to generate and store the network with current parameters
     # Set use_stored_network=False to force creation of a new network
     initial_model = FakeNewsModel(
+        library=library,
         N=n_agents,
         m_links=m_links,
         news_amount=news_amount,
@@ -73,7 +75,7 @@ def run_recommender_comparison_experiment(
         num_recommendations=num_recommendations,
         use_stored_network=True,
         stored_network=None,  # Force creation of new network
-        recommender_type=RecommenderType.RANDOM.value,  # Use any recommender for initial setup
+        recommender_type="BPR",  # Use any recommender for initial setup
         max_steps=max_steps,
     )
 
@@ -89,6 +91,7 @@ def run_recommender_comparison_experiment(
     # Define parameters for batch run
     # We'll vary the recommender type while keeping other parameters fixed
     parameters = {
+        "library": library,
         "N": n_agents,
         "m_links": m_links,
         "news_amount": news_amount,
@@ -100,7 +103,7 @@ def run_recommender_comparison_experiment(
         "use_stored_network": True,  # Now use the stored network for all runs
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
-        "recommender_type": [type.value for type in RecommenderType],
+        "recommender_type": "BPR",  # [type.value for type in RecommenderType],
         "max_steps": max_steps,
         "collect_personality_degree_stats": False,
         "collect_community_data": True,
@@ -282,10 +285,18 @@ def analyze_results(model_data, summary_df):
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Generate plots from experiment data")
+    parser.add_argument(
+        "library", type=str, help="Recommender library to use (lenskit/recbole)"
+    )
+    args = parser.parse_args()
 
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = (
         run_recommender_comparison_experiment(
+            library=args.library,
             iterations=5,  # Number of runs per recommender type
             max_steps=700,  # Steps per run
             n_agents=200,  # Number of agents
