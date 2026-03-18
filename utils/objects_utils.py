@@ -6,7 +6,7 @@ Contains helper functions for network creation, manipulation, and analysis.
 import networkx as nx
 import numpy as np
 
-from utils.personality_utils import likely_to_follow, likely_to_be_followed
+from utils.personality_utils import likely_to_follow, likely_to_be_followed, personality_homophily
 # import community  # python-louvain package
 
 #------------------------------------------------------------------------------
@@ -121,7 +121,7 @@ def _create_initial_connections(
 
         # Pre-pull row for speed
         pref_row = similarity_matrix[i]
-        pers_row = personality_sim[i]
+        
 
         for j in range(num_agents):
             if i == j:
@@ -153,16 +153,18 @@ def _create_initial_connections(
             else:
                 prob = base_sim
 
-            pers_sim_ij = float(pers_row[j])
 
-            att_j = float(attractiveness_raw[j])
-            att_j = max(min(att_j, 0.8), -0.2)      # clamp
-            att = 2 * (att_j - 0.2) / 0.6 - 1       # normalize to [-1, 1]
+            att = float(attractiveness_raw[j])
+            att = max(-1.0, min(att, 1.0))   # defensive clamp
+
+            homophily = personality_homophily(personality_vectors[i], personality_vectors[j])
+            hom = 2 * homophily - 1  # scale to [-1, 1]
+
 
             homophily_strength = 0.4
             attractiveness_strength = 0.5
 
-            prob *= (1 + homophily_strength * pers_sim_ij) * (1 + attractiveness_strength * att)
+            prob *= (1 + homophily_strength * hom) * (1 + attractiveness_strength * att)
             prob = max(min(prob, 0.999), 0.001)
 
             potential_edges.append((j, prob))
