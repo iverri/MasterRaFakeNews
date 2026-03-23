@@ -1,9 +1,15 @@
+# NB! This is not completed yet. DO NOT attempt to run 'python experiments.py recbole'
+
+# Make sure that a virtual environment with requirements/recbole.txt is installed before running.
+# To avoid red lines set the VSCode interpreter path to your specified environment. Example: .envs/recbole/bin/python
+
 import os
 
 import numpy as np
 import pandas as pd
 import torch
 
+from recommender.base_recommender import BaseRecommender
 from recommender.general_recommender import random_recommendation
 from recbole.config import Config
 from recbole.model.abstract_recommender import AbstractRecommender
@@ -13,7 +19,8 @@ from recbole.utils import get_model
 from recbole.trainer import Trainer
 
 
-class RecboleRecommender:
+class RecboleRecommender(BaseRecommender):
+
     def __init__(self, recommender_type, diversity_level, num_recommendations):
         self.type = recommender_type
         self.diversity_level = diversity_level
@@ -50,9 +57,9 @@ class RecboleRecommender:
                 "eval_batch_size": 2048,
                 # avoid GPU complications
                 "device": "cpu",
-                "checkpoint_dir": f"saved/saved_{os.getpid()}",
+                "checkpoint_dir": f"saved/saved_{os.getpid()}",  # Ensure unique checkpoint for each Trainer
                 "save_dataset": False,
-                # disable logging to avoid thread exhaustion
+                # disable logging to avoid thread exhaustion (DOES NOT WORK, wth)
                 "log_tensorboard": False,
                 "enable_wandb": False,
             },
@@ -97,10 +104,17 @@ class RecboleRecommender:
                 for agent in agents:
                     random_recommendation(agent, self.num_recommendations)
 
+    # TODO: Not properly implemented, needs rewriting if recbole is to be included in experiments
     def train_recommender(self, agents):
+        """Trains a recommender based on what type of model is specified.
+
+        Args:
+            agents (_type_): _description_
+        """
         interaction_list = self._get_interaction_list()
         n_interactions = len(interaction_list)
 
+        # If there are too few interactions overall, return
         if n_interactions < self._training_threshold:
             return
 
@@ -143,7 +157,15 @@ class RecboleRecommender:
                 agent.recommended_content.extend(recs_to_content)
 
     def recommend_topk(self, dataset, user_id):
+        """Recommends the top k items scored by a recommender
 
+        Args:
+            dataset: collection of every user-item interaction
+            user_id (int): unique identifier of the agent the recommendation is for
+
+        Returns:
+            Tensor: the ids of items to be recommended
+        """
         uid = dataset.token2id(dataset.uid_field, str(user_id))
         interaction = {dataset.uid_field: torch.tensor([uid])}
 
@@ -161,54 +183,16 @@ class RecboleRecommender:
         return item_ids
 
     def _create_dataset(self):
-        """Create a LensKit Dataset from interactions"""
+        """Create a recbole Dataset from interactions"""
         if not self.user_interactions:
             return None
 
         interaction_list = self._get_interaction_list()
         n_interactions = len(interaction_list)
 
-        os.makedirs(f"dataset/simulation_{os.getpid()}", exist_ok=True)
-
-        # Convert interactions to DataFrame
-        # df = pd.DataFrame(interaction_list)
-
-        # df = df.rename(
-        #     columns={
-        #         "user_id": "user_id:token",
-        #         "item_id": "item_id:token",
-        #         "rating": "rating:float",
-        #     }
-        # )
-
-        # # Ensure proper data types
-        # df["user_id:token"] = df["user_id:token"].astype("int32")
-        # df["item_id:token"] = df["item_id:token"].astype("int32")
-        # df["rating:float"] = df["rating:float"].astype("float64")
-
-        # # Remove duplicates keeping most recent
-        # df = df.drop_duplicates(["user_id:token", "item_id:token"], keep="last")
-
-        # df.to_csv(
-        #     f"dataset/simulation_{os.getpid()}/simulation_{os.getpid()}.inter",
-        #     sep="\t",
-        #     index=False,
-        # )
-
-        # # Create dataset using from_interactions_df
-        # try:
-        #     config = Config(
-        #         model=self.type,
-        #         dataset=f"simulation_{os.getpid()}",
-        #         config_dict={
-        #             "USER_ID_FIELD": "user_id",
-        #             "ITEM_ID_FIELD": "item_id",
-        #             "RATING_FIELD": "rating",
-        #             "load_col": {"inter": ["user_id", "item_id", "rating"]},
-        #         },
-        #     )
-
-        #     dataset = create_dataset(config)
+        os.makedirs(
+            f"dataset/simulation_{os.getpid()}", exist_ok=True
+        )  # Ensure separation of datasets between threads
 
         df = pd.DataFrame(interaction_list)
 

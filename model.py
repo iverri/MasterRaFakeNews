@@ -58,7 +58,7 @@ class FakeNewsModel(Model):
     # Initialize agents
     def __init__(
         self,
-        library: str = "default",  # WILL RAISE ERROR (on purpose)
+        library: str = "lenskit",  # WILL RAISE ERROR (on purpose)
         N: int = 200,
         m_links: int = 10,
         news_amount: int = 500,

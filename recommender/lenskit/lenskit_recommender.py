@@ -11,13 +11,15 @@ from lenskit.pipeline import topn_pipeline
 from lenskit import recommend
 
 # Local imports
+from recommender.base_recommender import BaseRecommender
 from recommender.diversity import calculate_diversity, diversity_reranking
 from recommender.types import RecommenderType
 from recommender.general_recommender import random_recommendation
 from utils.metrics import vec_mat_cosine_similarity
 
 
-class LenskitRecommender:
+class LenskitRecommender(BaseRecommender):
+
     def __init__(self, recommender_type, diversity_level, num_recommendations):
         self.type = recommender_type
         self.diversity_level = diversity_level

@@ -1,11 +1,11 @@
 import os
-import yaml
 
-
+# Safeguard against thread conficts across libraries
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["OMP_NUM_THREADS"] = "1"
 
 import mesa
+import yaml
 import pandas as pd
 import numpy as np
 from datetime import datetime

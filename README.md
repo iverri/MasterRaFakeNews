@@ -19,6 +19,7 @@ This project implements an agent-based model (ABM) to simulate the propagation o
 ### Model Architecture
 
 FakeNewsModel
+
 ```
 ├── SocialMediaPlatform
 │ ├── SocialNetwork (NetworkX directed graph)
@@ -28,13 +29,12 @@ FakeNewsModel
 └── DataCollector (Metrics and visualization)
 ```
 
-
-
 ## Dashboard
 
 ![Solara Dashboard](diagrams/solara_dashboard.png)
 
 The Solara dashboard provides an interactive interface to run and visualize the simulation. It allows you to:
+
 - Adjust simulation parameters in real-time
 - View the network graph with different agent types and states
 - Monitor key metrics as the simulation progresses
@@ -44,6 +44,7 @@ The Solara dashboard provides an interactive interface to run and visualize the 
 
 - pandas
 - numpy
+- torch
 - networkx
 - mesa
 - lenskit
@@ -54,7 +55,8 @@ The Solara dashboard provides an interactive interface to run and visualize the 
 - python-louvain
 - dppy
 - scikit-learn
-
+- pyyaml
+- recbole
 
 ## Project Structure
 
@@ -68,7 +70,14 @@ The Solara dashboard provides an interactive interface to run and visualize the 
 │ ├── social_network.py # Network structure
 │ └── social_media_platform.py # Platform orchestration
 ├── recommender/
-│ ├── recommender.py # Recommendation algorithms
+│ ├── lenskit
+│ │ ├── lenskit_recommender.py # Recommenders using lenskit library (lightweight, for experimentation)
+│ ├── recbole
+│ │ ├── recbole_recommender.py # Recommenders using recbole library (heavier, more modern algorithms)
+│ ├── base_recommender.py # Abstract recommender class
+│ ├── diversity.py # Calculate recommendation diversity
+│ ├── factory.py # Switch recommender type depending on library
+│ ├── general_recommender.py # General algorithms
 │ └── types.py # Algorithm type definitions
 ├── utils/
 │ ├── metrics.py # Evaluation metrics
@@ -107,11 +116,10 @@ python3.11 -m venv .venv
 .venv\Scripts\activate
 ```
 
-
 3. Install dependencies:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements/lenskit.txt
 ```
 
 ## Usage
@@ -123,6 +131,7 @@ solara run model.py
 ```
 
 This will launch a Solara visualization interface where you can:
+
 - Adjust the number of agents (5-100)
 - Modify the number of edges per new node (1-5)
 - View network visualization
@@ -136,18 +145,20 @@ This will launch a Solara visualization interface where you can:
 ```bash
 python3 experiments.py
 ```
+
 You can modify the parameters in the `experiments.py` file.
 
 Experiment results are saved in the `experiment_results` folder.
 
 ### Plotting results
+
 After running experiments, you can generate plots to visualize the results:
 
 ```bash
 python3 plot.py experiment_results/{experiment_name}.csv --output-dir plots
 ```
-Remember to replace `{experiment_name}` with the name of the experiment file you want to plot, along with the correct timestamp.
 
+Remember to replace `{experiment_name}` with the name of the experiment file you want to plot, along with the correct timestamp.
 
 ## License
 

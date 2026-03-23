@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 
+# Defines methods all recommenders have to include
 class BaseRecommender(ABC):
 
     @abstractmethod
