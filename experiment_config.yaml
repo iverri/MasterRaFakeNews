@@ -1,0 +1,3 @@
+lenskit: ["random", "item_knn", "user_knn", "content_based", "popular"]
+
+recbole: ["BPR"]

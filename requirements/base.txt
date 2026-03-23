@@ -17,3 +17,5 @@ matplotlib
 seaborn
 solara
 
+# config
+pyyaml

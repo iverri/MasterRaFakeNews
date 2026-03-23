@@ -1,4 +1,6 @@
 import os
+import yaml
+
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -6,7 +8,6 @@ os.environ["OMP_NUM_THREADS"] = "1"
 import mesa
 import pandas as pd
 import numpy as np
-import os
 from datetime import datetime
 from model import FakeNewsModel
 from recommender.types import RecommenderType
@@ -61,6 +62,9 @@ def run_recommender_comparison_experiment(
 
     NetworkStorage.clear()
 
+    with open("experiment_config.yaml", "r") as f:
+        config = yaml.load(f, Loader=yaml.SafeLoader)
+
     # Create an initial model to generate and store the network with current parameters
     # Set use_stored_network=False to force creation of a new network
     initial_model = FakeNewsModel(
@@ -75,7 +79,7 @@ def run_recommender_comparison_experiment(
         num_recommendations=num_recommendations,
         use_stored_network=True,
         stored_network=None,  # Force creation of new network
-        recommender_type="BPR",  # Use any recommender for initial setup
+        recommender_type=config[library][0],  # Use any recommender for initial setup
         max_steps=max_steps,
     )
 
@@ -103,7 +107,9 @@ def run_recommender_comparison_experiment(
         "use_stored_network": True,  # Now use the stored network for all runs
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
-        "recommender_type": "BPR",  # [type.value for type in RecommenderType],
+        "recommender_type": [
+            rec for rec in config[library]
+        ],  # [type.value for type in RecommenderType],
         "max_steps": max_steps,
         "collect_personality_degree_stats": False,
         "collect_community_data": True,
@@ -297,7 +303,7 @@ if __name__ == "__main__":
     results_df, model_data, summary_df, community_data_file = (
         run_recommender_comparison_experiment(
             library=args.library,
-            iterations=5,  # Number of runs per recommender type
+            iterations=1,  # Number of runs per recommender type
             max_steps=700,  # Steps per run
             n_agents=200,  # Number of agents
             m_links=8,  # Links per new node
