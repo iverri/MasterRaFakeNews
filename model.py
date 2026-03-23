@@ -58,6 +58,7 @@ class FakeNewsModel(Model):
     # Initialize agents
     def __init__(
         self,
+        library: str = "lenskit",  # WILL RAISE ERROR (on purpose)
         N: int = 200,
         m_links: int = 10,
         news_amount: int = 500,
@@ -87,6 +88,7 @@ class FakeNewsModel(Model):
         self.num_agents = N
         self.m_links = m_links
         self.fake_news_percentage = fake_news_percentage / 100
+        self.library = library
         self.recommender_type = recommender_type
         self.bot_percentage = bot_percentage / 100
         self.influencer_percentage = influencer_percentage / 100
@@ -117,6 +119,7 @@ class FakeNewsModel(Model):
             self.m_links,
             self.preference_vectors,
             self.personality_vectors,
+            self.library,
             self.recommender_type,
             self.diversity_level,
             self.num_recommendations,

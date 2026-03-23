@@ -1,6 +1,5 @@
 # Data Processing
-pandas
-numpy
+numpy==1.26.1
 scikit-learn
 
 # Social network
@@ -11,10 +10,12 @@ infomap
 
 # ABM
 mesa
-lenskit>=2025.1.0
 altair
 
 # Data Visualization
 matplotlib
 seaborn
 solara
+
+# config
+pyyaml

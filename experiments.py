@@ -1,7 +1,13 @@
+import os
+
+# Safeguard against thread conficts across libraries
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["OMP_NUM_THREADS"] = "1"
+
 import mesa
+import yaml
 import pandas as pd
 import numpy as np
-import os
 from datetime import datetime
 from model import FakeNewsModel
 from recommender.types import RecommenderType
@@ -9,6 +15,7 @@ from utils.network_storage import NetworkStorage
 
 
 def run_recommender_comparison_experiment(
+    library,
     iterations,
     max_steps,
     n_agents,
@@ -55,9 +62,13 @@ def run_recommender_comparison_experiment(
 
     NetworkStorage.clear()
 
+    with open("experiment_config.yaml", "r") as f:
+        config = yaml.load(f, Loader=yaml.SafeLoader)
+
     # Create an initial model to generate and store the network with current parameters
     # Set use_stored_network=False to force creation of a new network
     initial_model = FakeNewsModel(
+        library=library,
         N=n_agents,
         m_links=m_links,
         news_amount=news_amount,
@@ -68,7 +79,7 @@ def run_recommender_comparison_experiment(
         num_recommendations=num_recommendations,
         use_stored_network=True,
         stored_network=None,  # Force creation of new network
-        recommender_type=RecommenderType.RANDOM.value,  # Use any recommender for initial setup
+        recommender_type=config[library][0],  # Use any recommender for initial setup
         max_steps=max_steps,
     )
 
@@ -84,6 +95,7 @@ def run_recommender_comparison_experiment(
     # Define parameters for batch run
     # We'll vary the recommender type while keeping other parameters fixed
     parameters = {
+        "library": library,
         "N": n_agents,
         "m_links": m_links,
         "news_amount": news_amount,
@@ -95,7 +107,9 @@ def run_recommender_comparison_experiment(
         "use_stored_network": True,  # Now use the stored network for all runs
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
-        "recommender_type": [type.value for type in RecommenderType],
+        "recommender_type": [
+            rec for rec in config[library]
+        ],  # [type.value for type in RecommenderType],
         "max_steps": max_steps,
         "collect_personality_degree_stats": False,
         "collect_community_data": True,
@@ -110,7 +124,7 @@ def run_recommender_comparison_experiment(
         parameters=parameters,
         iterations=iterations,
         max_steps=max_steps,
-        number_processes=8,  # Set to higher number for parallel processing
+        number_processes=5,  # Set to higher number for parallel processing
         data_collection_period=1,  # Collect data at each step
         display_progress=True,
     )
@@ -277,11 +291,19 @@ def analyze_results(model_data, summary_df):
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Generate plots from experiment data")
+    parser.add_argument(
+        "library", type=str, help="Recommender library to use (lenskit/recbole)"
+    )
+    args = parser.parse_args()
 
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = (
         run_recommender_comparison_experiment(
-            iterations=5,  # Number of runs per recommender type
+            library=args.library,
+            iterations=1,  # Number of runs per recommender type
             max_steps=700,  # Steps per run
             n_agents=200,  # Number of agents
             m_links=8,  # Links per new node

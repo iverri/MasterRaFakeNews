@@ -1,4 +1,4 @@
-from recommender.recommender import Recommender
+from recommender.factory import create_recommender
 from objects.social_network import Social_Network
 
 
@@ -10,6 +10,7 @@ class SocialMediaPlatform:
         m_links,
         preference_vectors,
         personality_vectors,
+        library,
         recommender_type,
         diversity_level,
         num_recommendations,
@@ -28,6 +29,6 @@ class SocialMediaPlatform:
         )
 
         # Create recommender system
-        self.recommender = Recommender(
-            recommender_type, diversity_level, num_recommendations
+        self.recommender = create_recommender(
+            library, recommender_type, diversity_level, num_recommendations
         )
