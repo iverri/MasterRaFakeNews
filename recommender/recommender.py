@@ -71,6 +71,8 @@ class Recommender:
                 self.content_based(agent)
             elif self.type == RecommenderType.POPULAR.value:
                 self.popular_recommendation(agent)
+            elif self.type == RecommenderType.HYBRID_WEIGHTED.value:
+                self.hybrid_weighted(agent)
 
     def add_interaction(self, agent_id, content_id, rating):
         """Add an interaction between an agent and content item"""
@@ -134,7 +136,7 @@ class Recommender:
             print(f"Error creating dataset: {e}")
             return None
 
-    def collaborative_filtering(self, agent, type):
+    def collaborative_filtering(self, agent, type, num_recommendations=None, add_to_feed=True):
         """
         Recommend content using collaborative filtering.
 
@@ -146,6 +148,8 @@ class Recommender:
             Type of collaborative filtering ("item" or "user")
         """
         try:
+            if num_recommendations is None:
+                num_recommendations = self.num_recommendations
             # Get content pool from model
             if not hasattr(agent.model, "news_content") or not agent.model.news_content:
                 self.random_recommendation(agent)
@@ -163,12 +167,21 @@ class Recommender:
             )  # Minimum total interactions needed
             if n_interactions < min_interactions or user_interactions_count < 3:
                 # Fall back to random recommendations if not enough data overall
-                recommendations = self.random_recommendation(agent, add_to_feed=False)
+                recommendations = self.random_recommendation(agent, num_recommendations=num_recommendations, add_to_feed=False)
                 agent.recommended_content.extend(recommendations)
                 agent.diversity_score = calculate_diversity(
                     np.array([rec.topic_vector for rec in recommendations])
-                )
+                ) or []
+                if add_to_feed:
+                    agent.recommended_content.extend(recommendations)
+                    if recommendations:
+                        agent.diversity_score = calculate_diversity(
+                            np.array([rec.topic_vector for rec in recommendations])
+                        )
+                else:
+                    return recommendations
                 return
+                
 
             # Create dataset only if needed
             dataset = self._create_dataset()
@@ -217,8 +230,8 @@ class Recommender:
             # Get recommendations using the recommend function
             try:
                 num_recommendations = (
-                    self.num_recommendations * 3
-                    if self.diversity_level > 0
+                    num_recommendations * 3
+                    if add_to_feed and self.diversity_level > 0
                     else self.num_recommendations
                 )
 
@@ -243,7 +256,7 @@ class Recommender:
                                 add_to_feed=False,
                             )
                         )
-                    if self.diversity_level > 0:
+                    if add_to_feed and self.diversity_level > 0:
                         # Calculate diversity before reranking on the same number of items that will be in final set
                         num_final_recs = min(
                             len(recommendations) // 3, self.num_recommendations
@@ -275,10 +288,12 @@ class Recommender:
                         )
                         diversity_score = calculate_diversity(topic_vectors)
 
-                    agent.recommended_content.extend(recommendations)
-
-                    # After reranking
-                    agent.diversity_score = diversity_score
+                    if add_to_feed:
+                        agent.recommended_content.extend(recommendations)
+                        # After reranking
+                        agent.diversity_score = diversity_score
+                    else:
+                        return recommendations[:num_recommendations]
                 else:
                     # Fall back to random if no recommendations were generated
                     self.random_recommendation(agent)
@@ -292,7 +307,7 @@ class Recommender:
             # Fallback to random recommendations
             self.random_recommendation(agent)
 
-    def content_based(self, agent):
+    def content_based(self, agent, num_recommendations=None, add_to_feed=True):
         """Recommend content based on topic vector similarity."""
 
         # Cache content if needed
@@ -317,6 +332,9 @@ class Recommender:
 
         if not available_content:
             return
+        
+        if num_recommendations is None:
+            num_recommendations = self.num_recommendations
 
         # Calculate similarity scores for each content item
         scores = []
@@ -339,14 +357,14 @@ class Recommender:
         # Sort by score and get top recommendations
         scores.sort(key=lambda x: x[1], reverse=True)
         num_to_select = (
-            self.num_recommendations * 3
-            if self.diversity_level > 0
+            num_recommendations * 3
+            if add_to_feed and self.diversity_level > 0
             else self.num_recommendations
         )
         recommendations = [content for content, _ in scores[:num_to_select]]
 
         # Apply diversity reranking with pre-calculated data
-        if self.diversity_level > 0 and len(recommendations) > 1:
+        if add_to_feed and self.diversity_level > 0 and len(recommendations) > 1:
 
             # Before reranking
             original_topic_vectors = np.array(
@@ -372,9 +390,13 @@ class Recommender:
         else:
             topic_vectors = np.array([rec.topic_vector for rec in recommendations])
             diversity_score = calculate_diversity(topic_vectors)
-        # Add recommendations to agent's recommended_content
-        agent.recommended_content.extend(recommendations)
-        agent.diversity_score = diversity_score
+
+        if add_to_feed:
+            # Add recommendations to agent's recommended_content
+            agent.recommended_content.extend(recommendations)
+            agent.diversity_score = diversity_score
+        else:
+            return recommendations[:num_recommendations]
 
     def random_recommendation(self, agent, num_recommendations=None, add_to_feed=True):
         """Recommend random news content to an agent"""
@@ -596,3 +618,75 @@ class Recommender:
             self._user_interactions_cache_dirty = False
 
         return self._user_interactions_cache
+
+    def hybrid_weighted(self, agent):
+        """Combine collaborative filtering and content-based recommendations with weighted scoring"""
+
+        try:
+            num_candidates = self.num_recommendations * 3  if self.diversity_level > 0 else self.num_recommendations
+            #get recommendations from both methods
+            cb_recommendations = self.content_based(agent, num_recommendations=num_candidates, add_to_feed=False) or []
+
+            cf_recommendations = self.collaborative_filtering(agent, "item", num_recommendations=num_candidates, add_to_feed=False) or []
+
+            if not cb_recommendations and not cf_recommendations:
+                self.random_recommendation(agent)
+                return
+            
+            alpha = 0.6 # Weight for content-based
+
+            combined_scores= {}
+            content_lookup = {}
+
+            for rank, content in enumerate(cb_recommendations):
+                content_id = content.content
+                content_lookup[content_id] = content
+                # Higher rank gets higher score
+                # rank 1 gets score of 1, rank 2 gets 0.5, rank 3 gets 0.33...
+                rank_score = 1 / (rank + 1)
+                combined_scores[content_id] = combined_scores.get(content_id, 0) + alpha * rank_score
+
+            for rank, content in enumerate(cf_recommendations):
+                content_id = content.content
+                content_lookup[content_id] = content
+                rank_score = 1 / (rank + 1)
+                combined_scores[content_id] = combined_scores.get(content_id, 0) + (1 - alpha) * rank_score
+
+            ranked_content_ids = sorted(combined_scores, key=combined_scores.get, reverse=True)
+            recommendations = [content_lookup[item_id] for item_id in ranked_content_ids[:num_candidates]]
+
+
+            if self.diversity_level > 0 and len(recommendations) > 1:
+                original_topic_vectors = np.array(
+                    [
+                        rec.topic_vector
+                        for rec in recommendations[: self.num_recommendations]
+                    ]
+                )
+                agent.original_diversity_score = calculate_diversity(original_topic_vectors)
+
+                recommendations, diversity_score = self._optimized_diversity_reranking(
+                    agent.preference_vector,
+                    recommendations,
+                    k=self.num_recommendations,
+                )
+            else:
+                recommendations = recommendations[:self.num_recommendations]
+                topic_vectors = np.array([rec.topic_vector for rec in recommendations])
+                diversity_score = calculate_diversity(topic_vectors)
+
+            agent.recommended_content.extend(recommendations)
+            agent.diversity_score = diversity_score
+
+
+        except Exception as e:
+            print(f"Error in hybrid recommendation: {e}")
+            traceback.print_exc()
+            self.random_recommendation(agent)
+        
+
+    def _get_hybrid_weight(self, agent, min_alpha=0.2, max_alpha=0.8, c=10):
+        n_user = self.user_interactions_count.get(agent.pos, 0)
+        alpha = c / (c + n_user)
+        return max(min_alpha, min(max_alpha, alpha))
+
