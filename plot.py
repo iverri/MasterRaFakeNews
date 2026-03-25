@@ -17,6 +17,8 @@ RECOMMENDER_COLORS = {
     'CBF': '#2ca02c',    # green
     'UB-CF': '#ff7f0e',    # orange
     'IB-CF': '#d62728',           # red
+    'HW_D': '#9467bd',           # purple
+    'HW_S': '#17becf',           # cyan
 }
 
 # Define a global label mapping for recommender types
@@ -26,6 +28,8 @@ RECOMMENDER_LABELS = {
     'content_based': 'CBF',
     'user_knn': 'UB-CF',
     'item_knn': 'IB-CF',
+    'hybrid_weighted_dynamic': 'HW_D',
+    'hybrid_weighted_static': 'HW_S',
 }
 
 # Helper function to map recommender types to their display labels
