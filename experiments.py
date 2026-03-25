@@ -103,14 +103,15 @@ def run_recommender_comparison_experiment(
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
         "recommender_type": [
-            # RecommenderType.RANDOM.value,
-            RecommenderType.CONTENT_BASED.value,
-            RecommenderType.HYBRID_WEIGHTED_DYNAMIC.value,
-            RecommenderType.HYBRID_WEIGHTED_STATIC.value,
-            RecommenderType.ITEM_KNN.value,
-            RecommenderType.MIXED.value,
-            # RecommenderType.POPULAR.value,
-            # RecommenderType.USER_KNN
+            "random",
+            "item_knn",
+            "user_knn",
+            "content_based",
+            "popular",
+            "hybrid_weighted_static",
+            "hybrid_weighted_dynamic",
+            "matrix_factorization",
+            "mixed",
         ],
         "max_steps": max_steps,
         "collect_personality_degree_stats": False,
@@ -118,7 +119,7 @@ def run_recommender_comparison_experiment(
         "collect_agent_stats": True,
     }
     print(f"Starting batch run with {iterations} iterations per recommender type...")
-    print(f"Recommender types: {[type.value for type in RecommenderType]}")
+    print(f"Recommender types: {[rec for rec in parameters['recommender_type']]}")
 
     # Run the batch experiment
     results = mesa.batch_run(

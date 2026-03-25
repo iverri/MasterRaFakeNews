@@ -12,31 +12,28 @@ import pickle
 
 # Define a global color mapping for all recommender types using label names
 RECOMMENDER_COLORS = {
-    'HW_D': '#9467bd',           # purple
-    'HW_S': '#17becf',           # cyan
     "Rnd": "#1f77b4",  # blue
     "Pop": "#e377c2",  # pink
     "CBF": "#2ca02c",  # green
     "UB-CF": "#ff7f0e",  # orange
     "IB-CF": "#d62728",  # red
+    "HW_D": "#9467bd",  # purple
+    "HW_S": "#17becf",  # cyan
+    "MF": "#8c564b",  # brown
     "Mix": "#0b2843",  # dark blue
-    'MF': '#8c564b',             # brown
 }
 
 # Define a global label mapping for recommender types
 RECOMMENDER_LABELS = {
-    'random': 'Rnd',
-    'popular': 'Pop',
-    'content_based': 'CBF',
-    'user_knn': 'UB-CF',
-    'item_knn': 'IB-CF',
-    'hybrid_weighted_dynamic': 'HW_D',
-    'hybrid_weighted_static': 'HW_S',
-<<<<<<< HEAD
+    "random": "Rnd",
+    "popular": "Pop",
+    "content_based": "CBF",
+    "user_knn": "UB-CF",
+    "item_knn": "IB-CF",
+    "hybrid_weighted_dynamic": "HW_D",
+    "hybrid_weighted_static": "HW_S",
     "mixed": "Mix",
-=======
-    'matrix_factorization': 'MF',
->>>>>>> 3df2e95 (implemented matrix factorization as a new RS)
+    "matrix_factorization": "MF",
 }
 
 

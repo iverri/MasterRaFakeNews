@@ -90,6 +90,8 @@ class Recommender:
                 self.mixed_hybrid_recommender(agent)
             elif self.type == RecommenderType.MATRIX_FACTORIZATION.value:
                 self.matrix_factorization(agent)
+            elif self.type == RecommenderType.MIXED.value:
+                self.mixed_hybrid_recommender(agent)
 
     def add_interaction(self, agent_id, content_id, rating):
         """Add an interaction between an agent and content item"""
