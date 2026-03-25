@@ -1,4 +1,6 @@
+import glob
 import os
+import pstats
 
 # Safeguard against thread conficts across libraries
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -306,6 +308,17 @@ if __name__ == "__main__":
             num_recommendations=10,  # Number of recommendations
         )
     )
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    files = glob.glob("profile_*.prof")
+
+    stats = pstats.Stats(files[0])
+    for f in files[1:]:
+        stats.add(f)
+        os.remove(f)
+    os.remove(files[0])
+
+    stats.dump_stats(f"profiler_runs/merged_{timestamp}.prof")
 
     # Analyze the results
     analyze_results(model_data, summary_df)
