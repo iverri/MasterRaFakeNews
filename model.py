@@ -1,3 +1,6 @@
+import cProfile
+import os
+
 from mesa import Model
 import networkx as nx
 from mesa.space import NetworkGrid
@@ -101,6 +104,10 @@ class FakeNewsModel(Model):
             if use_stored_network and stored_network
             else NetworkStorage()
         )
+        
+        self._profiler = None
+        self._profile_file = f"profile_{os.getpid()}_{id(self)}.prof"
+        
         self.max_steps = max_steps
         self.collect_personality_degree_stats = collect_personality_degree_stats
         self.collect_community_data = collect_community_data
@@ -153,6 +160,12 @@ class FakeNewsModel(Model):
 
     def step(self):
         """Advance the model by one step."""
+        
+        
+        if self._profiler is None:
+            self._profiler = cProfile.Profile()
+            self._profiler.enable()
+        
 
         print(f"Step: {self.steps}")
 
@@ -181,6 +194,11 @@ class FakeNewsModel(Model):
 
         # Collect data
         self.datacollector.collect(self)
+        
+        if self.steps >= self.max_steps - 1 and self._profiler is not None:
+            self._profiler.disable()
+            self._profiler.dump_stats(self._profile_file)
+            self._profiler = None
 
     def _validate_parameters(self, N, m_links):
         """
