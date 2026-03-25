@@ -207,7 +207,8 @@ class Recommender:
                 # Get all available content IDs - do this once and cache
                 all_content_ids = {c.content for c in agent.model.news_content}
                 self.content_dict_cache[agent.pos] = {
-                    "all_content_ids": all_content_ids,
+                    "all_content": agent.model.news_content,
+                    "all_content_ids": {c.content for c in agent.model.news_content},
                     "content_dict": {c.content: c for c in agent.model.news_content},
                 }
                 self.last_content_update = current_step
@@ -318,6 +319,7 @@ class Recommender:
         ):
             self.content_dict_cache[agent.pos] = {
                 "all_content": agent.model.news_content,
+                "all_content_ids": {c.content for c in agent.model.news_content},
                 "content_dict": {c.content: c for c in agent.model.news_content},
             }
             self.last_content_update = current_step
@@ -633,7 +635,7 @@ class Recommender:
                 self.random_recommendation(agent)
                 return
             
-            alpha = 0.6 # Weight for content-based
+            alpha = self._get_hybrid_weight(agent)
 
             combined_scores= {}
             content_lookup = {}
