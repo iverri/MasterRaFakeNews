@@ -1,7 +1,12 @@
+import os
+
+# Safeguard against thread conficts across libraries
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["OMP_NUM_THREADS"] = "1"
+
 import mesa
 import pandas as pd
 import numpy as np
-import os
 from datetime import datetime
 from model import FakeNewsModel
 from recommender.types import RecommenderType
@@ -95,15 +100,23 @@ def run_recommender_comparison_experiment(
         "use_stored_network": True,  # Now use the stored network for all runs
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
-        "recommender_type": [type.value for type in RecommenderType],
-        #"recommender_type": [RecommenderType.ITEM_KNN.value, RecommenderType.USER_KNN.value, RecommenderType.HYBRID_WEIGHTED_DYNAMIC.value, RecommenderType.MATRIX_FACTORIZATION.value],
+        "recommender_type": [
+            "random",
+            "item_knn",
+            "user_knn",
+            "content_based",
+            "popular",
+            "hybrid_weighted_static",
+            "hybrid_weighted_dynamic",
+            "matrix_factorization" "mixed",
+        ],
         "max_steps": max_steps,
         "collect_personality_degree_stats": False,
         "collect_community_data": True,
         "collect_agent_stats": True,
     }
     print(f"Starting batch run with {iterations} iterations per recommender type...")
-    print(f"Recommender types: {[type.value for type in RecommenderType]}")
+    print(f"Recommender types: {[rec for rec in parameters['recommender_type']]}")
 
     # Run the batch experiment
     results = mesa.batch_run(
