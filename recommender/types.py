@@ -6,5 +6,6 @@ class RecommenderType(Enum):
     USER_KNN = "user_knn"
     CONTENT_BASED = "content_based"
     POPULAR = "popular"
-    HYBRID_WEIGHTED = "hybrid_weighted"
+    HYBRID_WEIGHTED_DYNAMIC = "hybrid_weighted_dynamic"
+    HYBRID_WEIGHTED_STATIC = "hybrid_weighted_static"
     

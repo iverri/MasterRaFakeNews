@@ -71,8 +71,10 @@ class Recommender:
                 self.content_based(agent)
             elif self.type == RecommenderType.POPULAR.value:
                 self.popular_recommendation(agent)
-            elif self.type == RecommenderType.HYBRID_WEIGHTED.value:
-                self.hybrid_weighted(agent)
+            elif self.type == RecommenderType.HYBRID_WEIGHTED_DYNAMIC.value:
+                self.hybrid_weighted(agent, "dynamic")
+            elif self.type == RecommenderType.HYBRID_WEIGHTED_STATIC.value:
+                self.hybrid_weighted(agent, "static")
 
     def add_interaction(self, agent_id, content_id, rating):
         """Add an interaction between an agent and content item"""
@@ -621,8 +623,16 @@ class Recommender:
 
         return self._user_interactions_cache
 
-    def hybrid_weighted(self, agent):
-        """Combine collaborative filtering and content-based recommendations with weighted scoring"""
+    def hybrid_weighted(self, agent, alpha):
+        """Combine collaborative filtering and content-based recommendations with weighted scoring
+
+        Parameters:
+        -----------
+        agent : UserAgent
+            The agent to generate recommendations for
+        alpha : str
+            Type of alpha weighting ("dynamic" or "static")
+        """
 
         try:
             num_candidates = self.num_recommendations * 3  if self.diversity_level > 0 else self.num_recommendations
@@ -635,7 +645,10 @@ class Recommender:
                 self.random_recommendation(agent)
                 return
             
-            alpha = self._get_hybrid_weight(agent)
+            if alpha == "dynamic":
+                alpha = self._get_hybrid_weight(agent)
+            else: 
+                alpha = 0.5 # Static weight 
 
             combined_scores= {}
             content_lookup = {}
@@ -691,4 +704,3 @@ class Recommender:
         n_user = self.user_interactions_count.get(agent.pos, 0)
         alpha = c / (c + n_user)
         return max(min_alpha, min(max_alpha, alpha))
-
