@@ -9,6 +9,7 @@ from lenskit.knn import ItemKNNScorer, ItemKNNConfig, UserKNNScorer, UserKNNConf
 from lenskit.data import ItemList, from_interactions_df
 from lenskit.pipeline import topn_pipeline
 from lenskit import recommend
+from lenskit.als import BiasedMFScorer
 
 # Local imports
 from recommender.diversity import calculate_diversity, diversity_reranking
@@ -57,6 +58,16 @@ class Recommender:
         # Create a recommendation pipeline
         self.pipeline = None
 
+        # Biased Matrix Factorization model
+        self.mf_model = BiasedMFScorer(
+            embedding_size=20,  # Number of latent factors
+            epochs=20,  # Number of iterations for training
+            regularization=0.1,  # Regularization parameter
+        )
+
+        self.mf_pipeline = None  # Pipeline for matrix factorization model
+        self._last_mf_training_count = 0  # Track interactions for MF retraining
+
     def update_recommendations(self, agents):
         """Update recommendations for all agents"""
 
@@ -77,6 +88,8 @@ class Recommender:
                 self.hybrid_weighted(agent, "static")
             elif self.type == RecommenderType.MIXED.value:
                 self.mixed_hybrid_recommender(agent)
+            elif self.type == RecommenderType.MATRIX_FACTORIZATION.value:
+                self.matrix_factorization(agent)
 
     def add_interaction(self, agent_id, content_id, rating):
         """Add an interaction between an agent and content item"""
@@ -177,11 +190,16 @@ class Recommender:
             )  # Minimum total interactions needed
             if n_interactions < min_interactions or user_interactions_count < 3:
                 # Fall back to random recommendations if not enough data overall
-                recommendations = self.random_recommendation(agent, num_recommendations=num_recommendations, add_to_feed=False)
+                recommendations = self.random_recommendation(
+                    agent, num_recommendations=num_recommendations, add_to_feed=False
+                )
                 agent.recommended_content.extend(recommendations)
-                agent.diversity_score = calculate_diversity(
-                    np.array([rec.topic_vector for rec in recommendations])
-                ) or []
+                agent.diversity_score = (
+                    calculate_diversity(
+                        np.array([rec.topic_vector for rec in recommendations])
+                    )
+                    or []
+                )
                 if add_to_feed:
                     agent.recommended_content.extend(recommendations)
                     if recommendations:
@@ -191,7 +209,6 @@ class Recommender:
                 else:
                     return recommendations
                 return
-                
 
             # Create dataset only if needed
             dataset = self._create_dataset()
@@ -352,7 +369,7 @@ class Recommender:
 
         if not available_content:
             return
-        
+
         if num_recommendations is None:
             num_recommendations = self.num_recommendations
 
@@ -414,7 +431,6 @@ class Recommender:
             agent.diversity_score = diversity_score
         else:
             return recommendations[:num_recommendations]
-
 
     def random_recommendation(self, agent, num_recommendations=None, add_to_feed=True):
         """Recommend random news content to an agent"""
@@ -752,22 +768,36 @@ class Recommender:
         """
 
         try:
-            num_candidates = self.num_recommendations * 3  if self.diversity_level > 0 else self.num_recommendations
-            #get recommendations from both methods
-            cb_recommendations = self.content_based(agent, num_recommendations=num_candidates, add_to_feed=False) or []
+            num_candidates = (
+                self.num_recommendations * 3
+                if self.diversity_level > 0
+                else self.num_recommendations
+            )
+            # get recommendations from both methods
+            cb_recommendations = (
+                self.content_based(
+                    agent, num_recommendations=num_candidates, add_to_feed=False
+                )
+                or []
+            )
 
-            cf_recommendations = self.collaborative_filtering(agent, "item", num_recommendations=num_candidates, add_to_feed=False) or []
+            cf_recommendations = (
+                self.collaborative_filtering(
+                    agent, "item", num_recommendations=num_candidates, add_to_feed=False
+                )
+                or []
+            )
 
             if not cb_recommendations and not cf_recommendations:
                 self.random_recommendation(agent)
                 return
-            
+
             if alpha == "dynamic":
                 alpha = self._get_hybrid_weight(agent)
-            else: 
-                alpha = 0.5 # Static weight 
+            else:
+                alpha = 0.5  # Static weight
 
-            combined_scores= {}
+            combined_scores = {}
             content_lookup = {}
 
             for rank, content in enumerate(cb_recommendations):
@@ -776,17 +806,25 @@ class Recommender:
                 # Higher rank gets higher score
                 # rank 1 gets score of 1, rank 2 gets 0.5, rank 3 gets 0.33...
                 rank_score = 1 / (rank + 1)
-                combined_scores[content_id] = combined_scores.get(content_id, 0) + alpha * rank_score
+                combined_scores[content_id] = (
+                    combined_scores.get(content_id, 0) + alpha * rank_score
+                )
 
             for rank, content in enumerate(cf_recommendations):
                 content_id = content.content
                 content_lookup[content_id] = content
                 rank_score = 1 / (rank + 1)
-                combined_scores[content_id] = combined_scores.get(content_id, 0) + (1 - alpha) * rank_score
+                combined_scores[content_id] = (
+                    combined_scores.get(content_id, 0) + (1 - alpha) * rank_score
+                )
 
-            ranked_content_ids = sorted(combined_scores, key=combined_scores.get, reverse=True)
-            recommendations = [content_lookup[item_id] for item_id in ranked_content_ids[:num_candidates]]
-
+            ranked_content_ids = sorted(
+                combined_scores, key=combined_scores.get, reverse=True
+            )
+            recommendations = [
+                content_lookup[item_id]
+                for item_id in ranked_content_ids[:num_candidates]
+            ]
 
             if self.diversity_level > 0 and len(recommendations) > 1:
                 original_topic_vectors = np.array(
@@ -795,7 +833,9 @@ class Recommender:
                         for rec in recommendations[: self.num_recommendations]
                     ]
                 )
-                agent.original_diversity_score = calculate_diversity(original_topic_vectors)
+                agent.original_diversity_score = calculate_diversity(
+                    original_topic_vectors
+                )
 
                 recommendations, diversity_score = self._optimized_diversity_reranking(
                     agent.preference_vector,
@@ -803,21 +843,148 @@ class Recommender:
                     k=self.num_recommendations,
                 )
             else:
-                recommendations = recommendations[:self.num_recommendations]
+                recommendations = recommendations[: self.num_recommendations]
                 topic_vectors = np.array([rec.topic_vector for rec in recommendations])
                 diversity_score = calculate_diversity(topic_vectors)
 
             agent.recommended_content.extend(recommendations)
             agent.diversity_score = diversity_score
 
-
         except Exception as e:
             print(f"Error in hybrid recommendation: {e}")
             traceback.print_exc()
             self.random_recommendation(agent)
-        
 
     def _get_hybrid_weight(self, agent, min_alpha=0.2, max_alpha=0.8, c=10):
         n_user = self.user_interactions_count.get(agent.pos, 0)
         alpha = c / (c + n_user)
         return max(min_alpha, min(max_alpha, alpha))
+
+    def matrix_factorization(self, agent):
+        """Collaborative filtering using matrix factorization with ALS"""
+        try:
+            if not hasattr(agent.model, "news_content") or not agent.model.news_content:
+                self.random_recommendation(agent)
+
+            diversity_score = 0.0
+
+            interaction_list = self._get_interaction_list()
+            n_interactions = len(interaction_list)
+
+            # Check if this specific user has enough interactions (at least 2)
+            user_interactions_count = self.user_interactions_count.get(agent.pos, 0)
+
+            # Check if the system as a whole has enough interactions
+            min_interactions = max(150, agent.model.num_agents // 2)
+            # same fallback logic as KNN
+            if n_interactions < min_interactions or user_interactions_count < 3:
+                recommendations = self.random_recommendation(agent, add_to_feed=False)
+                agent.recommended_content.extend(recommendations)
+                agent.diversity_score = calculate_diversity(
+                    np.array([rec.topic_vector for rec in recommendations])
+                )
+                return
+
+            dataset = self._create_dataset()
+            if dataset is None:
+                self.random_recommendation(agent)
+                return
+
+            # Train MF model if needed
+            if (
+                self.mf_pipeline is None
+                or n_interactions > self._last_mf_training_count
+            ):
+                if self.mf_pipeline is None:
+                    self.mf_pipeline = topn_pipeline(self.mf_model)
+                self.mf_pipeline.train(dataset)
+                self._last_mf_training_count = n_interactions
+
+            # Cache content
+            current_step = agent.model.steps
+            if (
+                current_step != self.last_content_update
+                or agent.pos not in self.content_dict_cache
+            ):
+                all_content_ids = {c.content for c in agent.model.news_content}
+                self.content_dict_cache[agent.pos] = {
+                    "all_content": agent.model.news_content,
+                    "all_content_ids": {c.content for c in agent.model.news_content},
+                    "content_dict": {c.content: c for c in agent.model.news_content},
+                }
+                self.last_content_update = current_step
+
+            # Use cached values
+            all_content_ids = self.content_dict_cache[agent.pos]["all_content_ids"]
+            content_dict = self.content_dict_cache[agent.pos]["content_dict"]
+
+            # Remove already seen items
+            feed_ids = {c.content for c in agent.feed}
+            candidate_ids = all_content_ids - feed_ids
+            if not candidate_ids:
+                return
+
+            candidates = ItemList(list(candidate_ids))
+
+            # Get recommendation
+            num_to_select = (
+                self.num_recommendations * 3
+                if self.diversity_level > 0
+                else self.num_recommendations
+            )
+            recs = recommend(
+                self.mf_pipeline, agent.pos, n=num_to_select, items=candidates
+            )
+
+            recommendations = []
+
+            rec_ids = recs.ids()
+            for item_id in rec_ids:
+                if item_id in content_dict:
+                    recommendations.append(content_dict[item_id])
+
+            # Fill with random if needed
+            if len(recommendations) < num_to_select:
+                recommendations.extend(
+                    self.random_recommendation(
+                        agent,
+                        num_recommendations=num_to_select - len(recommendations),
+                        add_to_feed=False,
+                    )
+                )
+
+            # Apply diversity reranking
+            if self.diversity_level > 0 and len(recommendations) > 1:
+                original_topic_vectors = np.array(
+                    [
+                        rec.topic_vector
+                        for rec in recommendations[: self.num_recommendations]
+                    ]
+                )
+                agent.original_diversity_score = calculate_diversity(
+                    original_topic_vectors
+                )
+
+                recommendations, diversity_score = self._optimized_diversity_reranking(
+                    agent.preference_vector,
+                    recommendations,
+                    k=self.num_recommendations,
+                )
+            else:
+                recommendations = recommendations[: self.num_recommendations]
+                if recommendations:
+                    topic_vectors = np.array(
+                        [rec.topic_vector for rec in recommendations]
+                    )
+                    diversity_score = calculate_diversity(topic_vectors)
+                else:
+                    diversity_score = 0.0
+
+            # Add to agent
+            agent.recommended_content.extend(recommendations)
+            agent.diversity_score = diversity_score
+
+        except Exception as e:
+            print(f"Error in matrix factorization recommendation: {e}")
+            traceback.print_exc()
+            self.random_recommendation(agent)

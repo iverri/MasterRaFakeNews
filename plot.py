@@ -20,6 +20,7 @@ RECOMMENDER_COLORS = {
     "UB-CF": "#ff7f0e",  # orange
     "IB-CF": "#d62728",  # red
     "Mix": "#0b2843",  # dark blue
+    'MF': '#8c564b',             # brown
 }
 
 # Define a global label mapping for recommender types
@@ -31,7 +32,11 @@ RECOMMENDER_LABELS = {
     'item_knn': 'IB-CF',
     'hybrid_weighted_dynamic': 'HW_D',
     'hybrid_weighted_static': 'HW_S',
+<<<<<<< HEAD
     "mixed": "Mix",
+=======
+    'matrix_factorization': 'MF',
+>>>>>>> 3df2e95 (implemented matrix factorization as a new RS)
 }
 
 

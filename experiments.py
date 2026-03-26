@@ -103,15 +103,15 @@ def run_recommender_comparison_experiment(
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
         "recommender_type": [
-                            #RecommenderType.RANDOM.value, 
-                            RecommenderType.CONTENT_BASED.value, 
-                            RecommenderType.HYBRID_WEIGHTED_DYNAMIC.value, 
-                            RecommenderType.HYBRID_WEIGHTED_STATIC.value,
-                            RecommenderType.ITEM_KNN.value,
-                            RecommenderType.MIXED.value,
-                            #RecommenderType.POPULAR.value,
-                            #RecommenderType.USER_KNN
-                             ],
+            # RecommenderType.RANDOM.value,
+            RecommenderType.CONTENT_BASED.value,
+            RecommenderType.HYBRID_WEIGHTED_DYNAMIC.value,
+            RecommenderType.HYBRID_WEIGHTED_STATIC.value,
+            RecommenderType.ITEM_KNN.value,
+            RecommenderType.MIXED.value,
+            # RecommenderType.POPULAR.value,
+            # RecommenderType.USER_KNN
+        ],
         "max_steps": max_steps,
         "collect_personality_degree_stats": False,
         "collect_community_data": True,
@@ -297,8 +297,8 @@ if __name__ == "__main__":
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = (
         run_recommender_comparison_experiment(
-            iterations=1,  # Number of runs per recommender type
-            max_steps=700,  # Steps per run
+            iterations=3,  # Number of runs per recommender type
+            max_steps=500,  # Steps per run
             n_agents=200,  # Number of agents
             m_links=8,  # Links per new node
             news_amount=400,  # Initial news items
@@ -308,7 +308,7 @@ if __name__ == "__main__":
             num_recommendations=10,  # Number of recommendations
         )
     )
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     files = glob.glob("profile_*.prof")
 
