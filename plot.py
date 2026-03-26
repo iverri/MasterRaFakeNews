@@ -19,6 +19,7 @@ RECOMMENDER_COLORS = {
     'IB-CF': '#d62728',           # red
     'HW_D': '#9467bd',           # purple
     'HW_S': '#17becf',           # cyan
+    'MF': '#8c564b',             # brown
 }
 
 # Define a global label mapping for recommender types
@@ -30,6 +31,7 @@ RECOMMENDER_LABELS = {
     'item_knn': 'IB-CF',
     'hybrid_weighted_dynamic': 'HW_D',
     'hybrid_weighted_static': 'HW_S',
+    'matrix_factorization': 'MF',
 }
 
 # Helper function to map recommender types to their display labels

@@ -95,7 +95,8 @@ def run_recommender_comparison_experiment(
         "use_stored_network": True,  # Now use the stored network for all runs
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
-        "recommender_type": [type.value for type in RecommenderType],
+        #"recommender_type": [type.value for type in RecommenderType],
+        "recommender_type": [RecommenderType.ITEM_KNN.value, RecommenderType.USER_KNN.value, RecommenderType.HYBRID_WEIGHTED_DYNAMIC.value, RecommenderType.MATRIX_FACTORIZATION.value],
         "max_steps": max_steps,
         "collect_personality_degree_stats": False,
         "collect_community_data": True,
@@ -281,8 +282,8 @@ if __name__ == "__main__":
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = (
         run_recommender_comparison_experiment(
-            iterations=5,  # Number of runs per recommender type
-            max_steps=700,  # Steps per run
+            iterations=3,  # Number of runs per recommender type
+            max_steps=500,  # Steps per run
             n_agents=200,  # Number of agents
             m_links=8,  # Links per new node
             news_amount=400,  # Initial news items
