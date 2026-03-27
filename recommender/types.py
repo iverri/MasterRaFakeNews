@@ -8,4 +8,5 @@ class RecommenderType(Enum):
     POPULAR = "popular"
     HYBRID_WEIGHTED_DYNAMIC = "hybrid_weighted_dynamic"
     HYBRID_WEIGHTED_STATIC = "hybrid_weighted_static"
+    MATRIX_FACTORIZATION = "matrix_factorization"
     

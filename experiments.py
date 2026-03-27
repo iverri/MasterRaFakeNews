@@ -96,6 +96,7 @@ def run_recommender_comparison_experiment(
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
         "recommender_type": [type.value for type in RecommenderType],
+        #"recommender_type": [RecommenderType.ITEM_KNN.value, RecommenderType.USER_KNN.value, RecommenderType.HYBRID_WEIGHTED_DYNAMIC.value, RecommenderType.MATRIX_FACTORIZATION.value],
         "max_steps": max_steps,
         "collect_personality_degree_stats": False,
         "collect_community_data": True,
