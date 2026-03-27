@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class RecommenderType(Enum):
     RANDOM = "random"
     ITEM_KNN = "item_knn"
@@ -9,4 +10,4 @@ class RecommenderType(Enum):
     HYBRID_WEIGHTED_DYNAMIC = "hybrid_weighted_dynamic"
     HYBRID_WEIGHTED_STATIC = "hybrid_weighted_static"
     MATRIX_FACTORIZATION = "matrix_factorization"
-    
+    MIXED = "mixed"
