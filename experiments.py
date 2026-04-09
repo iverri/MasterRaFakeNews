@@ -108,7 +108,8 @@ def run_recommender_comparison_experiment(
             "popular",
             "hybrid_weighted_static",
             "hybrid_weighted_dynamic",
-            "matrix_factorization" "mixed",
+            "matrix_factorization",
+            "mixed"
         ],
         "max_steps": max_steps,
         "collect_personality_degree_stats": False,
