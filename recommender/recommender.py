@@ -60,10 +60,10 @@ class Recommender:
 
         # Biased Matrix Factorization model
         default_mf_params = {
-            "embedding_size": 40,
-            "epochs": 20,
+            "embedding_size": 32,
+            "epochs": 40,
             "regularization": 0.1,
-            "damping": 5.0,
+            "damping": 15.0,
         }
 
         self.mf_params = {**default_mf_params, **(mf_params or {})}

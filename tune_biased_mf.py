@@ -24,10 +24,10 @@ class TuneConfig:
 
 
 DEFAULT_PARAM_GRID = {
-    "embedding_size": [16, 32, 64],
-    "epochs": [10, 20, 40],
-    "regularization": [0.01, 0.05, 0.1],
-    "damping": [2.5, 5.0, 10.0],
+    "embedding_size": [16, 24, 32, 40],
+    "epochs": [20, 40, 60],
+    "regularization": [ 0.1, 0.2, 0.3],
+    "damping": [10.0, 15.0, 20.0],
 }
 
 
