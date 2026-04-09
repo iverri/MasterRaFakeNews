@@ -18,7 +18,7 @@ from utils.metrics import vec_mat_cosine_similarity
 
 
 class Recommender:
-    def __init__(self, recommender_type, diversity_level, num_recommendations):
+    def __init__(self, recommender_type, diversity_level, num_recommendations, mf_params=None):
         self.type = recommender_type
         self.diversity_level = diversity_level
         self.num_recommendations = num_recommendations
@@ -59,12 +59,16 @@ class Recommender:
         self.pipeline = None
 
         # Biased Matrix Factorization model
-        self.mf_model = BiasedMFScorer(
-            embedding_size=20,  # Number of latent factors
-            epochs=20,  # Number of iterations for training
-            regularization=0.1,  # Regularization parameter
-        )
+        default_mf_params = {
+            "embedding_size": 40,
+            "epochs": 20,
+            "regularization": 0.1,
+            "damping": 5.0,
+        }
 
+        self.mf_params = {**default_mf_params, **(mf_params or {})}
+
+        self.mf_model = BiasedMFScorer(**self.mf_params)
         self.mf_pipeline = None  # Pipeline for matrix factorization model
         self._last_mf_training_count = 0  # Track interactions for MF retraining
 
@@ -455,7 +459,8 @@ class Recommender:
 
         if available_content:
 
-            recommendations = random.sample(available_content, num_recommendations)
+            k = min(num_recommendations, len(available_content))
+            recommendations = random.sample(available_content, k)
 
             # Apply diversity reranking if enabled (commented out in original)
             if add_to_feed:
@@ -860,11 +865,12 @@ class Recommender:
         alpha = c / (c + n_user)
         return max(min_alpha, min(max_alpha, alpha))
 
-    def matrix_factorization(self, agent):
+    def matrix_factorization(self, agent, num_recommendations=None, add_to_feed=True):
         """Collaborative filtering using matrix factorization with ALS"""
         try:
             if not hasattr(agent.model, "news_content") or not agent.model.news_content:
                 self.random_recommendation(agent)
+                return
 
             diversity_score = 0.0
 
@@ -988,3 +994,19 @@ class Recommender:
             print(f"Error in matrix factorization recommendation: {e}")
             traceback.print_exc()
             self.random_recommendation(agent)
+
+    def train_mf(self, force_retrain=False):
+        dataset = self._create_dataset()
+        if dataset is None:
+            self.mf_pipeline = None
+            return False
+
+        n_interactions = len(self._get_interaction_list())
+
+        if force_retrain or self.mf_pipeline is None or n_interactions > self._last_mf_training_count:
+            self.mf_model = BiasedMFScorer(**self.mf_params)
+            self.mf_pipeline = topn_pipeline(self.mf_model)
+            self.mf_pipeline.train(dataset)
+            self._last_mf_training_count = n_interactions
+
+        return True
