@@ -31,6 +31,8 @@ def setup_datacollector(model):
         "Misinformation_Ratio_Difference": lambda m: calculate_misinformation_ratio_difference(m),
         "Misinformation_Spread_Percentage": lambda m: calculate_misinformation_spread(m),
         "Echo_Chamber_Effect": lambda m: calculate_echo_chamber_effect(m),
+        "Recommendation_Impressions": lambda m: m.recommendation_step,
+        "Recommendation_Likes": lambda m: m.recommendation_likes_step,
     }
 
     if getattr(model, "collect_community_data", False):

@@ -84,12 +84,11 @@ class UserAgent(Agent):
 
         # Only process feed if the agent is active
         if self.is_active:
-            # Process both feed and recommendations
-            all_content = self.feed + self.recommended_content
+            for content in self.feed:
+                self.evaluate_content(content, source="feed")
 
-            # Evaluate all content in feed and recommendations
-            for content in all_content:
-                self.evaluate_content(content)
+            for content in self.recommended_content:
+                self.evaluate_content(content, source="recommendation")
 
             self.feed = []
             self.recommended_content = []
@@ -122,35 +121,39 @@ class UserAgent(Agent):
         # Determine if agent is active
         self.is_active = random.random() < final_probability
 
-    def evaluate_content(self, content):
+    def evaluate_content(self, content, source="feed"):
         """Evaluate if content is interesting enough to share."""
-        # If content is fake, update agent state
         if content.isFake:
             if self.state == "S":
                 self.state = "E"
 
-        # Base interest based on topic similarity and credibility
         user_preference = np.array(self.preference_vector).reshape(1, -1)
         content_topic = np.array(content.topic_vector).reshape(1, -1)
         user_evaluation = (
             cosine_similarity(user_preference, content_topic) * self.naivety_level
         )
 
-        # Adjust probability based on content engagement
-        engagement_factor = min(1.5, content.engagement)  # Cap the boost at 1.5x
+        engagement_factor = min(1.5, content.engagement)
         adjusted_evaluation = user_evaluation * engagement_factor
 
-        # Like content but not share
+        # Count only recommendation impressions
+        if source == "recommendation":
+            self.model.recommendation_step += 1
+
+        # Like content
         if adjusted_evaluation > self.LIKE_THRESHOLD:
             self.model.social_media_platform.recommender.add_interaction(
                 self.pos, content.content, user_evaluation
             )
+
+            if source == "recommendation":
+                self.model.recommendation_likes_step += 1
+
             if content.isFake:
                 if self.state == "E":
                     self.state = "I"
-                    self.infection_start_step = (
-                        self.model.steps
-                    )  # Record when infection started
+                    self.infection_start_step = self.model.steps
+
         # Share content
         if (
             adjusted_evaluation > self.SHARE_THRESHOLD

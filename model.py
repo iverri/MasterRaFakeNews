@@ -152,6 +152,10 @@ class FakeNewsModel(Model):
         self.hours_per_step = 3  # Each step represents 3 hours
         self.current_hour = 0  # Track the current hour (0-23)
 
+        # Add interaction data
+        self.recommendation_step = 0  # Track the current recommendation step
+        self.recommendation_likes_step = 0  # Track likes for the current recommendation step
+
     def step(self):
         """Advance the model by one step."""
         
@@ -162,6 +166,8 @@ class FakeNewsModel(Model):
         
 
         print(f"Step: {self.steps}")
+
+        self.reset_interaction_counters()  # Reset interaction counters at the start of each step
         # Update the current hour
         self.current_hour = (self.current_hour + self.hours_per_step) % 24
 
@@ -253,6 +259,10 @@ class FakeNewsModel(Model):
             return UserAgent(
                 self, self.preference_vectors[index], self.personality_vectors[index]
             )
+
+    def reset_interaction_counters(self):
+        self.recommendation_step = 0
+        self.recommendation_likes_step = 0
 
 
 if __name__ == "__main__":
