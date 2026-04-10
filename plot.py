@@ -1669,6 +1669,121 @@ def plot_dominant_trait_degree_bar_all_recommenders(
 
     return fig
 
+def plot_simple_recommendation_like_rate(data, output_path=None, diversity_setting=None):
+    """
+    Simple sanity-check bar plot:
+    total recommendation likes / total recommendation impressions
+    for each recommender type.
+
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Experiment results
+    output_path : str, optional
+        Path to save the plot
+    diversity_setting : str, optional
+        Optional filter, e.g. "No Diversity"
+    """
+    required_cols = [
+        "recommender_type",
+        "Recommendation_Impressions",
+        "Recommendation_Likes",
+    ]
+
+    missing = [col for col in required_cols if col not in data.columns]
+    if missing:
+        print(f"Missing required columns: {missing}")
+        return None
+
+    df = data.copy()
+
+    if diversity_setting is not None:
+        if "diversity_setting" not in df.columns:
+            print("Missing 'diversity_setting' column.")
+            return None
+        df = df[df["diversity_setting"] == diversity_setting]
+
+    if df.empty:
+        print("No data available for selected filter.")
+        return None
+
+    summary = (
+        df.groupby("recommender_type", as_index=False)
+        .agg(
+            total_recommendations=("Recommendation_Impressions", "sum"),
+            total_likes=("Recommendation_Likes", "sum"),
+        )
+    )
+
+    summary["like_rate"] = np.where(
+        summary["total_recommendations"] > 0,
+        summary["total_likes"] / summary["total_recommendations"],
+        0,
+    )
+
+    summary["label"] = summary["recommender_type"].apply(get_recommender_label)
+    summary = summary.sort_values("like_rate", ascending=False)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    bars = ax.bar(
+        summary["label"],
+        summary["like_rate"],
+        color=[RECOMMENDER_COLORS.get(label, "#888888") for label in summary["label"]],
+    )
+
+    for bar, value in zip(bars, summary["like_rate"]):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
+            f"{value:.3f}",
+            ha="center",
+            va="bottom",
+            fontweight="bold",
+        )
+
+    title = "Simple Recommendation Like Rate by Recommender"
+    if diversity_setting is not None:
+        title += f"\n{diversity_setting}"
+
+    ax.set_title(title)
+    ax.set_xlabel("Recommender")
+    ax.set_ylabel("Total Likes / Total Recommended")
+    ax.tick_params(axis="x", rotation=45)
+    ax.grid(True, axis="y", linestyle="--", alpha=0.7)
+
+    plt.tight_layout()
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    return fig
+
+def print_simple_recommendation_like_summary(data, diversity_setting=None):
+    df = data.copy()
+
+    if diversity_setting is not None:
+        df = df[df["diversity_setting"] == diversity_setting]
+
+    summary = (
+        df.groupby("recommender_type", as_index=False)
+        .agg(
+            total_recommendations=("Recommendation_Impressions", "sum"),
+            total_likes=("Recommendation_Likes", "sum"),
+        )
+    )
+
+    summary["like_rate"] = np.where(
+        summary["total_recommendations"] > 0,
+        summary["total_likes"] / summary["total_recommendations"],
+        0,
+    )
+
+    summary["label"] = summary["recommender_type"].apply(get_recommender_label)
+    summary = summary.sort_values("like_rate", ascending=False)
+
+    print(summary[["recommender_type", "total_recommendations", "total_likes", "like_rate"]].to_string(index=False))
+
 
 def generate_all_plots(
     csv_path, output_dir=None, community_data_file=None, skip_steps=5
@@ -1775,6 +1890,12 @@ def generate_all_plots(
             output_dir, "dominant_trait_following_final_all_recommenders.png"
         ),
     )
+    plot_simple_recommendation_like_rate(
+        data,
+        os.path.join(output_dir, "simple_recommendation_like_rate.png"),
+        diversity_setting="No Diversity",
+    )
+    print_simple_recommendation_like_summary(data, diversity_setting="No Diversity")
     # Show all plots
     plt.show()
 
