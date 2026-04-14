@@ -59,10 +59,13 @@ class Recommender:
         self.pipeline = None
 
         # Biased Matrix Factorization model
+
+        # Paramteres for BiasedMFScorer was decided through parameter tuning
         self.mf_model = BiasedMFScorer(
-            embedding_size=20,  # Number of latent factors
-            epochs=20,  # Number of iterations for training
+            embedding_size=32,  # Number of latent factors
+            epochs=40,  # Number of iterations for training
             regularization=0.1,  # Regularization parameter
+            damping=15,  # Damping factor for bias terms
         )
 
         self.mf_pipeline = None  # Pipeline for matrix factorization model
