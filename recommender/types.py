@@ -11,3 +11,4 @@ class RecommenderType(Enum):
     HYBRID_WEIGHTED_STATIC = "hybrid_weighted_static"
     MIXED = "mixed"
     MATRIX_FACTORIZATION = "matrix_factorization"
+    FEATURE_COMBINATION = "feature_combination"
