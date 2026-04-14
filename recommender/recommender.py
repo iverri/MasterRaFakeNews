@@ -93,6 +93,8 @@ class Recommender:
                 self.matrix_factorization(agent)
             elif self.type == RecommenderType.MIXED.value:
                 self.mixed_hybrid_recommender(agent)
+            elif self.type == RecommenderType.FEATURE_COMBINATION.value:
+                self.hybrid_feature_combination(agent)
 
     def add_interaction(self, agent_id, content_id, rating):
         """Add an interaction between an agent and content item"""
@@ -387,7 +389,7 @@ class Recommender:
         recommendations, diversity_score = self._calculate_and_apply_diversity(
             agent,
             recommendations,
-            k=num_recommendations,  # confused if it wshould be num_to_select or num_recommendations
+            k=num_recommendations,
             add_to_feed=add_to_feed,
             pre_calculated=pre_calculated,
         )
@@ -918,3 +920,116 @@ class Recommender:
             print(f"Error in matrix factorization recommendation: {e}")
             traceback.print_exc()
             self.random_recommendation(agent)
+
+    def hybrid_feature_combination(
+        self, agent, num_recommendations=None, add_to_feed=True
+    ):
+        if num_recommendations is None:
+            num_recommendations = self.num_recommendations
+
+        interaction_list = self._get_interaction_list()
+        n_interactions = len(interaction_list)
+        min_interactions = max(150, agent.model.num_agents // 2)
+
+        if n_interactions < min_interactions:
+            self.random_recommendation(agent)
+            return
+
+        dataset = self._create_dataset()
+        if dataset is None:
+            self.random_recommendation(agent)
+            return
+
+        # Train MF if needed
+        if self.mf_pipeline is None or n_interactions > self._last_mf_training_count:
+            if self.mf_pipeline is None:
+                self.mf_pipeline = topn_pipeline(self.mf_model)
+            self.mf_pipeline.train(dataset)
+            self._last_mf_training_count = n_interactions
+
+        current_step = agent.model.steps
+        if (
+            current_step != self.last_content_update
+            or agent.pos not in self.content_dict_cache
+        ):
+            self.content_dict_cache[agent.pos] = {
+                "all_content": agent.model.news_content,
+                "all_content_ids": {c.content for c in agent.model.news_content},
+                "content_dict": {c.content: c for c in agent.model.news_content},
+            }
+            self.last_content_update = current_step
+
+        feed_set = set(agent.feed)
+        candidates = [
+            c
+            for c in self.content_dict_cache[agent.pos]["all_content"]
+            if c not in feed_set
+        ]
+
+        if not candidates:
+            return
+
+        # Check if user embedding exists in trained model
+        try:
+            user_embedding = self.mf_model.user_embeddings[agent.pos]
+        except (IndexError, KeyError):
+            # User not in trained model, fall back to content-based
+            self.content_based(agent, num_recommendations, add_to_feed)
+            return
+        user_preference = np.array(agent.preference_vector).reshape(1, -1)
+        combined_user = np.concatenate([user_preference.flatten(), user_embedding])
+
+        combined_item_features = []
+        valid_candidates = []
+
+        for content in candidates:
+            topic_vector = np.array(content.topic_vector)
+
+            # Check if item embedding exists (item may be new, created after training)
+            try:
+                item_embedding = self.mf_model.item_embeddings[content.content]
+            except (IndexError, KeyError):
+                # Item doesn't have an embedding - skip it or use zero vector
+                # Skip it for now to maintain feature consistency
+                continue
+
+            combined_vector = np.concatenate([topic_vector, item_embedding])
+            combined_item_features.append(combined_vector)
+            valid_candidates.append(content)
+
+        # If no items have embeddings, fall back to content-based
+        if not combined_item_features:
+            self.content_based(agent, num_recommendations, add_to_feed)
+            return
+
+        combined_item_features = np.array(combined_item_features)
+
+        similarities = vec_mat_cosine_similarity(
+            combined_user.reshape(1, -1), combined_item_features
+        )
+
+        scores = list(zip(candidates, similarities))
+
+        # Sort by score and get top recommendations
+        scores.sort(key=lambda x: x[1], reverse=True)
+        num_to_select = (
+            num_recommendations * 3
+            if add_to_feed and self.diversity_level > 0
+            else self.num_recommendations
+        )
+        recommendations = [content for content, _ in scores[:num_to_select]]
+
+        # Apply diversity reranking with pre-calculated data
+        recommendations, diversity_score = self._calculate_and_apply_diversity(
+            agent,
+            recommendations,
+            k=num_recommendations,
+            add_to_feed=add_to_feed,
+        )
+
+        if add_to_feed:
+            # Add recommendations to agent's recommended_content
+            agent.recommended_content.extend(recommendations)
+            agent.diversity_score = diversity_score
+        else:
+            return recommendations[:num_recommendations]
