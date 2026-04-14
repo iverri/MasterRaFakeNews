@@ -109,7 +109,7 @@ def run_recommender_comparison_experiment(
             "hybrid_weighted_static",
             "hybrid_weighted_dynamic",
             "matrix_factorization",
-            "mixed"
+            "mixed",
         ],
         "max_steps": max_steps,
         "collect_personality_degree_stats": False,
@@ -125,7 +125,7 @@ def run_recommender_comparison_experiment(
         parameters=parameters,
         iterations=iterations,
         max_steps=max_steps,
-        number_processes=8,  # Set to higher number for parallel processing
+        number_processes=5,  # Set to higher number for parallel processing
         data_collection_period=1,  # Collect data at each step
         display_progress=True,
     )
