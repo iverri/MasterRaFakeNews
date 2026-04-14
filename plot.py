@@ -1671,6 +1671,283 @@ def plot_dominant_trait_degree_bar_all_recommenders(
 
     return fig
 
+def plot_recommendation_like_rate(data, output_path=None):
+    """
+    Plot recommendation like rate for each recommender type,
+    with separate bar plots for each diversity setting.
+
+    Like rate is computed as:
+        total Recommendation_Likes / total Recommendation_Impressions
+
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Experiment results
+    output_path : str, optional
+        Path to save the plot
+    """
+
+    required_cols = [
+        "recommender_type",
+        "Recommendation_Impressions",
+        "Recommendation_Likes",
+        "diversity_setting",
+    ]
+
+    missing = [col for col in required_cols if col not in data.columns]
+    if missing:
+        print(f"Missing required columns: {missing}")
+        return None
+
+    # Create a copy of the data
+    df = data.copy()
+    diversity_settings = sorted(df["diversity_setting"].unique())
+
+    if len(diversity_settings) == 0:
+        print("No diversity settings found.")
+        return None
+
+    # Create a figure with subplots for each diversity setting
+    fig, axes = plt.subplots(
+        1,
+        len(diversity_settings),
+        figsize=(7 * len(diversity_settings), 7),
+        sharey=True,
+    )
+
+    if len(diversity_settings) == 1:
+        axes = [axes]
+
+    all_summaries = []
+
+    # Plot for each diversity setting
+    for i, diversity in enumerate(diversity_settings):
+        ax = axes[i]
+        subset = df[df["diversity_setting"] == diversity].copy()
+
+        if subset.empty:
+            ax.set_visible(False)
+            continue
+
+        summary = (
+            subset.groupby("recommender_type", as_index=False)
+            .agg(
+                total_recommendations=("Recommendation_Impressions", "sum"),
+                total_likes=("Recommendation_Likes", "sum"),
+            )
+        )
+
+        summary["like_rate"] = np.where(
+            summary["total_recommendations"] > 0,
+            summary["total_likes"] / summary["total_recommendations"],
+            0,
+        )
+
+        summary["label"] = summary["recommender_type"].apply(get_recommender_label)
+        summary = summary.sort_values("like_rate", ascending=False)
+
+        all_summaries.append(summary)
+
+        bars = ax.bar(
+            summary["label"],
+            summary["like_rate"],
+            color=[
+                RECOMMENDER_COLORS.get(label, "#888888")
+                for label in summary["label"]
+            ],
+            alpha=0.85,
+        )
+
+        # add value labels
+        for bar, value in zip(bars, summary["like_rate"]):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.001,
+                f"{value:.4f}",
+                ha="center",
+                va="bottom",
+                fontweight="bold",
+            )
+
+        ax.set_title(f"{diversity}", fontsize=16)
+        ax.set_xlabel("Recommender Type", fontsize=14)
+        ax.tick_params(axis="x", rotation=45)
+        ax.grid(True, axis="y", linestyle="--", alpha=0.7)
+
+        if i == 0:
+            ax.set_ylabel("Total Likes / Total Recommended", fontsize=14)
+        else:
+            ax.set_ylabel("")
+
+    # Use common y-limit across all plots
+    max_rate = 0
+    for summary in all_summaries:
+        if not summary.empty:
+            max_rate = max(max_rate, summary["like_rate"].max())
+
+    ymax = max_rate * 1.15 if max_rate > 0 else 0.05
+    for ax in axes:
+        ax.set_ylim(0, ymax)
+
+    plt.suptitle("Recommendation Like Rate by Recommender Type", fontsize=18, y=1.02)
+    plt.tight_layout()
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    return fig
+
+def plot_like_rate_vs_misinformation_count(data, output_path=None):
+    """
+    Plot the tradeoff between recommendation like rate and average
+    misinformation count in recommendations, with one subplot per
+    diversity setting.
+
+    x-axis: average misinformation count in recommendations
+    y-axis: total recommendation likes / total recommendation impressions
+
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Experiment results
+    output_path : str, optional
+        Path to save the plot
+    """
+    required_cols = [
+        "recommender_type",
+        "Recommendation_Impressions",
+        "Recommendation_Likes",
+        "Misinformation_Count_In_Recommendations",
+        "diversity_setting",
+    ]
+
+    missing = [col for col in required_cols if col not in data.columns]
+    if missing:
+        print(f"Missing required columns: {missing}")
+        return None
+
+    df = data.copy()
+
+    # Optional: enforce a readable/fixed order
+    preferred_order = ["Diversity 0.75", "Diversity 1.0", "No Diversity"]
+    diversity_settings = [
+        d for d in preferred_order if d in df["diversity_setting"].unique()
+    ]
+    if not diversity_settings:
+        diversity_settings = sorted(df["diversity_setting"].unique())
+
+    fig, axes = plt.subplots(
+        1,
+        len(diversity_settings),
+        figsize=(7 * len(diversity_settings), 7),
+        sharex=True,
+        sharey=True,
+    )
+
+    if len(diversity_settings) == 1:
+        axes = [axes]
+
+    panel_summaries = []
+
+    for i, diversity in enumerate(diversity_settings):
+        ax = axes[i]
+        subset = df[df["diversity_setting"] == diversity].copy()
+
+        if subset.empty:
+            ax.set_visible(False)
+            continue
+
+        # Aggregate per recommender
+        summary = (
+            subset.groupby("recommender_type", as_index=False)
+            .agg(
+                total_recommendations=("Recommendation_Impressions", "sum"),
+                total_likes=("Recommendation_Likes", "sum"),
+                avg_mc=("Misinformation_Count_In_Recommendations", "mean"),
+            )
+        )
+
+        summary["like_rate"] = np.where(
+            summary["total_recommendations"] > 0,
+            summary["total_likes"] / summary["total_recommendations"],
+            0,
+        )
+
+        summary["label"] = summary["recommender_type"].apply(get_recommender_label)
+        panel_summaries.append(summary)
+
+        # Scatter points
+        for _, row in summary.iterrows():
+            ax.scatter(
+                row["avg_mc"],
+                row["like_rate"],
+                s=140,
+                color=RECOMMENDER_COLORS.get(row["label"], "#888888"),
+                alpha=0.9,
+                edgecolor="black",
+                linewidth=0.8,
+            )
+
+            ax.annotate(
+                row["label"],
+                (row["avg_mc"], row["like_rate"]),
+                textcoords="offset points",
+                xytext=(6, 6),
+                fontsize=11,
+                fontweight="bold",
+            )
+
+        ax.set_title(f"{diversity}", fontsize=16)
+        ax.grid(True, linestyle="--", alpha=0.7)
+
+        # Helpful visual guide
+        ax.annotate(
+            "Better",
+            xy=(0.02, 0.98),
+            xycoords="axes fraction",
+            ha="left",
+            va="top",
+            fontsize=11,
+            color="darkgreen",
+            fontweight="bold",
+        )
+
+        if i == 0:
+            ax.set_ylabel("Like Rate", fontsize=14)
+        else:
+            ax.set_ylabel("")
+
+        ax.set_xlabel("Average Misinformation Count", fontsize=14)
+
+    # Shared limits across panels
+    max_x = max(
+        (summary["avg_mc"].max() for summary in panel_summaries if not summary.empty),
+        default=1,
+    )
+    max_y = max(
+        (summary["like_rate"].max() for summary in panel_summaries if not summary.empty),
+        default=0.05,
+    )
+
+    x_max = max_x * 1.1 if max_x > 0 else 1
+    y_max = max_y * 1.15 if max_y > 0 else 0.05
+
+    for ax in axes:
+        ax.set_xlim(0, x_max)
+        ax.set_ylim(0, y_max)
+
+    plt.suptitle(
+        "Tradeoff: Like Rate vs. Misinformation Count in Recommendations",
+        fontsize=18,
+        y=1.02,
+    )
+    plt.tight_layout()
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    return fig
+
 
 def generate_all_plots(
     csv_path, output_dir=None, community_data_file=None, skip_steps=5
@@ -1777,6 +2054,9 @@ def generate_all_plots(
             output_dir, "dominant_trait_following_final_all_recommenders.png"
         ),
     )
+    plot_recommendation_like_rate(data, os.path.join(output_dir, "recommendation_like_rate.png"))
+    
+    plot_like_rate_vs_misinformation_count(data, os.path.join(output_dir, "like_rate_vs_misinformation_count.png"))
     # Show all plots
     plt.show()
 
