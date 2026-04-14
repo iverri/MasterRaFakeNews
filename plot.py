@@ -1946,43 +1946,6 @@ def plot_like_rate_vs_misinformation_count(data, output_path=None):
 
     return fig
 
-def print_recommendation_like_summary(data):
-    """
-    Print recommendation like summary for each diversity setting.
-    """
-    df = data.copy()
-
-    if "diversity_setting" not in df.columns:
-        print("Missing 'diversity_setting' column.")
-        return
-
-    for diversity in sorted(df["diversity_setting"].unique()):
-        subset = df[df["diversity_setting"] == diversity].copy()
-
-        summary = (
-            subset.groupby("recommender_type", as_index=False)
-            .agg(
-                total_recommendations=("Recommendation_Impressions", "sum"),
-                total_likes=("Recommendation_Likes", "sum"),
-            )
-        )
-
-        summary["like_rate"] = np.where(
-            summary["total_recommendations"] > 0,
-            summary["total_likes"] / summary["total_recommendations"],
-            0,
-        )
-
-        summary["label"] = summary["recommender_type"].apply(get_recommender_label)
-        summary = summary.sort_values("like_rate", ascending=False)
-
-        print(f"\n=== {diversity} ===")
-        print(
-            summary[
-                ["recommender_type", "total_recommendations", "total_likes", "like_rate"]
-            ].to_string(index=False)
-        )
-
 
 def generate_all_plots(
     csv_path, output_dir=None, community_data_file=None, skip_steps=5
@@ -2090,8 +2053,7 @@ def generate_all_plots(
         ),
     )
     plot_recommendation_like_rate(data, os.path.join(output_dir, "recommendation_like_rate.png"))
-    print_recommendation_like_summary(data)
-
+    
     plot_like_rate_vs_misinformation_count(data, os.path.join(output_dir, "like_rate_vs_misinformation_count.png"))
     # Show all plots
     plt.show()
