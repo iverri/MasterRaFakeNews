@@ -22,6 +22,7 @@ RECOMMENDER_COLORS = {
     "MF": "#8c564b",  # brown
     "Mix": "#0b2843",  # dark blue
     "Feat": "#F6FF00",  # dark blue
+    "HW_MF": "#FF6F61",  # coral
 }
 
 # Define a global label mapping for recommender types
@@ -36,6 +37,7 @@ RECOMMENDER_LABELS = {
     "matrix_factorization": "MF",
     "mixed": "Mix",
     "feature_combination": "Feat",
+    "hybrid_weighted_mf": "HW_MF",
 }
 
 

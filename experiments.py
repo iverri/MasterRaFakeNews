@@ -103,14 +103,15 @@ def run_recommender_comparison_experiment(
         "recommender_type": [
             "random",
             "item_knn",
-            "user_knn",
+            #"user_knn",
             "content_based",
-            "popular",
-            "hybrid_weighted_static",
+            #"popular",
+            #"hybrid_weighted_static",
             "hybrid_weighted_dynamic",
             "matrix_factorization",
-            "mixed",
-            "feature_combination",
+            #"mixed",
+            #"feature_combination",
+            "hybrid_weighted_mf",
         ],
         "max_steps": max_steps,
         "collect_personality_degree_stats": False,
@@ -299,8 +300,8 @@ if __name__ == "__main__":
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = (
         run_recommender_comparison_experiment(
-            iterations=5,  # Number of runs per recommender type
-            max_steps=700,  # Steps per run
+            iterations=2,  # Number of runs per recommender type
+            max_steps=200,  # Steps per run
             n_agents=200,  # Number of agents
             m_links=8,  # Links per new node
             news_amount=400,  # Initial news items
