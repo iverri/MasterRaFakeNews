@@ -307,6 +307,7 @@ def calculate_diversity_improvement(model):
 
     return (total_improvement / count * 100) if count > 0 else 0
 
+
 def calculate_mean_degree_by_dominant_personality(model, trait_index, mode="in"):
     G = model.social_media_platform.social_network.network
     P = np.asarray(model.personality_vectors, dtype=float)
@@ -316,10 +317,13 @@ def calculate_mean_degree_by_dominant_personality(model, trait_index, mode="in")
     dom = np.argmax(P, axis=1)
     reg_mask = _regular_user_mask(model)
 
-    deg = np.array([
-        G.in_degree(i) if mode == "in" else G.out_degree(i)
-        for i in range(model.num_agents)
-    ], dtype=float)
+    deg = np.array(
+        [
+            G.in_degree(i) if mode == "in" else G.out_degree(i)
+            for i in range(model.num_agents)
+        ],
+        dtype=float,
+    )
 
     mask = (dom == trait_index) & reg_mask
     return float(np.mean(deg[mask])) if np.any(mask) else 0.0
@@ -334,7 +338,8 @@ def calculate_count_by_dominant_personality(model, trait_index):
     reg_mask = _regular_user_mask(model)
     return int(np.sum((dom == trait_index) & reg_mask))
 
-#def update_personality_degree_stats(model):
+
+# def update_personality_degree_stats(model):
 #    G = model.social_media_platform.social_network.network
 #
 #    P = np.asarray(model.personality_vectors, dtype=float)
@@ -402,7 +407,6 @@ def matrix_cosine_similarity(matrix):
     return x_normalized @ x_normalized.T
 
 
-
 def _regular_user_mask(model):
     """
     Boolean mask selecting only regular users (exclude influencers + bots)
@@ -412,9 +416,9 @@ def _regular_user_mask(model):
     n_inf = int(model.influencer_percentage * N)
     n_bot = int(model.bot_percentage * N)
     mask = np.ones(N, dtype=bool)
-    mask[:n_inf] = False                # exclude influencers
+    mask[:n_inf] = False  # exclude influencers
     if n_bot > 0:
-        mask[N - n_bot:] = False        # exclude bots
+        mask[N - n_bot :] = False  # exclude bots
     return mask
 
 
@@ -463,7 +467,7 @@ def calculate_recall(model, candidate_pool_size=200):
     - TP (True Positives): Recommended content that is relevant (user evaluation > LIKE_THRESHOLD
     - FN (False Negatives): Relevant content that was not recommended
     """
-    
+
     recalls = []
 
     candidate_pool = model.news_content[-candidate_pool_size:]

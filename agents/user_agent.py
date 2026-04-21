@@ -129,9 +129,7 @@ class UserAgent(Agent):
 
         user_preference = np.array(self.preference_vector).reshape(1, -1)
         content_topic = np.array(content.topic_vector).reshape(1, -1)
-        user_evaluation = (
-            cosine_similarity(user_preference, content_topic) * self.naivety_level
-        )
+        user_evaluation = cosine_similarity(user_preference, content_topics)
 
         engagement_factor = min(1.5, content.engagement)
         adjusted_evaluation = user_evaluation * engagement_factor
@@ -141,7 +139,7 @@ class UserAgent(Agent):
             self.model.recommendation_step += 1
 
         # Like content
-        if adjusted_evaluation > self.LIKE_THRESHOLD:
+        if adjusted_evaluation > self.LIKE_THRESHOLD * (1 - self.naivety_level):
             self.model.social_media_platform.recommender.add_interaction(
                 self.pos, content.content, user_evaluation
             )
@@ -156,7 +154,7 @@ class UserAgent(Agent):
 
         # Share content
         if (
-            adjusted_evaluation > self.SHARE_THRESHOLD
+            adjusted_evaluation > self.SHARE_THRESHOLD * (1 - self.naivety_level)
             or np.random.random() < self.p_share
         ):
             self.share_content(content, user_evaluation)
@@ -195,8 +193,9 @@ class UserAgent(Agent):
 
     def _manage_feed(self):
         """Manage feed size and content relevance."""
-        # Update engagement of all content in feed
-        for content in self.feed:
+        # Update engagement of all content in feed AND recommendations
+        # This is critical because recommendations can accumulate when agents are inactive
+        for content in self.feed + self.recommended_content:
             content.update_engagement(self.model.steps)
 
         # Clean up old shared content (keep only last 50 items or last 20 steps)

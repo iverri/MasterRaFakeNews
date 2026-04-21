@@ -43,13 +43,13 @@ class Recommender:
             max_nbrs=20,  # Maximum number of neighbors
             min_nbrs=1,  # Minimum number of neighbors
             min_sim=0.1,  # Minimum similarity threshold
-            feedback="explicit",  # Using explicit ratings
+            feedback="implicit",  # Using explicit ratings
         )
         UserKNNconfig = UserKNNConfig(
             max_nbrs=20,  # Maximum number of neighbors
             min_nbrs=1,  # Minimum number of neighbors
             min_sim=0.1,  # Minimum similarity threshold
-            feedback="explicit",  # Using explicit ratings
+            feedback="implicit",  # Using explicit ratings
         )
         self.user_knn = UserKNNScorer(UserKNNconfig)
         # Create the scorer
@@ -248,15 +248,12 @@ class Recommender:
             content_dict = self.content_dict_cache[agent.pos]["content_dict"]
 
             # Get items already in user's feed
-            feed_ids = {c.content for c in agent.feed}
-
-            # Get candidate items (not in feed)
-            candidate_ids = all_content_ids - feed_ids
-            if not candidate_ids:
-                return
+            feed_set = {c.content for c in agent.feed} | {
+                c.content for c in agent.recommended_content
+            }
 
             # Convert to list for recommendation
-            candidates = ItemList(list(candidate_ids))
+            candidates = ItemList(list(all_content_ids - feed_set))
 
             # Get recommendations using the recommend function
             try:
@@ -340,13 +337,13 @@ class Recommender:
             self.last_content_update = current_step
 
         # Get content not already in agent's feed - use set operations for efficiency
-        feed_set = set(agent.feed)
-        available_content = [
-            c
-            for c in self.content_dict_cache[agent.pos]["all_content"]
-            if c not in feed_set
-        ]
+        all_content_ids = self.content_dict_cache[agent.pos]["all_content_ids"]
 
+        # Get items already in user's feed
+        feed_set = set(agent.feed) | set(agent.recommended_content)
+
+        # Get candidate items (not in feed)
+        available_content = [c for c in agent.model.news_content if c not in feed_set]
         if not available_content:
             return
 
@@ -416,7 +413,7 @@ class Recommender:
             return
 
         # Cache feed set for faster lookups
-        feed_set = set(agent.feed)
+        feed_set = set(agent.feed) | set(agent.recommended_content)
 
         # Get content that isn't in the agent's current feed - use set difference for efficiency
         available_content = [c for c in agent.model.news_content if c not in feed_set]
@@ -484,7 +481,7 @@ class Recommender:
             ]
 
             # Get content that isn't in the agent's current feed
-            feed_set = set(agent.feed)
+            feed_set = set(agent.feed) | set(agent.recommended_content)
             available_content = [
                 c for c in agent.model.news_content if c not in feed_set
             ]
@@ -873,7 +870,9 @@ class Recommender:
             content_dict = self.content_dict_cache[agent.pos]["content_dict"]
 
             # Remove already seen items
-            feed_ids = {c.content for c in agent.feed}
+            feed_ids = {c.content for c in agent.feed} | {
+                c.content for c in agent.recommended_content
+            }
             candidate_ids = all_content_ids - feed_ids
             if not candidate_ids:
                 return
