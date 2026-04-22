@@ -43,6 +43,13 @@ class UserAgent(Agent):
         self.social_media_platform = model.social_media_platform
         self.diversity_score = 0
         self.original_diversity_score = 0
+        # Performance caching for feed/recommendation unions
+        self._cached_seen_content_ids = (
+            None  # Cache for {c.content for c in feed + recommended}
+        )
+        self._cached_seen_content_objects = (
+            None  # Cache for union of feed + recommended objects
+        )
         # Activity-related properties
         self.is_active = False
         self.activity_probability = min(
@@ -69,6 +76,10 @@ class UserAgent(Agent):
 
     def step(self):
         """Execute one step for the agent"""
+        # Clear caches at start of step to ensure fresh data
+        self._cached_seen_content_ids = None
+        self._cached_seen_content_objects = None
+
         # Update infection state if infected
         if self.state == "I":
             if self.model.steps - self.infection_start_step >= self.INFECTION_DURATION:
@@ -129,7 +140,9 @@ class UserAgent(Agent):
 
         user_preference = np.array(self.preference_vector).reshape(1, -1)
         content_topic = np.array(content.topic_vector).reshape(1, -1)
-        user_evaluation = cosine_similarity(user_preference, content_topics)
+        user_evaluation = (
+            cosine_similarity(user_preference, content_topic) * self.naivety_level
+        )
 
         engagement_factor = min(1.5, content.engagement)
         adjusted_evaluation = user_evaluation * engagement_factor
@@ -282,6 +295,22 @@ class UserAgent(Agent):
             topic_vector = topic_vector / magnitude
 
         return topic_vector
+
+    def get_seen_content_ids(self):
+        """Get cached set of content IDs already seen (in feed or recommended)."""
+        if self._cached_seen_content_ids is None:
+            self._cached_seen_content_ids = {c.content for c in self.feed} | {
+                c.content for c in self.recommended_content
+            }
+        return self._cached_seen_content_ids
+
+    def get_seen_content_objects(self):
+        """Get cached union of content objects already seen (in feed or recommended)."""
+        if self._cached_seen_content_objects is None:
+            self._cached_seen_content_objects = set(self.feed) | set(
+                self.recommended_content
+            )
+        return self._cached_seen_content_objects
 
     def _calculate_p_share(self, personality_vector, coefficients):
         p_share = (
