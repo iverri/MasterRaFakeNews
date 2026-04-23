@@ -75,6 +75,7 @@ class FakeNewsModel(Model):
         collect_personality_degree_stats: bool = True,
         collect_community_data: bool = True,
         collect_agent_stats: bool = True,
+        collect_metrics: bool = True,
     ) -> None:
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
@@ -104,6 +105,7 @@ class FakeNewsModel(Model):
         self.collect_personality_degree_stats = collect_personality_degree_stats
         self.collect_community_data = collect_community_data
         self.collect_agent_stats = collect_agent_stats
+        self.collect_metrics = collect_metrics
 
         # Generate preference vectors first (these might be replaced if using stored network)
         self.preference_vectors = [random_preferences() for _ in range(self.num_agents)]

@@ -116,6 +116,7 @@ def run_recommender_comparison_experiment(
         "collect_personality_degree_stats": False,
         "collect_community_data": False,
         "collect_agent_stats": False,
+        "collect_metrics": True,
     }
     print(f"Starting batch run with {iterations} iterations per recommender type...")
     print(f"Recommender types: {[rec for rec in parameters['recommender_type']]}")
@@ -184,6 +185,8 @@ def run_recommender_comparison_experiment(
         "Number_Of_Communities",
         "Recommendation_Impressions",
         "Recommendation_Likes",
+        "Precision",
+        "Recall",
     ]
 
     include_personality_metrics = results_df["collect_personality_degree_stats"].iloc[0]
@@ -197,6 +200,7 @@ def run_recommender_comparison_experiment(
 
     # Filter for model-level variables
     model_data = results_df[[col for col in model_vars if col in results_df.columns]]
+
 
     # Save model-level data
     model_file = f"{output_dir}/recommender_comparison_model_data_{timestamp}.csv"
@@ -236,6 +240,11 @@ def run_recommender_comparison_experiment(
             ].mean()
             * 100,
         }
+        if "Precision" in recommender_data.columns:
+            summary["avg_precision"] = recommender_data["Precision"].mean()
+
+        if "Recall" in recommender_data.columns:
+            summary["avg_recall"] = recommender_data["Recall"].mean()
 
         final_step_data.append(summary)
 
@@ -264,16 +273,20 @@ def analyze_results(model_data, summary_df):
 
     # Print summary table
     print("\nFinal state comparison:")
-    print(
-        summary_df[
-            [
-                "recommender_type",
-                "avg_infected_pct",
-                "avg_misinformation_spread",
-                "avg_echo_chamber_effect",
-            ]
-        ].to_string(index=False)
-    )
+
+    display_cols = [
+        "recommender_type",
+        "avg_infected_pct",
+        "avg_misinformation_spread",
+        "avg_echo_chamber_effect",
+    ]
+
+    if "avg_precision" in summary_df.columns:
+        display_cols.append("avg_precision")
+    if "avg_recall" in summary_df.columns:
+        display_cols.append("avg_recall")
+
+    print(summary_df[display_cols].to_string(index=False))
 
     # Find the recommender with lowest misinformation spread
     best_for_misinfo = summary_df.loc[summary_df["avg_misinformation_spread"].idxmin()]
