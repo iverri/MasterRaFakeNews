@@ -147,9 +147,27 @@ class UserAgent(Agent):
         engagement_factor = min(1.5, content.engagement)
         adjusted_evaluation = user_evaluation * engagement_factor
 
+        # =============================
+        # Track implicit interactions for both feed and recommendations
+        # This gives collaborative filtering weak signals even when content isn't liked
+        if source == "feed":
+            # Track implicit interaction for feed content (lower rating)
+            self.model.social_media_platform.recommender.add_implicit_interaction(
+                self.pos, content.content, rating=adjusted_evaluation * 0.7
+            )
+        # =============================
+
         # Count only recommendation impressions
         if source == "recommendation":
             self.model.recommendation_step += 1
+
+            # =============================
+            # Track implicit interaction (viewing) for collaborative filtering
+            # This gives CF signal even if the user doesn't like the content
+            self.model.social_media_platform.recommender.add_implicit_interaction(
+                self.pos, content.content, rating=adjusted_evaluation
+            )
+            # =============================
 
         # Like content
         if adjusted_evaluation > self.LIKE_THRESHOLD * (1 - self.naivety_level):

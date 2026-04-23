@@ -121,6 +121,33 @@ class Recommender:
 
         self._user_interactions_cache_dirty = True
 
+    # =============================
+    def add_implicit_interaction(self, agent_id, content_id, rating=0.3):
+        """Add an implicit interaction (view/impression) between an agent and content item.
+        Used for recommendations that agents see but don't explicitly like."""
+        # Only track if not already explicitly interacted
+        if (agent_id, content_id) not in self.user_interactions:
+            if not isinstance(agent_id, (int, np.integer)):
+                agent_id = int(agent_id)
+            if not isinstance(content_id, (int, np.integer)):
+                content_id = int(content_id)
+
+            # Use lower rating for implicit interactions
+            rating = max(0.0, min(1.0, float(rating)))
+
+            self.user_interactions_count[agent_id] = (
+                self.user_interactions_count.get(agent_id, 0) + 1
+            )
+
+            self.user_interactions[(agent_id, content_id)] = {
+                "user_id": agent_id,
+                "item_id": content_id,
+                "rating": rating,
+            }
+
+            self._user_interactions_cache_dirty = True
+        # =============================
+
     def _create_dataset(self):
         """Create a LensKit Dataset from interactions"""
         if not self.user_interactions:
@@ -189,9 +216,9 @@ class Recommender:
 
             # Check if the system as a whole has enough interactions
             min_interactions = max(
-                150, agent.model.num_agents // 2
+                20, agent.model.num_agents // 2
             )  # Minimum total interactions needed
-            if n_interactions < min_interactions or user_interactions_count < 3:
+            if n_interactions < min_interactions or user_interactions_count < 1:
                 # Fall back to random recommendations if not enough data overall
                 recommendations = self.random_recommendation(
                     agent, num_recommendations=num_recommendations, add_to_feed=False
@@ -821,9 +848,9 @@ class Recommender:
             user_interactions_count = self.user_interactions_count.get(agent.pos, 0)
 
             # Check if the system as a whole has enough interactions
-            min_interactions = max(150, agent.model.num_agents // 2)
+            min_interactions = max(20, agent.model.num_agents // 2)
             # same fallback logic as KNN
-            if n_interactions < min_interactions or user_interactions_count < 3:
+            if n_interactions < min_interactions or user_interactions_count < 1:
                 recommendations = self.random_recommendation(agent, add_to_feed=False)
                 agent.recommended_content.extend(recommendations)
                 agent.diversity_score = calculate_diversity(
