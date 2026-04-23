@@ -781,8 +781,8 @@ def create_success_metrics_ranking_table(data, output_path=None):
     )
 
     metrics = {
-        "Precision": {"label": "P", "lower_better": False},
-        "Recall": {"label": "R", "lower_better": False},
+        "Precision": {"label": "Precision", "lower_better": False},
+        "Recall": {"label": "Recall", "lower_better": False},
         "F1": {"label": "F1", "lower_better": False},
     }
 
