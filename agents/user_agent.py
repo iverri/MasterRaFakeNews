@@ -76,10 +76,6 @@ class UserAgent(Agent):
 
     def step(self):
         """Execute one step for the agent"""
-        # Clear caches at start of step to ensure fresh data
-        self._cached_seen_content_ids = None
-        self._cached_seen_content_objects = None
-
         # Update infection state if infected
         if self.state == "I":
             if self.model.steps - self.infection_start_step >= self.INFECTION_DURATION:
@@ -103,6 +99,9 @@ class UserAgent(Agent):
 
             self.feed = []
             self.recommended_content = []
+            # Clear caches only when feed/recommendations actually clear
+            self._cached_seen_content_ids = None
+            self._cached_seen_content_objects = None
             self.last_active_step = self.model.steps
 
             # Attempt to post new content
