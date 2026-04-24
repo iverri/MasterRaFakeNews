@@ -132,11 +132,11 @@ class Recommender:
 
         self._user_interactions_cache_dirty = True
 
-    # =============================
     def add_implicit_interaction(self, agent_id, content_id, rating=0.3):
         """Add an implicit interaction (view/impression) between an agent and content item.
         Used for recommendations that agents see but don't explicitly like.
         Batched for efficiency - flush with flush_implicit_interactions()"""
+
         # Only track if not already explicitly interacted
         if (agent_id, content_id) not in self.user_interactions:
             if not isinstance(agent_id, (int, np.integer)):
@@ -170,22 +170,6 @@ class Recommender:
 
         self._user_interactions_cache_dirty = True
         self._implicit_interactions_batch.clear()
-
-    def _get_global_content_cache(self, model):
-        """Get or create global content cache shared by all agents."""
-        current_step = model.steps
-        if (
-            current_step != self._global_content_cache_step
-            or not self._global_content_cache
-        ):
-            all_content_ids = {c.content for c in model.news_content}
-            self._global_content_cache = {
-                "all_content_ids": all_content_ids,
-                "content_dict": {c.content: c for c in model.news_content},
-            }
-            self._global_content_cache_step = current_step
-
-        return self._global_content_cache
 
     def train_pipelines(self, dataset):
         """Train all active pipelines. Call once per step after interactions updated."""
@@ -225,7 +209,6 @@ class Recommender:
 
         self._last_training_count = n_interactions
         self._pipelines_trained_this_step = True
-        # =============================
 
     def _create_dataset(self):
         """Create a LensKit Dataset from interactions"""
@@ -295,7 +278,7 @@ class Recommender:
 
             # Check if the system as a whole has enough interactions
             min_interactions = max(
-                20, agent.model.num_agents // 2
+                20, agent.model.num_agents // 4
             )  # Minimum total interactions needed
             if n_interactions < min_interactions or user_interactions_count < 1:
                 # Fall back to random recommendations if not enough data overall
@@ -411,9 +394,6 @@ class Recommender:
 
         if num_recommendations is None:
             num_recommendations = self.num_recommendations
-
-        # Use global content cache for efficiency
-        content_cache = self._get_global_content_cache(agent.model)
 
         # Get content not already in agent's feed - use cached method
         feed_set = agent.get_seen_content_objects()
@@ -724,7 +704,10 @@ class Recommender:
 
         # Before reranking
         recommendations, diversity_score = self._calculate_and_apply_diversity(
-            agent, recommendations, k=self.num_recommendations, add_to_feed=True
+            agent,
+            recommendations,
+            k=self.num_recommendations,  # SHOULD THIS BE NUM_FINAL RECS?
+            add_to_feed=True,
         )
 
         agent.recommended_content.extend(recommendations)
@@ -799,6 +782,22 @@ class Recommender:
             self._user_interactions_cache_dirty = False
 
         return self._user_interactions_cache
+
+    def _get_global_content_cache(self, model):
+        """Get or create global content cache shared by all agents."""
+        current_step = model.steps
+        if (
+            current_step != self._global_content_cache_step
+            or not self._global_content_cache
+        ):
+            all_content_ids = {c.content for c in model.news_content}
+            self._global_content_cache = {
+                "all_content_ids": all_content_ids,
+                "content_dict": {c.content: c for c in model.news_content},
+            }
+            self._global_content_cache_step = current_step
+
+        return self._global_content_cache
 
     def hybrid_weighted(self, agent, alpha):
         """Combine collaborative filtering and content-based recommendations with weighted scoring
@@ -902,7 +901,7 @@ class Recommender:
             user_interactions_count = self.user_interactions_count.get(agent.pos, 0)
 
             # Check if the system as a whole has enough interactions
-            min_interactions = max(20, agent.model.num_agents // 2)
+            min_interactions = max(20, agent.model.num_agents // 4)
             # same fallback logic as KNN
             if n_interactions < min_interactions or user_interactions_count < 1:
                 recommendations = self.random_recommendation(agent, add_to_feed=False)
@@ -989,7 +988,7 @@ class Recommender:
 
         interaction_list = self._get_interaction_list()
         n_interactions = len(interaction_list)
-        min_interactions = max(20, agent.model.num_agents // 2)
+        min_interactions = max(20, agent.model.num_agents // 4)
         user_interactions_count = self.user_interactions_count.get(agent.pos, 0)
 
         if n_interactions < min_interactions or user_interactions_count < 1:
@@ -1007,9 +1006,6 @@ class Recommender:
                 self.mf_pipeline = topn_pipeline(self.mf_model)
             self.mf_pipeline.train(dataset)
             self._last_mf_training_count = n_interactions
-
-        # Use global content cache
-        content_cache = self._get_global_content_cache(agent.model)
 
         feed_set = agent.get_seen_content_objects()
         candidates = [c for c in agent.model.news_content if c not in feed_set]

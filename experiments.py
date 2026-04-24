@@ -314,8 +314,8 @@ if __name__ == "__main__":
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = (
         run_recommender_comparison_experiment(
-            iterations=5,  # Number of runs per recommender type
-            max_steps=700,  # Steps per run
+            iterations=1,  # Number of runs per recommender type
+            max_steps=200,  # Steps per run
             n_agents=200,  # Number of agents
             m_links=8,  # Links per new node
             news_amount=400,  # Initial news items
@@ -325,17 +325,6 @@ if __name__ == "__main__":
             num_recommendations=10,  # Number of recommendations
         )
     )
-    
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    files = glob.glob("profile_*.prof")
-
-    stats = pstats.Stats(files[0])
-    for f in files[1:]:
-        stats.add(f)
-        os.remove(f)
-    os.remove(files[0])
-
-    stats.dump_stats(f"profiler_runs/merged_{timestamp}.prof")
 
     # Analyze the results
     analyze_results(model_data, summary_df)

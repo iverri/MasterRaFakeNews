@@ -13,7 +13,7 @@ class UserAgent(Agent):
     MAX_RECENT_CONTENT = 30  # Maximum items in recent_content
     MAX_SHARED_CONTENT = 50  # Maximum items in shared_content
     ENGAGEMENT_THRESHOLD = 0.2  # Minimum engagement to keep content
-    LIKE_THRESHOLD = 0.6  # Threshold for liking content
+    LIKE_THRESHOLD = 0.5  # Threshold for liking content
     SHARE_THRESHOLD = 0.8  # Threshold for sharing content
     COEFFICIENTS = {
         "p0": 0.10,
@@ -36,6 +36,7 @@ class UserAgent(Agent):
         self.state = "S"  # S: Susceptible, E: Exposed, I: Infected
         self.infection_start_step = 0  # Track when infection started
         self.feed = []  # feed with NewsContent
+        self._feed_ids = set()  # Parallel set for O(1) lookup of content IDs
         self.recommended_content = []
         self.shared_content = []  # Track content this agent has shared
         self.recent_content = []
@@ -98,6 +99,7 @@ class UserAgent(Agent):
                 self.evaluate_content(content, source="recommendation")
 
             self.feed = []
+            self._feed_ids.clear()  # Keep set in sync with list
             self.recommended_content = []
             # Clear caches only when feed/recommendations actually clear
             self._cached_seen_content_ids = None
@@ -146,7 +148,6 @@ class UserAgent(Agent):
         engagement_factor = min(1.5, content.engagement)
         adjusted_evaluation = user_evaluation * engagement_factor
 
-        # =============================
         # Track implicit interactions for both feed and recommendations
         # This gives collaborative filtering weak signals even when content isn't liked
         if source == "feed":
@@ -154,19 +155,16 @@ class UserAgent(Agent):
             self.model.social_media_platform.recommender.add_implicit_interaction(
                 self.pos, content.content, rating=adjusted_evaluation * 0.7
             )
-        # =============================
 
         # Count only recommendation impressions
         if source == "recommendation":
             self.model.recommendation_step += 1
 
-            # =============================
             # Track implicit interaction (viewing) for collaborative filtering
             # This gives CF signal even if the user doesn't like the content
             self.model.social_media_platform.recommender.add_implicit_interaction(
                 self.pos, content.content, rating=adjusted_evaluation
             )
-            # =============================
 
         # Like content
         if adjusted_evaluation > self.LIKE_THRESHOLD * (1 - self.naivety_level):
@@ -184,7 +182,7 @@ class UserAgent(Agent):
 
         # Share content
         if (
-            adjusted_evaluation > self.SHARE_THRESHOLD * (1 - self.naivety_level)
+            adjusted_evaluation > self.SHARE_THRESHOLD
             or np.random.random() < self.p_share
         ):
             self.share_content(content, user_evaluation)
@@ -205,9 +203,12 @@ class UserAgent(Agent):
 
         # Only share with followers if we have any
         if followers:
+            content_id = content.content
             for follower in followers:
-                if content not in follower.feed:
+                # O(1) lookup using set instead of O(n) list search
+                if content_id not in follower._feed_ids:
                     follower.feed.append(content)
+                    follower._feed_ids.add(content_id)
 
     def get_followers(self):
         """Get list of agents that follow this agent."""

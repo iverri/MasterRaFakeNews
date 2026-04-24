@@ -163,10 +163,6 @@ class FakeNewsModel(Model):
     def step(self):
         """Advance the model by one step."""
 
-        if self._profiler is None:
-            self._profiler = cProfile.Profile()
-            self._profiler.enable()
-
         print(f"Step: {self.steps}")
 
         self.reset_interaction_counters()  # Reset interaction counters at the start of each step
@@ -202,11 +198,6 @@ class FakeNewsModel(Model):
 
         # Collect data
         self.datacollector.collect(self)
-
-        if self.steps >= self.max_steps - 1 and self._profiler is not None:
-            self._profiler.disable()
-            self._profiler.dump_stats(self._profile_file)
-            self._profiler = None
 
     def _validate_parameters(self, N, m_links):
         """
