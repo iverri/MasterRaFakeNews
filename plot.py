@@ -9,6 +9,7 @@ import matplotlib.colors as mcolors
 from matplotlib.patches import Patch
 import networkx as nx
 import pickle
+import matplotlib.ticker as mtick
 
 # Define a global color mapping for all recommender types using label names
 RECOMMENDER_COLORS = {
@@ -85,6 +86,9 @@ def load_experiment_data(csv_path):
         data["diversity_level"] = 0
 
     return data
+
+def has_columns(data, required_cols):
+    return all(col in data.columns for col in required_cols)
 
 
 def plot_misinformation_spread(data, output_path=None):
@@ -739,6 +743,126 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
     except UnboundLocalError:
         print("No tables were created.")
         return None
+
+def create_success_metrics_ranking_table(data, output_path=None):
+    """
+    Create a table ranking recommenders by avg Precision, avg Recall,
+    and avg F1 using the model data file.
+
+    The averages are computed from the final step of each run.
+
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        DataFrame containing model-level experiment results
+    output_path : str, optional
+        Path to save the table. If None, the table is not saved.
+    """
+    required_cols = ["RunId", "iteration", "Step", "recommender_type", "Precision", "Recall"]
+    missing = [col for col in required_cols if col not in data.columns]
+    if missing:
+        print(f"Missing required columns for success metrics table: {missing}")
+        return None
+
+    df = data.copy()
+    df["recommender_label"] = df["recommender_type"].apply(get_recommender_label)
+
+    # Keep only final step of each run
+    df["RunKey"] = df["RunId"].astype(str) + "_" + df["iteration"].astype(str)
+    last_steps = df.groupby("RunKey")["Step"].transform("max")
+    final_df = df[df["Step"] == last_steps].copy()
+
+    # Compute F1 from Precision and Recall
+    final_df["F1"] = np.where(
+        (final_df["Precision"] + final_df["Recall"]) > 0,
+        2 * final_df["Precision"] * final_df["Recall"]
+        / (final_df["Precision"] + final_df["Recall"]),
+        0.0,
+    )
+
+    metrics = {
+        "Precision": {"label": "Precision", "lower_better": False},
+        "Recall": {"label": "Recall", "lower_better": False},
+        "F1": {"label": "F1", "lower_better": False},
+    }
+
+    summary = {}
+    for metric, info in metrics.items():
+        metric_summary = (
+            final_df.groupby(["recommender_type", "recommender_label"])[metric]
+            .mean()
+            .reset_index()
+        )
+
+        metric_summary = metric_summary.sort_values(
+            metric, ascending=info["lower_better"]
+        )
+        metric_summary["rank"] = range(1, len(metric_summary) + 1)
+        summary[metric] = metric_summary
+
+    all_recommender_types = sorted(final_df["recommender_type"].unique())
+
+    fig, ax = plt.subplots(figsize=(8, len(all_recommender_types) * 0.55 + 2.5))
+    ax.axis("tight")
+    ax.axis("off")
+
+    table_data = []
+
+    header = ["Rec Type"] + [info["label"] for metric, info in metrics.items()]
+    table_data.append(header)
+
+    for rec_type in all_recommender_types:
+        rec_label = get_recommender_label(rec_type)
+        row = [rec_label]
+
+        for metric in metrics.keys():
+            rec_data = summary[metric][summary[metric]["recommender_type"] == rec_type]
+            if len(rec_data) > 0:
+                rank = rec_data["rank"].values[0]
+                value = rec_data[metric].values[0]
+                row.append(f"#{rank} ({value:.3f})")
+            else:
+                row.append("N/A")
+
+        table_data.append(row)
+
+    table = ax.table(
+        cellText=table_data[1:],
+        colLabels=table_data[0],
+        loc="center",
+        cellLoc="center",
+    )
+
+    table.auto_set_font_size(False)
+    table.set_fontsize(14)
+    table.scale(1.2, 1.8)
+
+    n_recommenders = len(all_recommender_types)
+
+    # Color cells by rank: green best -> red worst
+    for i in range(len(table_data) - 1):
+        for j in range(1, len(header)):
+            cell = table[i + 1, j]
+            cell_text = cell.get_text().get_text()
+
+            if cell_text == "N/A":
+                continue
+
+            rank = int(cell_text.split("#")[1].split(" ")[0])
+            color_val = rank / n_recommenders
+            cell.set_facecolor((color_val, 1 - color_val, 0, 0.3))
+
+    plt.title(
+        "Recommender Algorithm Rankings by Success Metrics",
+        fontsize=18,
+        pad=20,
+    )
+    plt.tight_layout()
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    return fig
 
 
 def plot_diversity_impact_heatmap(data, output_path=None, skip_steps=5):
@@ -1407,6 +1531,11 @@ def plot_single_diversity_timeline(
     skip_steps : int, optional
         Number of initial steps to skip in the plot
     """
+
+    if metric_name not in data.columns:
+        print(f"[plot.py] Skipping '{metric_name}' plot — column not found")
+        return None
+        
     # Filter data for No Diversity setting
     filtered_data = data[data["diversity_setting"] == "No Diversity"]
 
@@ -1520,10 +1649,20 @@ def generate_no_diversity_plots(data, output_dir=None, skip_steps=5):
         os.path.join(output_dir, "no_diversity_echo_chamber.png"),
         skip_steps,
     )
-
-
-import matplotlib.pyplot as plt
-import matplotlib.ticker as mtick
+    plot_single_diversity_timeline(
+        data,
+        "Precision",
+        "Precision",
+        "Precision (No Diversity)",
+        os.path.join(output_dir, "no_diversity_precision.png"),
+    )
+    plot_single_diversity_timeline(
+        data,
+        "Recall",
+        "Recall",
+        "Recall (No Diversity)",
+        os.path.join(output_dir, "no_diversity_recall.png"),
+    )
 
 
 def plot_dominant_trait_degree_bar(
@@ -2005,6 +2144,10 @@ def generate_all_plots(
         data, os.path.join(output_dir, "recommender_ranking_table.png"), skip_steps
     )
 
+    create_success_metrics_ranking_table(
+        data, os.path.join(output_dir, "success_metrics_ranking_table.png")
+    )
+
     # Generate community-specific plots if community data is available
     if community_data_file:
         # Generate recommender-specific community plots
@@ -2024,37 +2167,37 @@ def generate_all_plots(
             os.path.join(output_dir, "diversity_impact_table.png"),
         )
 
-    plot_dominant_trait_degree_bar(
-        data,
-        degree_type="Followers",
-        diversity_setting="No Diversity",
-        recommender_type="random",
-        output_path=os.path.join(output_dir, "dominant_trait_followers_final.png"),
-    )
-    plot_dominant_trait_degree_bar(
-        data,
-        degree_type="Following",
-        diversity_setting="No Diversity",
-        recommender_type="random",
-        output_path=os.path.join(output_dir, "dominant_trait_following_final.png"),
-    )
-    plot_dominant_trait_degree_bar_all_recommenders(
-        data,
-        degree_type="Followers",
-        diversity_setting="No Diversity",
-        output_path=os.path.join(
-            output_dir, "dominant_trait_followers_final_all_recommenders.png"
-        ),
-    )
-    plot_dominant_trait_degree_bar_all_recommenders(
-        data,
-        degree_type="Following",
-        diversity_setting="No Diversity",
-        output_path=os.path.join(
-            output_dir, "dominant_trait_following_final_all_recommenders.png"
-        ),
-    )
-    plot_recommendation_like_rate(data, os.path.join(output_dir, "recommendation_like_rate.png"))
+    #plot_dominant_trait_degree_bar(
+    #    data,
+    #    degree_type="Followers",
+    #    diversity_setting="No Diversity",
+    #    recommender_type="random",
+    #    output_path=os.path.join(output_dir, "dominant_trait_followers_final.png"),
+    #)
+    #plot_dominant_trait_degree_bar(
+    #    data,
+    #    degree_type="Following",
+    #    diversity_setting="No Diversity",
+    #    recommender_type="random",
+    #    output_path=os.path.join(output_dir, "dominant_trait_following_final.png"),
+    #)
+    #plot_dominant_trait_degree_bar_all_recommenders(
+    #    data,
+    #    degree_type="Followers",
+    #    diversity_setting="No Diversity",
+    #    output_path=os.path.join(
+    #        output_dir, "dominant_trait_followers_final_all_recommenders.png"
+    #    ),
+    #)
+    #plot_dominant_trait_degree_bar_all_recommenders(
+    #    data,
+    #    degree_type="Following",
+    #    diversity_setting="No Diversity",
+    #    output_path=os.path.join(
+    #        output_dir, "dominant_trait_following_final_all_recommenders.png"
+    #    ),
+    #)
+    #plot_recommendation_like_rate(data, os.path.join(output_dir, "recommendation_like_rate.png"))
     
     plot_like_rate_vs_misinformation_count(data, os.path.join(output_dir, "like_rate_vs_misinformation_count.png"))
     # Show all plots

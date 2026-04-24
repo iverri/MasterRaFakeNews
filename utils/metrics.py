@@ -417,3 +417,83 @@ def _regular_user_mask(model):
         mask[N - n_bot:] = False        # exclude bots
     return mask
 
+
+def calculate_precision(model):
+    """Calculate the average precision of recommendations across all agents.
+
+    Precision = TP / (TP + FP) where:
+    - TP (True Positives): Recommended content that is relevant (user evaluation > LIKE_THRESHOLD)
+    - FP (False Positives): Recommended content that is not relevant (user evaluation <= LIKE_THRESHOLD)
+    """
+
+    precisions = []
+
+    for agent in model.agents:
+        if not hasattr(agent, "recommended_content") or not agent.recommended_content:
+            continue
+
+        recommended_items = agent.recommended_content
+        tp = 0
+        fp = 0
+
+        for content in recommended_items:
+            user_evaluation = (
+                cosine_similarity(agent.preference_vector, content.topic_vector)
+                * agent.naivety_level
+            )
+            engagement_factor = min(1.5, content.engagement)
+            adjusted_evaluation = user_evaluation * engagement_factor
+
+            relevant = adjusted_evaluation > agent.LIKE_THRESHOLD
+
+            if relevant:
+                tp += 1
+            else:
+                fp += 1
+
+        if tp + fp > 0:
+            precisions.append(tp / (tp + fp))
+
+    return sum(precisions) / len(precisions) if precisions else 0.0
+
+
+def calculate_recall(model, candidate_pool_size=200):
+    """Calculate the average recall of recommendations across all agents.
+    Recall = TP / (TP + FN) where:
+    - TP (True Positives): Recommended content that is relevant (user evaluation > LIKE_THRESHOLD
+    - FN (False Negatives): Relevant content that was not recommended
+    """
+    
+    recalls = []
+
+    candidate_pool = model.news_content[-candidate_pool_size:]
+
+    for agent in model.agents:
+        if not hasattr(agent, "recommended_content") or not agent.recommended_content:
+            continue
+
+        recommended_ids = {content.content for content in agent.recommended_content}
+
+        tp = 0
+        fn = 0
+
+        for content in candidate_pool:
+            user_evaluation = (
+                cosine_similarity(agent.preference_vector, content.topic_vector)
+                * agent.naivety_level
+            )
+            engagement_factor = min(1.5, content.engagement)
+            adjusted_evaluation = user_evaluation * engagement_factor
+
+            relevant = adjusted_evaluation > agent.LIKE_THRESHOLD
+            recommended = content.content in recommended_ids
+
+            if relevant and recommended:
+                tp += 1
+            elif relevant and not recommended:
+                fn += 1
+
+        if tp + fn > 0:
+            recalls.append(tp / (tp + fn))
+
+    return sum(recalls) / len(recalls) if recalls else 0.0

@@ -8,6 +8,8 @@ from utils.metrics import (
     calculate_mean_degree_by_dominant_personality,
     calculate_diversity_improvement,
     calculate_count_by_dominant_personality,
+    calculate_precision,
+    calculate_recall,
 )
 
 def setup_datacollector(model):
@@ -34,6 +36,11 @@ def setup_datacollector(model):
         "Recommendation_Impressions": lambda m: m.recommendation_step,
         "Recommendation_Likes": lambda m: m.recommendation_likes_step,
     }
+    if getattr(model, "collect_metrics", False):
+        model_reporters["Precision"] = lambda m: calculate_precision(m)
+        model_reporters["Recall"] = lambda m: calculate_recall(m)
+    
+
 
     if getattr(model, "collect_community_data", False):
         model_reporters["Community_Data"] = lambda m: getattr(m, "community_data", None)
