@@ -1,3 +1,5 @@
+import os
+
 from mesa import Model
 import networkx as nx
 from mesa.space import NetworkGrid
@@ -101,6 +103,10 @@ class FakeNewsModel(Model):
             if use_stored_network and stored_network
             else NetworkStorage()
         )
+
+        self._profiler = None
+        self._profile_file = f"profile_{os.getpid()}_{id(self)}.prof"
+
         self.max_steps = max_steps
         self.collect_personality_degree_stats = collect_personality_degree_stats
         self.collect_community_data = collect_community_data
@@ -149,7 +155,9 @@ class FakeNewsModel(Model):
 
         # Add interaction data
         self.recommendation_step = 0  # Track the current recommendation step
-        self.recommendation_likes_step = 0  # Track likes for the current recommendation step
+        self.recommendation_likes_step = (
+            0  # Track likes for the current recommendation step
+        )
 
     def step(self):
         """Advance the model by one step."""
@@ -175,6 +183,14 @@ class FakeNewsModel(Model):
 
         # Update recommendations for all agents
         self.social_media_platform.recommender.update_recommendations(self.agents)
+
+        # Optimization: Flush batched implicit interactions after all agents have been evaluated
+        self.social_media_platform.recommender.flush_implicit_interactions()
+
+        # Optimization: Train collaborative filtering pipelines once per step after interactions updated
+        dataset = self.social_media_platform.recommender._create_dataset()
+        if dataset is not None:
+            self.social_media_platform.recommender.train_pipelines(dataset)
 
         # Let agents process their feed and recommendations
         self.agents.shuffle_do("step")

@@ -1,5 +1,6 @@
 import os
 
+
 # Safeguard against thread conficts across libraries
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -200,7 +201,6 @@ def run_recommender_comparison_experiment(
 
     # Filter for model-level variables
     model_data = results_df[[col for col in model_vars if col in results_df.columns]]
-
 
     # Save model-level data
     model_file = f"{output_dir}/recommender_comparison_model_data_{timestamp}.csv"

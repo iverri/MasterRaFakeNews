@@ -30,11 +30,22 @@ class Recommender:
         self._user_interactions_cache = []
         self._user_interactions_cache_dirty = True
 
-        self._last_training_count = (
-            0  # Add this line to track when retraining is needed
-        )
-        self.content_dict_cache = {}  # Add cache for content dictionaries
+        self._last_training_count = 0
+
+        # Global content cache (shared across all agents)
+        self._global_content_cache = {}
+        self._global_content_cache_step = -1
+
+        # Global cache for popularity scores
+        self.content_dict_cache = {}  # Only used for popularity_scores now
         self.last_content_update = -1  # Track when content was last updated
+
+        # Implicit interactions batch for efficient flushing
+        self._implicit_interactions_batch = {}  # (agent_id, content_id) -> rating
+
+        # Pipeline training flags
+        self._pipelines_trained_this_step = False
+        self._current_step = -1
         print(
             f"Recommender type: {self.type}, diversity_level: {self.diversity_level}, num_recommendations: {self.num_recommendations}"
         )
@@ -121,6 +132,84 @@ class Recommender:
 
         self._user_interactions_cache_dirty = True
 
+    def add_implicit_interaction(self, agent_id, content_id, rating=0.3):
+        """Add an implicit interaction (view/impression) between an agent and content item.
+        Used for recommendations that agents see but don't explicitly like.
+        Batched for efficiency - flush with flush_implicit_interactions()"""
+
+        # Only track if not already explicitly interacted
+        if (agent_id, content_id) not in self.user_interactions:
+            if not isinstance(agent_id, (int, np.integer)):
+                agent_id = int(agent_id)
+            if not isinstance(content_id, (int, np.integer)):
+                content_id = int(content_id)
+
+            # Use lower rating for implicit interactions
+            rating = max(0.0, min(1.0, float(rating)))
+
+            # Add to batch instead of updating directly
+            self._implicit_interactions_batch[(agent_id, content_id)] = rating
+
+    def flush_implicit_interactions(self):
+        """Flush batched implicit interactions to the main interaction dictionary.
+        Call this once per step for efficiency."""
+        if not self._implicit_interactions_batch:
+            return
+
+        for (agent_id, content_id), rating in self._implicit_interactions_batch.items():
+            if (agent_id, content_id) not in self.user_interactions:
+                self.user_interactions_count[agent_id] = (
+                    self.user_interactions_count.get(agent_id, 0) + 1
+                )
+
+            self.user_interactions[(agent_id, content_id)] = {
+                "user_id": agent_id,
+                "item_id": content_id,
+                "rating": rating,
+            }
+
+        self._user_interactions_cache_dirty = True
+        self._implicit_interactions_batch.clear()
+
+    def train_pipelines(self, dataset):
+        """Train all active pipelines. Call once per step after interactions updated."""
+        interaction_list = self._get_interaction_list()
+        n_interactions = len(interaction_list)
+
+        if n_interactions < 20:  # Only train if enough data
+            return
+
+        # Train KNN pipelines if using them
+        if self.pipeline is not None or self.type in [
+            "item_knn",
+            "user_knn",
+            "hybrid_weighted_static",
+            "hybrid_weighted_dynamic",
+            "mixed",
+        ]:
+            if self.pipeline is None:
+                from recommender.types import RecommenderType
+
+                item_type = "item" if self.type in ["item_knn", "mixed"] else "user"
+                self.pipeline = topn_pipeline(
+                    self.item_knn if item_type == "item" else self.user_knn
+                )
+            if dataset is not None:
+                self.pipeline.train(dataset)
+
+        # Train MF pipeline if using it
+        if self.mf_pipeline is not None or self.type in [
+            "matrix_factorization",
+            "mixed",
+        ]:
+            if self.mf_pipeline is None:
+                self.mf_pipeline = topn_pipeline(self.mf_model)
+            if dataset is not None:
+                self.mf_pipeline.train(dataset)
+
+        self._last_training_count = n_interactions
+        self._pipelines_trained_this_step = True
+
     def _create_dataset(self):
         """Create a LensKit Dataset from interactions"""
         if not self.user_interactions:
@@ -189,9 +278,9 @@ class Recommender:
 
             # Check if the system as a whole has enough interactions
             min_interactions = max(
-                150, agent.model.num_agents // 2
+                20, agent.model.num_agents // 4
             )  # Minimum total interactions needed
-            if n_interactions < min_interactions or user_interactions_count < 3:
+            if n_interactions < min_interactions or user_interactions_count < 1:
                 # Fall back to random recommendations if not enough data overall
                 recommendations = self.random_recommendation(
                     agent, num_recommendations=num_recommendations, add_to_feed=False
@@ -228,35 +317,16 @@ class Recommender:
                 self.pipeline.train(dataset)
                 self._last_training_count = n_interactions
 
-            # Cache content IDs if model content has changed
-            current_step = agent.model.steps
-            if (
-                current_step != self.last_content_update
-                or agent.pos not in self.content_dict_cache
-            ):
-                # Get all available content IDs - do this once and cache
-                all_content_ids = {c.content for c in agent.model.news_content}
-                self.content_dict_cache[agent.pos] = {
-                    "all_content": agent.model.news_content,
-                    "all_content_ids": all_content_ids,
-                    "content_dict": {c.content: c for c in agent.model.news_content},
-                }
-                self.last_content_update = current_step
+            # Use global content cache for efficiency
+            content_cache = self._get_global_content_cache(agent.model)
+            all_content_ids = content_cache["all_content_ids"]
+            content_dict = content_cache["content_dict"]
 
-            # Use cached values
-            all_content_ids = self.content_dict_cache[agent.pos]["all_content_ids"]
-            content_dict = self.content_dict_cache[agent.pos]["content_dict"]
-
-            # Get items already in user's feed
-            feed_ids = {c.content for c in agent.feed}
-
-            # Get candidate items (not in feed)
-            candidate_ids = all_content_ids - feed_ids
-            if not candidate_ids:
-                return
+            # Get items already in user's feed (use cached method)
+            feed_set = agent.get_seen_content_ids()
 
             # Convert to list for recommendation
-            candidates = ItemList(list(candidate_ids))
+            candidates = ItemList(list(all_content_ids - feed_set))
 
             # Get recommendations using the recommend function
             try:
@@ -325,28 +395,11 @@ class Recommender:
         if num_recommendations is None:
             num_recommendations = self.num_recommendations
 
-        # Cache content if needed
-        current_step = agent.model.steps
-        if (
-            current_step != self.last_content_update
-            or agent.pos not in self.content_dict_cache
-        ):
-            all_content_ids = {c.content for c in agent.model.news_content}
-            self.content_dict_cache[agent.pos] = {
-                "all_content": agent.model.news_content,
-                "all_content_ids": all_content_ids,
-                "content_dict": {c.content: c for c in agent.model.news_content},
-            }
-            self.last_content_update = current_step
+        # Get content not already in agent's feed - use cached method
+        feed_set = agent.get_seen_content_objects()
 
-        # Get content not already in agent's feed - use set operations for efficiency
-        feed_set = set(agent.feed)
-        available_content = [
-            c
-            for c in self.content_dict_cache[agent.pos]["all_content"]
-            if c not in feed_set
-        ]
-
+        # Get candidate items (not in feed)
+        available_content = [c for c in agent.model.news_content if c not in feed_set]
         if not available_content:
             return
 
@@ -415,8 +468,8 @@ class Recommender:
         if not agent.model.news_content:
             return
 
-        # Cache feed set for faster lookups
-        feed_set = set(agent.feed)
+        # Cache feed set for faster lookups - use cached method
+        feed_set = agent.get_seen_content_objects()
 
         # Get content that isn't in the agent's current feed - use set difference for efficiency
         available_content = [c for c in agent.model.news_content if c not in feed_set]
@@ -483,8 +536,8 @@ class Recommender:
                 "content_counts"
             ]
 
-            # Get content that isn't in the agent's current feed
-            feed_set = set(agent.feed)
+            # Get content that isn't in the agent's current feed - use cached method
+            feed_set = agent.get_seen_content_objects()
             available_content = [
                 c for c in agent.model.news_content if c not in feed_set
             ]
@@ -651,7 +704,10 @@ class Recommender:
 
         # Before reranking
         recommendations, diversity_score = self._calculate_and_apply_diversity(
-            agent, recommendations, k=self.num_recommendations, add_to_feed=True
+            agent,
+            recommendations,
+            k=self.num_recommendations,  # SHOULD THIS BE NUM_FINAL RECS?
+            add_to_feed=True,
         )
 
         agent.recommended_content.extend(recommendations)
@@ -726,6 +782,22 @@ class Recommender:
             self._user_interactions_cache_dirty = False
 
         return self._user_interactions_cache
+
+    def _get_global_content_cache(self, model):
+        """Get or create global content cache shared by all agents."""
+        current_step = model.steps
+        if (
+            current_step != self._global_content_cache_step
+            or not self._global_content_cache
+        ):
+            all_content_ids = {c.content for c in model.news_content}
+            self._global_content_cache = {
+                "all_content_ids": all_content_ids,
+                "content_dict": {c.content: c for c in model.news_content},
+            }
+            self._global_content_cache_step = current_step
+
+        return self._global_content_cache
 
     def hybrid_weighted(self, agent, alpha):
         """Combine collaborative filtering and content-based recommendations with weighted scoring
@@ -829,9 +901,9 @@ class Recommender:
             user_interactions_count = self.user_interactions_count.get(agent.pos, 0)
 
             # Check if the system as a whole has enough interactions
-            min_interactions = max(150, agent.model.num_agents // 2)
+            min_interactions = max(20, agent.model.num_agents // 4)
             # same fallback logic as KNN
-            if n_interactions < min_interactions or user_interactions_count < 3:
+            if n_interactions < min_interactions or user_interactions_count < 1:
                 recommendations = self.random_recommendation(agent, add_to_feed=False)
                 agent.recommended_content.extend(recommendations)
                 agent.diversity_score = calculate_diversity(
@@ -854,26 +926,13 @@ class Recommender:
                 self.mf_pipeline.train(dataset)
                 self._last_mf_training_count = n_interactions
 
-            # Cache content
-            current_step = agent.model.steps
-            if (
-                current_step != self.last_content_update
-                or agent.pos not in self.content_dict_cache
-            ):
-                all_content_ids = {c.content for c in agent.model.news_content}
-                self.content_dict_cache[agent.pos] = {
-                    "all_content": agent.model.news_content,
-                    "all_content_ids": {c.content for c in agent.model.news_content},
-                    "content_dict": {c.content: c for c in agent.model.news_content},
-                }
-                self.last_content_update = current_step
+            # Use global content cache for efficiency
+            content_cache = self._get_global_content_cache(agent.model)
+            all_content_ids = content_cache["all_content_ids"]
+            content_dict = content_cache["content_dict"]
 
-            # Use cached values
-            all_content_ids = self.content_dict_cache[agent.pos]["all_content_ids"]
-            content_dict = self.content_dict_cache[agent.pos]["content_dict"]
-
-            # Remove already seen items
-            feed_ids = {c.content for c in agent.feed}
+            # Remove already seen items - use cached method
+            feed_ids = agent.get_seen_content_ids()
             candidate_ids = all_content_ids - feed_ids
             if not candidate_ids:
                 return
@@ -929,9 +988,10 @@ class Recommender:
 
         interaction_list = self._get_interaction_list()
         n_interactions = len(interaction_list)
-        min_interactions = max(150, agent.model.num_agents // 2)
+        min_interactions = max(20, agent.model.num_agents // 4)
+        user_interactions_count = self.user_interactions_count.get(agent.pos, 0)
 
-        if n_interactions < min_interactions:
+        if n_interactions < min_interactions or user_interactions_count < 1:
             self.random_recommendation(agent)
             return
 
@@ -947,24 +1007,8 @@ class Recommender:
             self.mf_pipeline.train(dataset)
             self._last_mf_training_count = n_interactions
 
-        current_step = agent.model.steps
-        if (
-            current_step != self.last_content_update
-            or agent.pos not in self.content_dict_cache
-        ):
-            self.content_dict_cache[agent.pos] = {
-                "all_content": agent.model.news_content,
-                "all_content_ids": {c.content for c in agent.model.news_content},
-                "content_dict": {c.content: c for c in agent.model.news_content},
-            }
-            self.last_content_update = current_step
-
-        feed_set = set(agent.feed)
-        candidates = [
-            c
-            for c in self.content_dict_cache[agent.pos]["all_content"]
-            if c not in feed_set
-        ]
+        feed_set = agent.get_seen_content_objects()
+        candidates = [c for c in agent.model.news_content if c not in feed_set]
 
         if not candidates:
             return
@@ -1008,7 +1052,9 @@ class Recommender:
             combined_user.reshape(1, -1), combined_item_features
         )
 
-        scores = list(zip(candidates, similarities))
+        # Pair similarities with valid_candidates (those that have embeddings)
+        # NOT with the full candidates list - that was causing misalignment
+        scores = list(zip(valid_candidates, similarities))
 
         # Sort by score and get top recommendations
         scores.sort(key=lambda x: x[1], reverse=True)

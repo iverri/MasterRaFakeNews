@@ -13,7 +13,7 @@ class UserAgent(Agent):
     MAX_RECENT_CONTENT = 30  # Maximum items in recent_content
     MAX_SHARED_CONTENT = 50  # Maximum items in shared_content
     ENGAGEMENT_THRESHOLD = 0.2  # Minimum engagement to keep content
-    LIKE_THRESHOLD = 0.6  # Threshold for liking content
+    LIKE_THRESHOLD = 0.5  # Threshold for liking content
     SHARE_THRESHOLD = 0.8  # Threshold for sharing content
     COEFFICIENTS = {
         "p0": 0.10,
@@ -36,6 +36,7 @@ class UserAgent(Agent):
         self.state = "S"  # S: Susceptible, E: Exposed, I: Infected
         self.infection_start_step = 0  # Track when infection started
         self.feed = []  # feed with NewsContent
+        self._feed_ids = set()  # Parallel set for O(1) lookup of content IDs
         self.recommended_content = []
         self.shared_content = []  # Track content this agent has shared
         self.recent_content = []
@@ -43,6 +44,13 @@ class UserAgent(Agent):
         self.social_media_platform = model.social_media_platform
         self.diversity_score = 0
         self.original_diversity_score = 0
+        # Performance caching for feed/recommendation unions
+        self._cached_seen_content_ids = (
+            None  # Cache for {c.content for c in feed + recommended}
+        )
+        self._cached_seen_content_objects = (
+            None  # Cache for union of feed + recommended objects
+        )
         # Activity-related properties
         self.is_active = False
         self.activity_probability = min(
@@ -91,7 +99,11 @@ class UserAgent(Agent):
                 self.evaluate_content(content, source="recommendation")
 
             self.feed = []
+            self._feed_ids.clear()  # Keep set in sync with list
             self.recommended_content = []
+            # Clear caches only when feed/recommendations actually clear
+            self._cached_seen_content_ids = None
+            self._cached_seen_content_objects = None
             self.last_active_step = self.model.steps
 
             # Attempt to post new content
@@ -136,9 +148,23 @@ class UserAgent(Agent):
         engagement_factor = min(1.5, content.engagement)
         adjusted_evaluation = user_evaluation * engagement_factor
 
+        # Track implicit interactions for both feed and recommendations
+        # This gives collaborative filtering weak signals even when content isn't liked
+        if source == "feed":
+            # Track implicit interaction for feed content (lower rating)
+            self.model.social_media_platform.recommender.add_implicit_interaction(
+                self.pos, content.content, rating=adjusted_evaluation * 0.7
+            )
+
         # Count only recommendation impressions
         if source == "recommendation":
             self.model.recommendation_step += 1
+
+            # Track implicit interaction (viewing) for collaborative filtering
+            # This gives CF signal even if the user doesn't like the content
+            self.model.social_media_platform.recommender.add_implicit_interaction(
+                self.pos, content.content, rating=adjusted_evaluation
+            )
 
         # Like content
         if adjusted_evaluation > self.LIKE_THRESHOLD:
@@ -177,9 +203,12 @@ class UserAgent(Agent):
 
         # Only share with followers if we have any
         if followers:
+            content_id = content.content
             for follower in followers:
-                if content not in follower.feed:
+                # O(1) lookup using set instead of O(n) list search
+                if content_id not in follower._feed_ids:
                     follower.feed.append(content)
+                    follower._feed_ids.add(content_id)
 
     def get_followers(self):
         """Get list of agents that follow this agent."""
@@ -195,8 +224,9 @@ class UserAgent(Agent):
 
     def _manage_feed(self):
         """Manage feed size and content relevance."""
-        # Update engagement of all content in feed
-        for content in self.feed:
+        # Update engagement of all content in feed AND recommendations
+        # This is critical because recommendations can accumulate when agents are inactive
+        for content in self.feed + self.recommended_content:
             content.update_engagement(self.model.steps)
 
         # Clean up old shared content (keep only last 50 items or last 20 steps)
@@ -283,6 +313,22 @@ class UserAgent(Agent):
             topic_vector = topic_vector / magnitude
 
         return topic_vector
+
+    def get_seen_content_ids(self):
+        """Get cached set of content IDs already seen (in feed or recommended)."""
+        if self._cached_seen_content_ids is None:
+            self._cached_seen_content_ids = {c.content for c in self.feed} | {
+                c.content for c in self.recommended_content
+            }
+        return self._cached_seen_content_ids
+
+    def get_seen_content_objects(self):
+        """Get cached union of content objects already seen (in feed or recommended)."""
+        if self._cached_seen_content_objects is None:
+            self._cached_seen_content_objects = set(self.feed) | set(
+                self.recommended_content
+            )
+        return self._cached_seen_content_objects
 
     def _calculate_p_share(self, personality_vector, coefficients):
         p_share = (
