@@ -1052,7 +1052,9 @@ class Recommender:
             combined_user.reshape(1, -1), combined_item_features
         )
 
-        scores = list(zip(candidates, similarities))
+        # Pair similarities with valid_candidates (those that have embeddings)
+        # NOT with the full candidates list - that was causing misalignment
+        scores = list(zip(valid_candidates, similarities))
 
         # Sort by score and get top recommendations
         scores.sort(key=lambda x: x[1], reverse=True)

@@ -1,6 +1,5 @@
-import glob
 import os
-import pstats
+
 
 # Safeguard against thread conficts across libraries
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -203,7 +202,6 @@ def run_recommender_comparison_experiment(
     # Filter for model-level variables
     model_data = results_df[[col for col in model_vars if col in results_df.columns]]
 
-
     # Save model-level data
     model_file = f"{output_dir}/recommender_comparison_model_data_{timestamp}.csv"
     model_data.to_csv(model_file, index=False)
@@ -314,8 +312,8 @@ if __name__ == "__main__":
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = (
         run_recommender_comparison_experiment(
-            iterations=1,  # Number of runs per recommender type
-            max_steps=200,  # Steps per run
+            iterations=5,  # Number of runs per recommender type
+            max_steps=700,  # Steps per run
             n_agents=200,  # Number of agents
             m_links=8,  # Links per new node
             news_amount=400,  # Initial news items

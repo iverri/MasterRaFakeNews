@@ -167,7 +167,7 @@ class UserAgent(Agent):
             )
 
         # Like content
-        if adjusted_evaluation > self.LIKE_THRESHOLD * (1 - self.naivety_level):
+        if adjusted_evaluation > self.LIKE_THRESHOLD:
             self.model.social_media_platform.recommender.add_interaction(
                 self.pos, content.content, user_evaluation
             )

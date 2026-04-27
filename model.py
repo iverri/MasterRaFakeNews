@@ -1,4 +1,3 @@
-import cProfile
 import os
 
 from mesa import Model
