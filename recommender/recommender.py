@@ -267,7 +267,7 @@ class Recommender:
         try:
             # Get content pool from model
             if not hasattr(agent.model, "news_content") or not agent.model.news_content:
-                self.random_recommendation(agent)
+                self.content_based(agent)
                 return
 
             interaction_list = self._get_interaction_list()
@@ -281,8 +281,8 @@ class Recommender:
                 20, agent.model.num_agents // 4
             )  # Minimum total interactions needed
             if n_interactions < min_interactions or user_interactions_count < 1:
-                # Fall back to random recommendations if not enough data overall
-                recommendations = self.random_recommendation(
+                # Fall back to content based recommendations if not enough data overall
+                recommendations = self.content_based(
                     agent, num_recommendations=num_recommendations, add_to_feed=False
                 )
                 agent.recommended_content.extend(recommendations)
@@ -305,7 +305,7 @@ class Recommender:
             # Create dataset only if needed
             dataset = self._create_dataset()
             if dataset is None:
-                self.random_recommendation(agent)
+                self.content_based(agent)
                 return
 
             # Create and train pipeline if not already created or if it needs retraining
@@ -349,7 +349,7 @@ class Recommender:
                     # get the first half of the recommendations
                     if len(recommendations) < num_recommendations:
                         recommendations.extend(
-                            self.random_recommendation(
+                            self.content_based(
                                 agent,
                                 num_recommendations - len(recommendations),
                                 add_to_feed=False,
@@ -374,9 +374,9 @@ class Recommender:
                     # Fall back to random if no recommendations were generated
 
                     if add_to_feed:
-                        self.random_recommendation(agent)
+                        self.content_based(agent)
                     else:
-                        return self.random_recommendation(
+                        return self.content_based(
                             agent, num_recommendations, add_to_feed=False
                         )
             except Exception as e:
@@ -699,14 +699,10 @@ class Recommender:
                 if index not in remove_indices
             ]
 
-            # Calculate diversity before reranking on the same number of items that will be in final set
-        num_final_recs = min(len(recommendations) // 3, self.num_recommendations)
-
-        # Before reranking
         recommendations, diversity_score = self._calculate_and_apply_diversity(
             agent,
             recommendations,
-            k=self.num_recommendations,  # SHOULD THIS BE NUM_FINAL RECS?
+            k=self.num_recommendations,
             add_to_feed=True,
         )
 
@@ -904,7 +900,7 @@ class Recommender:
             min_interactions = max(20, agent.model.num_agents // 4)
             # same fallback logic as KNN
             if n_interactions < min_interactions or user_interactions_count < 1:
-                recommendations = self.random_recommendation(agent, add_to_feed=False)
+                recommendations = self.content_based(agent, add_to_feed=False)
                 agent.recommended_content.extend(recommendations)
                 agent.diversity_score = calculate_diversity(
                     np.array([rec.topic_vector for rec in recommendations])
@@ -913,7 +909,7 @@ class Recommender:
 
             dataset = self._create_dataset()
             if dataset is None:
-                self.random_recommendation(agent)
+                self.content_based(agent)
                 return
 
             # Train MF model if needed
@@ -959,7 +955,7 @@ class Recommender:
             # Fill with random if needed
             if len(recommendations) < num_to_select:
                 recommendations.extend(
-                    self.random_recommendation(
+                    self.content_based(
                         agent,
                         num_recommendations=num_to_select - len(recommendations),
                         add_to_feed=False,
@@ -992,12 +988,12 @@ class Recommender:
         user_interactions_count = self.user_interactions_count.get(agent.pos, 0)
 
         if n_interactions < min_interactions or user_interactions_count < 1:
-            self.random_recommendation(agent)
+            self.content_based(agent)
             return
 
         dataset = self._create_dataset()
         if dataset is None:
-            self.random_recommendation(agent)
+            self.content_based(agent)
             return
 
         # Train MF if needed
@@ -1033,8 +1029,7 @@ class Recommender:
             try:
                 item_embedding = self.mf_model.item_embeddings[content.content]
             except (IndexError, KeyError):
-                # Item doesn't have an embedding - skip it or use zero vector
-                # Skip it for now to maintain feature consistency
+                # Item doesn't have an embedding - skip it
                 continue
 
             combined_vector = np.concatenate([topic_vector, item_embedding])
@@ -1053,7 +1048,6 @@ class Recommender:
         )
 
         # Pair similarities with valid_candidates (those that have embeddings)
-        # NOT with the full candidates list - that was causing misalignment
         scores = list(zip(valid_candidates, similarities))
 
         # Sort by score and get top recommendations
