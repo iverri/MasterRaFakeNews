@@ -72,7 +72,7 @@ def run_recommender_comparison_experiment(
         influencer_percentage=influencer_percentage,
         diversity_level=0,
         num_recommendations=num_recommendations,
-        recommend_feed_items=False,
+        recommend_shared_content=False,
         use_stored_network=True,
         stored_network=None,  # Force creation of new network
         recommender_type=RecommenderType.RANDOM.value,  # Use any recommender for initial setup

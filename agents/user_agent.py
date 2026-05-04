@@ -31,7 +31,7 @@ class UserAgent(Agent):
         self.p_share = self._calculate_p_share(
             self.personality_vector, self.COEFFICIENTS
         )
-        self.naivety_level = min(max(random.gauss(0.5, 0.3), 0), 1)
+        self.naivety_level = min(max(random.gauss(0.5, 0.15), 0), 1)
         # whatto do with this
         self.state = "S"  # S: Susceptible, E: Exposed, I: Infected
         self.infection_start_step = 0  # Track when infection started
@@ -202,11 +202,19 @@ class UserAgent(Agent):
         # Only share with followers if we have any
         if followers:
             content_id = content.content
-            for follower in followers:
-                # O(1) lookup using set instead of O(n) list search
-                if content_id not in follower._feed_ids:
-                    follower.feed.append(content)
-                    follower._feed_ids.add(content_id)
+            if self.model.recommend_shared_content:
+                self.model.social_media_platform.recommender.add_interaction(
+                    self.pos, max(0, min(user_evaluation * 1.5, 1))
+                )
+                content.engagement *= (
+                    np.log(self.model.num_agents / len(followers))
+                ) / 10 + 1
+            else:
+                for follower in followers:
+                    # O(1) lookup using set instead of O(n) list search
+                    if content_id not in follower._feed_ids:
+                        follower.feed.append(content)
+                        follower._feed_ids.add(content_id)
 
     def get_followers(self):
         """Get list of agents that follow this agent."""
@@ -315,25 +323,18 @@ class UserAgent(Agent):
     def get_seen_content_ids(self):
         """Get cached set of content IDs already seen (in feed or recommended)."""
         if self._cached_seen_content_ids is None:
-            if self.model.recommend_feed_items:
-                self._cached_seen_content_ids = {
-                    c.content for c in self.recommended_content
-                }
-            else:
-                self._cached_seen_content_ids = {c.content for c in self.feed} | {
-                    c.content for c in self.recommended_content
-                }
+
+            self._cached_seen_content_ids = {c.content for c in self.feed} | {
+                c.content for c in self.recommended_content
+            }
         return self._cached_seen_content_ids
 
     def get_seen_content_objects(self):
         """Get cached union of content objects already seen (in feed or recommended)."""
         if self._cached_seen_content_objects is None:
-            if self.model.recommend_feed_items:
-                self._cached_seen_content_objects = set(self.recent_content)
-            else:
-                self._cached_seen_content_objects = set(self.feed) | set(
-                    self.recommended_content
-                )
+            self._cached_seen_content_objects = set(self.feed) | set(
+                self.recommended_content
+            )
         return self._cached_seen_content_objects
 
     def _calculate_p_share(self, personality_vector, coefficients):

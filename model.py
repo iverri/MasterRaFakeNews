@@ -69,7 +69,7 @@ class FakeNewsModel(Model):
         influencer_percentage: int = 5,
         diversity_level: float = 0,
         num_recommendations: int = 10,
-        recommend_feed_items: bool = False,
+        recommend_shared_content: bool = False,
         use_stored_network: bool = True,
         stored_network: Optional[NetworkStorage] = None,
         network_file: Optional[str] = None,
@@ -97,7 +97,7 @@ class FakeNewsModel(Model):
         self.news_amount = news_amount
         self.diversity_level = diversity_level
         self.num_recommendations = num_recommendations
-        self.recommend_feed_items = recommend_feed_items
+        self.recommend_shared_content = recommend_shared_content
         self.use_stored_network = use_stored_network
         self.network_file = network_file
         self.network_storage = (

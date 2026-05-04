@@ -267,7 +267,7 @@ class Recommender:
         try:
             # Get content pool from model
             if not hasattr(agent.model, "news_content") or not agent.model.news_content:
-                self.content_based(agent)
+                self.random_recommendation(agent)
                 return
 
             interaction_list = self._get_interaction_list()
@@ -282,7 +282,7 @@ class Recommender:
             )  # Minimum total interactions needed
             if n_interactions < min_interactions or user_interactions_count < 1:
                 # Fall back to content based recommendations if not enough data overall
-                recommendations = self.content_based(
+                recommendations = self.random_recommendation(
                     agent, num_recommendations=num_recommendations, add_to_feed=False
                 )
                 agent.recommended_content.extend(recommendations)
@@ -305,7 +305,7 @@ class Recommender:
             # Create dataset only if needed
             dataset = self._create_dataset()
             if dataset is None:
-                self.content_based(agent)
+                self.random_recommendation(agent)
                 return
 
             # Create and train pipeline if not already created or if it needs retraining
@@ -349,7 +349,7 @@ class Recommender:
                     # get the first half of the recommendations
                     if len(recommendations) < num_recommendations:
                         recommendations.extend(
-                            self.content_based(
+                            self.random_recommendation(
                                 agent,
                                 num_recommendations - len(recommendations),
                                 add_to_feed=False,
@@ -374,9 +374,9 @@ class Recommender:
                     # Fall back to random if no recommendations were generated
 
                     if add_to_feed:
-                        self.content_based(agent)
+                        self.random_recommendation(agent)
                     else:
-                        return self.content_based(
+                        return self.random_recommendation(
                             agent, num_recommendations, add_to_feed=False
                         )
             except Exception as e:
@@ -900,7 +900,7 @@ class Recommender:
             min_interactions = max(20, agent.model.num_agents // 4)
             # same fallback logic as KNN
             if n_interactions < min_interactions or user_interactions_count < 1:
-                recommendations = self.content_based(agent, add_to_feed=False)
+                recommendations = self.random_recommendation(agent, add_to_feed=False)
                 agent.recommended_content.extend(recommendations)
                 agent.diversity_score = calculate_diversity(
                     np.array([rec.topic_vector for rec in recommendations])
@@ -909,7 +909,7 @@ class Recommender:
 
             dataset = self._create_dataset()
             if dataset is None:
-                self.content_based(agent)
+                self.random_recommendation(agent)
                 return
 
             # Train MF model if needed
@@ -955,7 +955,7 @@ class Recommender:
             # Fill with random if needed
             if len(recommendations) < num_to_select:
                 recommendations.extend(
-                    self.content_based(
+                    self.random_recommendation(
                         agent,
                         num_recommendations=num_to_select - len(recommendations),
                         add_to_feed=False,
@@ -988,12 +988,12 @@ class Recommender:
         user_interactions_count = self.user_interactions_count.get(agent.pos, 0)
 
         if n_interactions < min_interactions or user_interactions_count < 1:
-            self.content_based(agent)
+            self.random_recommendation(agent)
             return
 
         dataset = self._create_dataset()
         if dataset is None:
-            self.content_based(agent)
+            self.random_recommendation(agent)
             return
 
         # Train MF if needed
