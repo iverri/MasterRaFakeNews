@@ -417,3 +417,9 @@ def _regular_user_mask(model):
         mask[N - n_bot:] = False        # exclude bots
     return mask
 
+def infection_by_personality(model, trait_idx):
+    agents = [a for a in model.agents if np.argmax(a.personality_vector) == trait_idx]
+    if not agents:
+        return 0
+    infected = sum(1 for a in agents if a.state == "I")
+    return infected / len(agents)

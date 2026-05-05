@@ -98,7 +98,7 @@ def run_recommender_comparison_experiment(
         "recommender_type": [type.value for type in RecommenderType],
         "max_steps": max_steps,
         "collect_personality_degree_stats": False,
-        "collect_community_data": True,
+        "collect_community_data": False,
         "collect_agent_stats": True,
     }
     print(f"Starting batch run with {iterations} iterations per recommender type...")
@@ -166,6 +166,11 @@ def run_recommender_comparison_experiment(
         "Echo_Chamber_Effect",
         "Diversity_Improvement_Percentage",
         "Number_Of_Communities",
+        "Infected_Rate_E",
+        "Infected_Rate_A",
+        "Infected_Rate_C",
+        "Infected_Rate_N",
+        "Infected_Rate_O",
     ]
 
     include_personality_metrics = results_df["collect_personality_degree_stats"].iloc[0]

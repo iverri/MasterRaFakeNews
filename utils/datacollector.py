@@ -8,6 +8,7 @@ from utils.metrics import (
     calculate_mean_degree_by_dominant_personality,
     calculate_diversity_improvement,
     calculate_count_by_dominant_personality,
+    infection_by_personality,
 )
 
 def setup_datacollector(model):
@@ -45,7 +46,9 @@ def setup_datacollector(model):
             model_reporters[f"Mean_Following_{name}"] = lambda m, idx=idx: calculate_mean_degree_by_dominant_personality(m, idx, mode="out")
             model_reporters[f"Count_By_Dominant_Personality_{name}"] = lambda m, idx=idx: calculate_count_by_dominant_personality(m, idx)
 
-   
+
+    for idx, name in enumerate(TRAIT_NAMES):
+        model_reporters[f"Infected_Rate_{name}"] = lambda m, idx=idx: infection_by_personality(m, idx)
    
     agent_reporters = (
     {

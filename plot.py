@@ -1430,6 +1430,200 @@ def plot_dominant_trait_degree_bar_all_recommenders(data,degree_type,diversity_s
 
     return fig
 
+def plot_personality_infection(data, output_path=None):
+    """
+    3x5 grid:
+    Rows = diversity levels
+    Columns = recommender types
+    Lines = personality traits
+    """
+
+    trait_cols = [
+        "Infected_Rate_E",
+        "Infected_Rate_A",
+        "Infected_Rate_C",
+        "Infected_Rate_N",
+        "Infected_Rate_O",
+    ]
+
+    # Prepare data
+    plot_data = data.melt(
+        id_vars=["Step", "recommender_type", "diversity_setting"],
+        value_vars=trait_cols,
+        var_name="trait",
+        value_name="infection_rate"
+    )
+
+    plot_data["trait"] = plot_data["trait"].str.replace("Infected_Rate_", "")
+    plot_data["recommender_label"] = plot_data["recommender_type"].apply(get_recommender_label)
+
+    diversity_settings = sorted(plot_data["diversity_setting"].unique())
+    recommenders = sorted(plot_data["recommender_type"].unique())
+
+    # Trait colors (consistent with your other plots)
+    trait_palette = {
+        "E": "#1f77b4",
+        "A": "#ff7f0e",
+        "C": "#2ca02c",
+        "N": "#d62728",
+        "O": "#9467bd",
+    }
+
+    fig, axes = plt.subplots(
+        len(recommenders),
+        len(diversity_settings),
+        figsize=(16, 18),
+        sharex=True,
+        sharey=True
+    )
+
+    # Loop grid
+    for i, rec in enumerate(recommenders):
+        for j, diversity in enumerate(diversity_settings):
+            ax = axes[i, j]
+
+            subset = plot_data[
+                (plot_data["recommender_type"] == rec) &
+                (plot_data["diversity_setting"] == diversity)
+            ]
+
+            if subset.empty:
+                ax.set_visible(False)
+                continue
+
+            sns.lineplot(
+                data=subset,
+                x="Step",
+                y="infection_rate",
+                hue="trait",
+                palette=trait_palette,
+                errorbar="sd",
+                linewidth=2,
+                ax=ax,
+                legend=False  # remove per-plot legends
+            )
+
+            # Titles
+            # Column titles (top row = diversity)
+            if i == 0:
+                ax.set_title(diversity, fontsize=12)
+
+            # Row labels (left side = recommender)
+            if j == 0:
+                ax.set_ylabel(get_recommender_label(rec), fontsize=11)
+            else:
+                ax.set_ylabel("")
+
+            ax.set_xlabel("")
+            ax.grid(True, linestyle="--", alpha=0.5)
+
+    # Global labels
+    fig.text(0.5, 0.04, "Step", ha="center", fontsize=12)
+    fig.text(0.04, 0.5, "Infection Rate", va="center", rotation="vertical", fontsize=12)
+
+    # Create ONE legend for traits
+    handles = [
+        plt.Line2D([0], [0], color=trait_palette[t], lw=2)
+        for t in trait_palette
+    ]
+    labels = list(trait_palette.keys())
+
+    fig.legend(
+        handles,
+        labels,
+        title="Trait",
+        loc="upper center",
+        ncol=5,
+        bbox_to_anchor=(0.5, 1.02)
+    )
+
+    plt.tight_layout(rect=[0.05, 0.05, 1, 0.95])
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    return fig
+
+def plot_personality_infection_bar_all_diversity(data, output_path=None):
+
+    diversity_settings = sorted(data["diversity_setting"].unique())
+    trait_letters = ["E", "A", "C", "N", "O"]
+
+    trait_palette = {
+        "E": "#1f77b4",
+        "A": "#ff7f0e",
+        "C": "#2ca02c",
+        "N": "#d62728",
+        "O": "#9467bd",
+    }
+
+    fig, axes = plt.subplots(
+        1,
+        len(diversity_settings),
+        figsize=(6 * len(diversity_settings), 6),
+        sharey=True
+    )
+
+    if len(diversity_settings) == 1:
+        axes = [axes]
+
+    for ax, diversity in zip(axes, diversity_settings):
+
+        df = data[data["diversity_setting"] == diversity].copy()
+
+        df["RunKey"] = df["RunId"].astype(str) + "_" + df["iteration"].astype(str)
+        last_steps = df.groupby("RunKey")["Step"].transform("max")
+        final_df = df[df["Step"] == last_steps]
+
+        recommenders = sorted(final_df["recommender_type"].unique())
+        rec_labels = [get_recommender_label(r) for r in recommenders]
+
+        x = np.arange(len(recommenders))
+        width = 0.15
+
+        for i, trait in enumerate(trait_letters):
+
+            values = []
+            errors = []
+
+            for rec in recommenders:
+                sub = final_df[final_df["recommender_type"] == rec]
+                values.append(sub[f"Infected_Rate_{trait}"].mean())
+                errors.append(sub[f"Infected_Rate_{trait}"].std())
+
+            ax.bar(
+                x + i * width,
+                values,
+                width,
+                yerr=errors,
+                capsize=4,
+                label=trait,
+                color=trait_palette[trait]
+            )
+
+        ax.set_title(diversity)
+        ax.set_xticks(x + width * (len(trait_letters) - 1) / 2)
+        ax.set_xticklabels(rec_labels)
+        ax.grid(True, linestyle="--", alpha=0.6, axis="y")
+
+    axes[0].set_ylabel("Average Infection Rate")
+
+    # Shared legend
+    handles, labels = axes[0].get_legend_handles_labels()
+    for ax in axes:
+        leg = ax.get_legend()
+        if leg:
+            leg.remove()
+
+    fig.legend(handles, labels, loc="upper center", ncol=5, title="Trait")
+
+    plt.suptitle("Infection Rate by Personality and Recommender", fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.92])
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    return fig
 
 def generate_all_plots(csv_path, output_dir=None, community_data_file=None, skip_steps=5):
     """
@@ -1486,6 +1680,9 @@ def generate_all_plots(csv_path, output_dir=None, community_data_file=None, skip
     plot_dominant_trait_degree_bar(data,degree_type="Following",diversity_setting="No Diversity",recommender_type="random",output_path=os.path.join(output_dir, "dominant_trait_following_final.png"))
     plot_dominant_trait_degree_bar_all_recommenders(data,degree_type="Followers",diversity_setting="No Diversity",output_path=os.path.join(output_dir, "dominant_trait_followers_final_all_recommenders.png"))
     plot_dominant_trait_degree_bar_all_recommenders(data,degree_type="Following",diversity_setting="No Diversity",output_path=os.path.join(output_dir, "dominant_trait_following_final_all_recommenders.png"))
+    
+    plot_personality_infection(data, os.path.join(output_dir, "personality_infection_rate.png"))
+    plot_personality_infection_bar_all_diversity(data, os.path.join(output_dir, "personality_infection_rate_by_diversity.png"))
     # Show all plots
     plt.show()
 
