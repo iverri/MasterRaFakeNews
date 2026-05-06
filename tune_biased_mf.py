@@ -24,28 +24,11 @@ class TuneConfig:
 
 
 DEFAULT_PARAM_GRID = {
-    "embedding_size": [16, 24, 32, 40],
-    "epochs": [20, 40, 60],
-    "regularization": [ 0.1, 0.2, 0.3],
-    "damping": [10.0, 15.0, 20.0],
+    "embedding_size": [4, 8, 16],
+    "epochs": [40, 60, 80],
+    "regularization": [ 0.001, 0.01, 0.05],
+    "damping": [0.5, 1.0, 2.5],
 }
-
-
-def ndcg_at_k(recommended_ids: List[int], relevant_ids: Iterable[int], k: int = 10) -> float:
-    recommended_ids = recommended_ids[:k]
-    relevant_ids = set(relevant_ids)
-
-    if not relevant_ids:
-        return 0.0
-
-    dcg = 0.0
-    for rank, item_id in enumerate(recommended_ids, start=1):
-        if item_id in relevant_ids:
-            dcg += 1.0 / math.log2(rank + 1)
-
-    ideal_hits = min(len(relevant_ids), k)
-    idcg = sum(1.0 / math.log2(rank + 1) for rank in range(1, ideal_hits + 1))
-    return dcg / idcg if idcg > 0 else 0.0
 
 
 def recall_at_k(recommended_ids: List[int], relevant_ids: Iterable[int], k: int = 10) -> float:
@@ -56,6 +39,15 @@ def recall_at_k(recommended_ids: List[int], relevant_ids: Iterable[int], k: int 
     hits = len(set(recommended_ids[:k]) & relevant_ids)
     return hits / len(relevant_ids)
 
+def precision_at_k(recommended_ids: List[int], relevant_ids: Iterable[int], k: int = 10) -> float:
+    recommended_ids = recommended_ids[:k]
+    if not recommended_ids:
+        return 0.0
+
+    relevant_ids = set(relevant_ids)
+    hits = len(set(recommended_ids) & relevant_ids)
+
+    return hits / len(recommended_ids)
 
 def random_split(
     interactions_df: pd.DataFrame,
@@ -162,8 +154,8 @@ def evaluate_mf_params(
     val_user_items = val_df.groupby("user_id")["item_id"].apply(list)
     train_user_counts = train_df.groupby("user_id").size().to_dict()
 
-    ndcg_scores: List[float] = []
     recall_scores: List[float] = []
+    precision_scores: List[float] = []
     n_users_evaluated = 0
 
     for user_id, relevant_items in val_user_items.items():
@@ -178,13 +170,13 @@ def evaluate_mf_params(
         agent = clone_agent(agents_by_id[user_id])
         rec_ids = get_mf_recommendation_ids(rec, agent, config.k)
 
-        ndcg_scores.append(ndcg_at_k(rec_ids, relevant_items, config.k))
         recall_scores.append(recall_at_k(rec_ids, relevant_items, config.k))
+        precision_scores.append(precision_at_k(rec_ids, relevant_items, config.k))
         n_users_evaluated += 1
 
     return {
-        "ndcg@k": float(np.mean(ndcg_scores)) if ndcg_scores else 0.0,
         "recall@k": float(np.mean(recall_scores)) if recall_scores else 0.0,
+        "precision@k": float(np.mean(precision_scores)) if precision_scores else 0.0,
         "users_evaluated": int(n_users_evaluated),
     }
 
@@ -223,15 +215,15 @@ def tune_biased_mf(
         print(
             "Finished params:",
             params,
-            "-> ndcg@k=",
-            round(metrics["ndcg@k"], 5),
+            "-> precision@k=",
+            round(metrics["precision@k"], 5),
             "recall@k=",
             round(metrics["recall@k"], 5),
             "users=",
             metrics["users_evaluated"],
         )
 
-    results_df = pd.DataFrame(rows).sort_values(["ndcg@k", "recall@k"], ascending=False)
+    results_df = pd.DataFrame(rows).sort_values(["precision@k", "recall@k"], ascending=False)
     return results_df.reset_index(drop=True)
 
 
