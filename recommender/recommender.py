@@ -281,7 +281,7 @@ class Recommender:
                 20, agent.model.num_agents // 4
             )  # Minimum total interactions needed
             if n_interactions < min_interactions or user_interactions_count < 1:
-                # Fall back to content based recommendations if not enough data overall
+                # Fall back to random recommendations if not enough data overall
                 recommendations = self.random_recommendation(
                     agent, num_recommendations=num_recommendations, add_to_feed=False
                 )

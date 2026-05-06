@@ -98,6 +98,8 @@ class UserAgent(Agent):
             for content in self.recommended_content:
                 self.evaluate_content(content, source="recommendation")
 
+            self.model.recommendation_step = len(self.recommended_content)
+
             self.feed = []
             self._feed_ids.clear()  # Keep set in sync with list
             self.recommended_content = []
@@ -148,26 +150,10 @@ class UserAgent(Agent):
         engagement_factor = min(1.5, content.engagement)
         adjusted_evaluation = user_evaluation * engagement_factor
 
-        # Track implicit interactions for both feed and recommendations
-        if source == "feed":
-            # Track implicit interaction for feed content (lower rating)
-            self.model.social_media_platform.recommender.add_implicit_interaction(
-                self.pos, content.content, rating=adjusted_evaluation * 0.7
-            )
-
-        # Count only recommendation impressions
-        if source == "recommendation":
-            self.model.recommendation_step += 1
-
-            # Track implicit interaction (viewing) for collaborative filtering
-            self.model.social_media_platform.recommender.add_implicit_interaction(
-                self.pos, content.content, rating=adjusted_evaluation
-            )
-
         # Like content
         if adjusted_evaluation > self.LIKE_THRESHOLD:
             self.model.social_media_platform.recommender.add_interaction(
-                self.pos, content.content, user_evaluation
+                self.pos, content.content, adjusted_evaluation
             )
 
             if source == "recommendation":
@@ -178,6 +164,11 @@ class UserAgent(Agent):
                     self.state = "I"
                     self.infection_start_step = self.model.steps
 
+        else:
+            # Track implicit interaction
+            self.model.social_media_platform.recommender.add_implicit_interaction(
+                self.pos, content.content, rating=adjusted_evaluation
+            )
         # Share content
         if (
             adjusted_evaluation > self.SHARE_THRESHOLD
