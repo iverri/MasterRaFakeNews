@@ -699,14 +699,10 @@ class Recommender:
                 if index not in remove_indices
             ]
 
-            # Calculate diversity before reranking on the same number of items that will be in final set
-        num_final_recs = min(len(recommendations) // 3, self.num_recommendations)
-
-        # Before reranking
         recommendations, diversity_score = self._calculate_and_apply_diversity(
             agent,
             recommendations,
-            k=self.num_recommendations,  # SHOULD THIS BE NUM_FINAL RECS?
+            k=self.num_recommendations,
             add_to_feed=True,
         )
 
@@ -1033,8 +1029,7 @@ class Recommender:
             try:
                 item_embedding = self.mf_model.item_embeddings[content.content]
             except (IndexError, KeyError):
-                # Item doesn't have an embedding - skip it or use zero vector
-                # Skip it for now to maintain feature consistency
+                # Item doesn't have an embedding - skip it
                 continue
 
             combined_vector = np.concatenate([topic_vector, item_embedding])
@@ -1053,7 +1048,6 @@ class Recommender:
         )
 
         # Pair similarities with valid_candidates (those that have embeddings)
-        # NOT with the full candidates list - that was causing misalignment
         scores = list(zip(valid_candidates, similarities))
 
         # Sort by score and get top recommendations

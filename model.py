@@ -69,6 +69,7 @@ class FakeNewsModel(Model):
         influencer_percentage: int = 5,
         diversity_level: float = 0,
         num_recommendations: int = 10,
+        recommend_shared_content: bool = False,
         use_stored_network: bool = True,
         stored_network: Optional[NetworkStorage] = None,
         network_file: Optional[str] = None,
@@ -96,6 +97,7 @@ class FakeNewsModel(Model):
         self.news_amount = news_amount
         self.diversity_level = diversity_level
         self.num_recommendations = num_recommendations
+        self.recommend_shared_content = recommend_shared_content
         self.use_stored_network = use_stored_network
         self.network_file = network_file
         self.network_storage = (
@@ -103,9 +105,6 @@ class FakeNewsModel(Model):
             if use_stored_network and stored_network
             else NetworkStorage()
         )
-
-        self._profiler = None
-        self._profile_file = f"profile_{os.getpid()}_{id(self)}.prof"
 
         self.max_steps = max_steps
         self.collect_personality_degree_stats = collect_personality_degree_stats

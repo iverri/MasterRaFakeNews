@@ -13,7 +13,7 @@ class UserAgent(Agent):
     MAX_RECENT_CONTENT = 30  # Maximum items in recent_content
     MAX_SHARED_CONTENT = 50  # Maximum items in shared_content
     ENGAGEMENT_THRESHOLD = 0.2  # Minimum engagement to keep content
-    LIKE_THRESHOLD = 0.5  # Threshold for liking content
+    LIKE_THRESHOLD = 0.6  # Threshold for liking content
     SHARE_THRESHOLD = 0.8  # Threshold for sharing content
     COEFFICIENTS = {
         "p0": 0.10,
@@ -98,6 +98,8 @@ class UserAgent(Agent):
             for content in self.recommended_content:
                 self.evaluate_content(content, source="recommendation")
 
+            self.model.recommendation_step = len(self.recommended_content)
+
             self.feed = []
             self._feed_ids.clear()  # Keep set in sync with list
             self.recommended_content = []
@@ -148,28 +150,10 @@ class UserAgent(Agent):
         engagement_factor = min(1.5, content.engagement)
         adjusted_evaluation = user_evaluation * engagement_factor
 
-        # Track implicit interactions for both feed and recommendations
-        # This gives collaborative filtering weak signals even when content isn't liked
-        if source == "feed":
-            # Track implicit interaction for feed content (lower rating)
-            self.model.social_media_platform.recommender.add_implicit_interaction(
-                self.pos, content.content, rating=adjusted_evaluation * 0.7
-            )
-
-        # Count only recommendation impressions
-        if source == "recommendation":
-            self.model.recommendation_step += 1
-
-            # Track implicit interaction (viewing) for collaborative filtering
-            # This gives CF signal even if the user doesn't like the content
-            self.model.social_media_platform.recommender.add_implicit_interaction(
-                self.pos, content.content, rating=adjusted_evaluation
-            )
-
         # Like content
         if adjusted_evaluation > self.LIKE_THRESHOLD:
             self.model.social_media_platform.recommender.add_interaction(
-                self.pos, content.content, user_evaluation
+                self.pos, content.content, adjusted_evaluation
             )
 
             if source == "recommendation":
@@ -180,6 +164,11 @@ class UserAgent(Agent):
                     self.state = "I"
                     self.infection_start_step = self.model.steps
 
+        else:
+            # Track implicit interaction
+            self.model.social_media_platform.recommender.add_implicit_interaction(
+                self.pos, content.content, rating=adjusted_evaluation
+            )
         # Share content
         if (
             adjusted_evaluation > self.SHARE_THRESHOLD
@@ -204,11 +193,19 @@ class UserAgent(Agent):
         # Only share with followers if we have any
         if followers:
             content_id = content.content
-            for follower in followers:
-                # O(1) lookup using set instead of O(n) list search
-                if content_id not in follower._feed_ids:
-                    follower.feed.append(content)
-                    follower._feed_ids.add(content_id)
+            if self.model.recommend_shared_content:
+                self.model.social_media_platform.recommender.add_interaction(
+                    self.pos, max(0, min(user_evaluation * 1.5, 1))
+                )
+                content.engagement *= (
+                    np.log(self.model.num_agents / len(followers))
+                ) / 10 + 1
+            else:
+                for follower in followers:
+                    # O(1) lookup using set instead of O(n) list search
+                    if content_id not in follower._feed_ids:
+                        follower.feed.append(content)
+                        follower._feed_ids.add(content_id)
 
     def get_followers(self):
         """Get list of agents that follow this agent."""
@@ -317,6 +314,7 @@ class UserAgent(Agent):
     def get_seen_content_ids(self):
         """Get cached set of content IDs already seen (in feed or recommended)."""
         if self._cached_seen_content_ids is None:
+
             self._cached_seen_content_ids = {c.content for c in self.feed} | {
                 c.content for c in self.recommended_content
             }
