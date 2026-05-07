@@ -162,12 +162,6 @@ class FakeNewsModel(Model):
         self.hours_per_step = 3  # Each step represents 3 hours
         self.current_hour = 0  # Track the current hour (0-23)
 
-        # Add interaction data
-        self.recommendation_step = 0  # Track the current recommendation step
-        self.recommendation_likes_step = (
-            0  # Track likes for the current recommendation step
-        )
-
     def step(self):
         """Advance the model by one step."""
 
@@ -190,16 +184,16 @@ class FakeNewsModel(Model):
             content for content in self.news_content if content.engagement > 0.2
         ]
 
-        # Update recommendations for all agents
-        self.social_media_platform.recommender.update_recommendations(self.agents)
-
-        # Optimization: Flush batched implicit interactions after all agents have been evaluated
+        # Optimization: Flush batched implicit interactions from previous step
         self.social_media_platform.recommender.flush_implicit_interactions()
 
-        # Optimization: Train collaborative filtering pipelines once per step after interactions updated
+        # Train collaborative filtering pipelines once per step before recommendations
         dataset = self.social_media_platform.recommender._create_dataset()
         if dataset is not None:
             self.social_media_platform.recommender.train_pipelines(dataset)
+
+        # Update recommendations for all agents (now pipeline is ready if trained)
+        self.social_media_platform.recommender.update_recommendations(self.agents)
 
         # Let agents process their feed and recommendations
         self.agents.shuffle_do("step")

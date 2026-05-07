@@ -53,8 +53,6 @@ def setup_datacollector(model):
         ),
         "Infection_Rate": lambda m: calculate_infection_rate(m),
         "Echo_Chamber_Effect": lambda m: calculate_echo_chamber_effect(m),
-        "Recommendation_Impressions": lambda m: m.recommendation_step,
-        "Recommendation_Likes": lambda m: m.recommendation_likes_step,
     }
     if getattr(model, "collect_metrics", False):
         model_reporters["Precision"] = lambda m: calculate_precision(m)

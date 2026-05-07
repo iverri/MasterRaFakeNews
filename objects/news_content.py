@@ -10,7 +10,7 @@ class NewsContent:
         self.topic_vector = topic_vector
         self.creation_step = creation_step  # Will be set when added to the model
         # Fake news starts with higher engagement
-        self.engagement = 1.0  # All content starts on equal ground
+        self.engagement = 1.2  # All content starts on equal ground
         self._last_engagement_update_step = creation_step  # Cache when last updated
 
     def update_engagement(self, current_step, decay_rate=0.1):

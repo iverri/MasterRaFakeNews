@@ -2047,8 +2047,7 @@ def plot_like_rate_vs_misinformation_count(data, output_path=None):
     """
     required_cols = [
         "recommender_type",
-        "Recommendation_Impressions",
-        "Recommendation_Likes",
+        "Precision",
         "Misinformation_Count_In_Recommendations",
         "diversity_setting",
     ]
@@ -2091,15 +2090,8 @@ def plot_like_rate_vs_misinformation_count(data, output_path=None):
 
         # Aggregate per recommender
         summary = subset.groupby("recommender_type", as_index=False).agg(
-            total_recommendations=("Recommendation_Impressions", "sum"),
-            total_likes=("Recommendation_Likes", "sum"),
+            precision=("Precision", "mean"),
             avg_mc=("Misinformation_Count_In_Recommendations", "mean"),
-        )
-
-        summary["like_rate"] = np.where(
-            summary["total_recommendations"] > 0,
-            summary["total_likes"] / summary["total_recommendations"],
-            0,
         )
 
         summary["label"] = summary["recommender_type"].apply(get_recommender_label)
@@ -2109,7 +2101,7 @@ def plot_like_rate_vs_misinformation_count(data, output_path=None):
         for _, row in summary.iterrows():
             ax.scatter(
                 row["avg_mc"],
-                row["like_rate"],
+                row["precision"],
                 s=140,
                 color=RECOMMENDER_COLORS.get(row["label"], "#888888"),
                 alpha=0.9,
@@ -2119,7 +2111,7 @@ def plot_like_rate_vs_misinformation_count(data, output_path=None):
 
             ax.annotate(
                 row["label"],
-                (row["avg_mc"], row["like_rate"]),
+                (row["avg_mc"], row["precision"]),
                 textcoords="offset points",
                 xytext=(6, 6),
                 fontsize=11,
@@ -2142,7 +2134,7 @@ def plot_like_rate_vs_misinformation_count(data, output_path=None):
         )
 
         if i == 0:
-            ax.set_ylabel("Like Rate", fontsize=14)
+            ax.set_ylabel("Precision", fontsize=14)
         else:
             ax.set_ylabel("")
 
@@ -2155,7 +2147,7 @@ def plot_like_rate_vs_misinformation_count(data, output_path=None):
     )
     max_y = max(
         (
-            summary["like_rate"].max()
+            summary["precision"].max()
             for summary in panel_summaries
             if not summary.empty
         ),
@@ -2170,7 +2162,7 @@ def plot_like_rate_vs_misinformation_count(data, output_path=None):
         ax.set_ylim(0, y_max)
 
     plt.suptitle(
-        "Tradeoff: Like Rate vs. Misinformation Count in Recommendations",
+        "Precision vs. Misinformation Count in Recommendations",
         fontsize=18,
         y=1.02,
     )
@@ -2295,7 +2287,7 @@ def generate_all_plots(
     # plot_recommendation_like_rate(data, os.path.join(output_dir, "recommendation_like_rate.png"))
 
     plot_like_rate_vs_misinformation_count(
-        data, os.path.join(output_dir, "like_rate_vs_misinformation_count.png")
+        data, os.path.join(output_dir, "precision_vs_misinformation_count.png")
     )
     # Show all plots
     plt.show()

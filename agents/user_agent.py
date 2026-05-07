@@ -92,12 +92,7 @@ class UserAgent(Agent):
         # Only process feed if the agent is active
         if self.is_active:
             for content in self.feed:
-                self.evaluate_content(content, source="feed")
-
-            for content in self.recommended_content:
-                self.evaluate_content(content, source="recommendation")
-
-            self.model.recommendation_step = len(self.recommended_content)
+                self.evaluate_content(content)
 
             self.feed = []
             self._feed_ids.clear()  # Keep set in sync with list
@@ -154,9 +149,6 @@ class UserAgent(Agent):
             self.model.social_media_platform.recommender.add_interaction(
                 self.pos, content.content, adjusted_evaluation
             )
-
-            if source == "recommendation":
-                self.model.recommendation_likes_step += 1
 
             if content.isFake:
                 if self.state == "E":

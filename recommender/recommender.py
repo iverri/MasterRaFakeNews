@@ -127,7 +127,7 @@ class Recommender:
         self.user_interactions[(agent_id, content_id)] = {
             "user_id": agent_id,
             "item_id": content_id,
-            "rating": round(rating, 2),
+            "rating": rating,
         }
 
         self._user_interactions_cache_dirty = True
@@ -148,7 +148,7 @@ class Recommender:
             rating = max(0.0, min(1.0, float(rating)))
 
             # Add to batch instead of updating directly
-            self._implicit_interactions_batch[(agent_id, content_id)] = round(rating, 2)
+            self._implicit_interactions_batch[(agent_id, content_id)] = rating
 
     def flush_implicit_interactions(self):
         """Flush batched implicit interactions to the main interaction dictionary.
@@ -307,15 +307,6 @@ class Recommender:
             if dataset is None:
                 self.random_recommendation(agent)
                 return
-
-            # Create and train pipeline if not already created or if it needs retraining
-            if self.pipeline is None or n_interactions > self._last_training_count:
-                if self.pipeline is None:
-                    self.pipeline = topn_pipeline(
-                        self.item_knn if type == "item" else self.user_knn
-                    )
-                self.pipeline.train(dataset)
-                self._last_training_count = n_interactions
 
             # Use global content cache for efficiency
             content_cache = self._get_global_content_cache(agent.model)
@@ -911,16 +902,6 @@ class Recommender:
             if dataset is None:
                 self.random_recommendation(agent)
                 return
-
-            # Train MF model if needed
-            if (
-                self.mf_pipeline is None
-                or n_interactions > self._last_mf_training_count
-            ):
-                if self.mf_pipeline is None:
-                    self.mf_pipeline = topn_pipeline(self.mf_model)
-                self.mf_pipeline.train(dataset)
-                self._last_mf_training_count = n_interactions
 
             # Use global content cache for efficiency
             content_cache = self._get_global_content_cache(agent.model)
