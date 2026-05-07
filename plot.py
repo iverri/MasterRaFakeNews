@@ -14,15 +14,15 @@ import matplotlib.ticker as mtick
 # Define a global color mapping for all recommender types using label names
 RECOMMENDER_COLORS = {
     "Rnd": "#1f77b4",  # blue
-    "Pop": "#e377c2",  # pink
+    "Pop": "#FF1493",  # deep pink
     "CBF": "#2ca02c",  # green
     "UB-CF": "#ff7f0e",  # orange
     "IB-CF": "#d62728",  # red
     "HW_D": "#9467bd",  # purple
     "HW_S": "#17becf",  # cyan
     "MF": "#8c564b",  # brown
-    "Mix": "#0b2843",  # dark blue
-    "Feat": "#F6FF00",  # dark blue
+    "Mix": "#FFD700",  # gold
+    "Feat": "#00CC88",  # teal
 }
 
 # Define a global label mapping for recommender types
