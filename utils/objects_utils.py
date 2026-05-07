@@ -6,14 +6,27 @@ Contains helper functions for network creation, manipulation, and analysis.
 import networkx as nx
 import numpy as np
 
-from utils.personality_utils import likely_to_follow, likely_to_be_followed, personality_homophily
+from utils.personality_utils import (
+    likely_to_follow,
+    likely_to_be_followed,
+    personality_homophily,
+)
+
 # import community  # python-louvain package
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # NETWORK CREATION FUNCTIONS
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
-def create_preference_based_network(model, num_agents, m_links, preference_vectors, personality_vectors):
+
+def create_preference_based_network(
+    model,
+    num_agents,
+    m_links,
+    preference_vectors,
+    personality_vectors,
+    enable_personalities=True,
+):
     """
     Create directed network with communities based on preference similarity.
     """
@@ -29,22 +42,13 @@ def create_preference_based_network(model, num_agents, m_links, preference_vecto
     influencer_indices = list(range(num_influencers))
     bot_indices = list(range(num_agents - num_bots, num_agents))
     user_indices = list(range(num_influencers, num_agents - num_bots))
-
     P = np.asarray(personality_vectors, dtype=float)  # shape: (N, d)
-    if P.ndim != 2 or P.shape[0] != num_agents:
-        # Fallback to safe defaults if malformed
-        P_unit = np.zeros((num_agents, 1), dtype=float)
-        personality_sim = np.zeros((num_agents, num_agents), dtype=float)
+    if not enable_personalities or (P.ndim != 2 or P.shape[0] != num_agents):
         attractiveness_raw = np.zeros(num_agents, dtype=float)
     else:
-        norms = np.linalg.norm(P, axis=1, keepdims=True)
-        P_unit = np.divide(P, norms, out=np.zeros_like(P), where=norms != 0)
-
-        # full cosine similarity matrix (N x N)
-        personality_sim = P_unit @ P_unit.T
-
-        # attractiveness per node (computed once)
-        attractiveness_raw = np.array([likely_to_be_followed(v) for v in personality_vectors], dtype=float)
+        attractiveness_raw = np.array(
+            [likely_to_be_followed(v) for v in personality_vectors], dtype=float
+        )
 
     similarity_matrix = np.zeros((num_agents, num_agents), dtype=float)
     for i in range(num_agents):
@@ -61,9 +65,9 @@ def create_preference_based_network(model, num_agents, m_links, preference_vecto
         num_bots,
         similarity_matrix,
         m_links,
-        personality_sim,
         attractiveness_raw,
         personality_vectors,  # still needed for likely_to_follow(i)
+        enable_personalities,
     )
 
     # Ensure the graph is weakly connected
@@ -81,7 +85,7 @@ def create_preference_based_network(model, num_agents, m_links, preference_vecto
         influencer_indices,
         user_indices,
         bot_indices,
-        attractiveness_raw,   # use cached attractiveness
+        attractiveness_raw,  # use cached attractiveness
     )
 
     # Print network statistics
@@ -97,9 +101,9 @@ def _create_initial_connections(
     num_bots,
     similarity_matrix,
     m_links,
-    personality_sim,
     attractiveness_raw,
     personality_vectors,
+    enable_personalities,
 ):
     """Create initial connections based on agent types and preferences."""
     for i in range(num_agents):
@@ -114,14 +118,17 @@ def _create_initial_connections(
             agent_type = "regular"
             base = np.random.randint(max(1, m_links - 4), m_links + 5)
 
-            fp = float(likely_to_follow(personality_vectors[i]))
+            fp = (
+                float(likely_to_follow(personality_vectors[i]))
+                if enable_personalities
+                else 0
+            )
             k_out = max(1, min(int(base * (1 + fp)), num_agents - 1))
 
         potential_edges = []
 
         # Pre-pull row for speed
         pref_row = similarity_matrix[i]
-        
 
         for j in range(num_agents):
             if i == j:
@@ -147,19 +154,21 @@ def _create_initial_connections(
             elif agent_type == "regular" and target_type == "bot":
                 prob = 0.01
             elif target_type == "bot":
-                prob = min(base_sim ** 100, 0.001)
+                prob = min(base_sim**100, 0.001)
             elif target_type == "influencer":
                 prob = min(base_sim ** (1 / multiplier), 0.60)
             else:
                 prob = base_sim
 
-
             att = float(attractiveness_raw[j])
-            att = max(-1.0, min(att, 1.0))   # defensive clamp
+            att = max(-1.0, min(att, 1.0))  # defensive clamp
 
-            homophily = personality_homophily(personality_vectors[i], personality_vectors[j])
+            homophily = (
+                personality_homophily(personality_vectors[i], personality_vectors[j])
+                if enable_personalities
+                else 0
+            )
             hom = 2 * homophily - 1  # scale to [-1, 1]
-
 
             homophily_strength = 0.4
             attractiveness_strength = 0.5
@@ -182,10 +191,14 @@ def _create_initial_connections(
                 edges_added += 1
 
 
-def _adjust_follower_distributions(G, m_links, influencer_indices, user_indices, bot_indices, attractiveness_raw):
+def _adjust_follower_distributions(
+    G, m_links, influencer_indices, user_indices, bot_indices, attractiveness_raw
+):
     """Adjust follower distributions to match expected patterns."""
     user_followers = [G.in_degree(i) for i in user_indices]
-    avg_user_followers = sum(user_followers) / len(user_followers) if user_followers else 0
+    avg_user_followers = (
+        sum(user_followers) / len(user_followers) if user_followers else 0
+    )
     target_user_followers = max(avg_user_followers, m_links)
 
     # 1. Reset bot followers to very low counts
@@ -206,7 +219,9 @@ def _adjust_follower_distributions(G, m_links, influencer_indices, user_indices,
         rank_factor = 1.0 - (i / max(1, len(influencer_indices) - 1)) * 0.7
         random_factor = np.random.uniform(0.3, 1.7)
 
-        target = int(target_user_followers * 6 * random_factor * (0.3 + 0.7 * rank_factor))
+        target = int(
+            target_user_followers * 6 * random_factor * (0.3 + 0.7 * rank_factor)
+        )
 
         att = float(attractiveness_raw[influencer])
         target = int(target * (1 + 0.4 * att))
@@ -214,7 +229,9 @@ def _adjust_follower_distributions(G, m_links, influencer_indices, user_indices,
         current = G.in_degree(influencer)
         if current < target:
             needed = target - current
-            potential_followers = [u for u in user_indices if not G.has_edge(u, influencer)]
+            potential_followers = [
+                u for u in user_indices if not G.has_edge(u, influencer)
+            ]
             np.random.shuffle(potential_followers)
 
             for follower in potential_followers[:needed]:
@@ -245,9 +262,10 @@ def create_basic_network(num_agents, m_links):
     return nx.barabasi_albert_graph(n=num_agents, m=m_links)
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # NETWORK MANIPULATION FUNCTIONS
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
 
 def swap_node_connections(G, node1, node2):
     """Swap all connections between two nodes."""

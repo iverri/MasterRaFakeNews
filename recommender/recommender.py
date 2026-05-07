@@ -73,10 +73,10 @@ class Recommender:
 
         # Paramteres for BiasedMFScorer was decided through parameter tuning
         self.mf_model = BiasedMFScorer(
-            embedding_size=32,  # Number of latent factors
-            epochs=40,  # Number of iterations for training
-            regularization=0.1,  # Regularization parameter
-            damping=15,  # Damping factor for bias terms
+            embedding_size=8,  # Number of latent factors
+            epochs=60,  # Number of iterations for training
+            regularization=0.001,  # Regularization parameter
+            damping=1.0,  # Damping factor for bias terms
         )
 
         self.mf_pipeline = None  # Pipeline for matrix factorization model
@@ -127,7 +127,7 @@ class Recommender:
         self.user_interactions[(agent_id, content_id)] = {
             "user_id": agent_id,
             "item_id": content_id,
-            "rating": rating,
+            "rating": round(rating, 2),
         }
 
         self._user_interactions_cache_dirty = True
@@ -148,7 +148,7 @@ class Recommender:
             rating = max(0.0, min(1.0, float(rating)))
 
             # Add to batch instead of updating directly
-            self._implicit_interactions_batch[(agent_id, content_id)] = rating
+            self._implicit_interactions_batch[(agent_id, content_id)] = round(rating, 2)
 
     def flush_implicit_interactions(self):
         """Flush batched implicit interactions to the main interaction dictionary.

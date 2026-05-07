@@ -77,6 +77,7 @@ def run_recommender_comparison_experiment(
         stored_network=None,  # Force creation of new network
         recommender_type=RecommenderType.RANDOM.value,  # Use any recommender for initial setup
         max_steps=max_steps,
+        enable_personalities=False,
     )
 
     # Store the network to a file that can be accessed by all processes
@@ -119,6 +120,7 @@ def run_recommender_comparison_experiment(
         "collect_community_data": False,
         "collect_agent_stats": False,
         "collect_metrics": True,
+        "enable_personalities": False,
     }
     print(f"Starting batch run with {iterations} iterations per recommender type...")
     print(f"Recommender types: {[rec for rec in parameters['recommender_type']]}")
@@ -182,6 +184,7 @@ def run_recommender_comparison_experiment(
         "Misinformation_Count_In_Recommendations",
         "Misinformation_Ratio_Difference",
         "Misinformation_Spread_Percentage",
+        "Infection_Rate",
         "Echo_Chamber_Effect",
         "Diversity_Improvement_Percentage",
         "Number_Of_Communities",

@@ -87,6 +87,7 @@ def load_experiment_data(csv_path):
 
     return data
 
+
 def has_columns(data, required_cols):
     return all(col in data.columns for col in required_cols)
 
@@ -147,14 +148,98 @@ def plot_misinformation_spread(data, output_path=None):
 
         # Only add y-label to the first subplot
         if i == 0:
-            axes[i].set_ylabel("Infection Rate", fontsize=14)
+            axes[i].set_ylabel("% Misinformation Spread (I + E)", fontsize=14)
         else:
             axes[i].set_ylabel("", fontsize=14)
 
     # Add a main title
     plt.suptitle(
-        "Misinformation Infection Rate by Recommender Type", fontsize=18, y=1.05
+        "Misinformation Spread by Recommender Type (I + E)", fontsize=18, y=1.05
     )
+
+    # Adjust legend for better readability
+    handles, labels = axes[0].get_legend_handles_labels()
+    for ax in axes:
+        ax.get_legend().remove()
+    fig.legend(
+        handles,
+        labels,
+        bbox_to_anchor=(0.5, 0),
+        loc="upper center",
+        ncol=len(labels),
+        fontsize=12,
+    )
+
+    plt.tight_layout()
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    return fig
+
+
+def plot_infection_rate(data, output_path=None):
+    """
+    Plot misinformation infection over time for each recommender type,
+    with separate plots for different diversity levels.
+
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        DataFrame containing experiment results
+    output_path : str, optional
+        Path to save the plot. If None, the plot is not saved.
+    """
+    # Get unique diversity settings
+    diversity_settings = sorted(data["diversity_setting"].unique())
+
+    # Create a figure with subplots for each diversity setting
+    fig, axes = plt.subplots(
+        1,
+        len(diversity_settings),
+        figsize=(6 * len(diversity_settings), 8),
+        sharey=True,
+    )
+
+    # Handle case with only one diversity setting
+    if len(diversity_settings) == 1:
+        axes = [axes]
+
+    # Create a copy of the data with mapped labels
+    plot_data = data.copy()
+    plot_data["recommender_label"] = plot_data["recommender_type"].apply(
+        get_recommender_label
+    )
+
+    # Plot for each diversity setting
+    for i, diversity in enumerate(diversity_settings):
+        # Filter data for this diversity setting
+        filtered_data = plot_data[plot_data["diversity_setting"] == diversity]
+
+        # Plot data using the label column instead of recommender_type
+        sns.lineplot(
+            data=filtered_data,
+            x="Step",
+            y="Infection_Rate",
+            hue="recommender_label",
+            errorbar="sd",
+            palette=RECOMMENDER_COLORS,
+            linewidth=2.5,
+            ax=axes[i],
+        )
+
+        axes[i].set_title(f"{diversity}", fontsize=16)
+        axes[i].set_xlabel("Step", fontsize=14)
+        axes[i].grid(True, linestyle="--", alpha=0.7)
+
+        # Only add y-label to the first subplot
+        if i == 0:
+            axes[i].set_ylabel("% Infected", fontsize=14)
+        else:
+            axes[i].set_ylabel("", fontsize=14)
+
+    # Add a main title
+    plt.suptitle("Infection Rate by Recommender Type (I)", fontsize=18, y=1.05)
 
     # Adjust legend for better readability
     handles, labels = axes[0].get_legend_handles_labels()
@@ -744,6 +829,7 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
         print("No tables were created.")
         return None
 
+
 def create_success_metrics_ranking_table(data, output_path=None):
     """
     Create a table ranking recommenders by avg Precision, avg Recall,
@@ -758,7 +844,14 @@ def create_success_metrics_ranking_table(data, output_path=None):
     output_path : str, optional
         Path to save the table. If None, the table is not saved.
     """
-    required_cols = ["RunId", "iteration", "Step", "recommender_type", "Precision", "Recall"]
+    required_cols = [
+        "RunId",
+        "iteration",
+        "Step",
+        "recommender_type",
+        "Precision",
+        "Recall",
+    ]
     missing = [col for col in required_cols if col not in data.columns]
     if missing:
         print(f"Missing required columns for success metrics table: {missing}")
@@ -775,7 +868,9 @@ def create_success_metrics_ranking_table(data, output_path=None):
     # Compute F1 from Precision and Recall
     final_df["F1"] = np.where(
         (final_df["Precision"] + final_df["Recall"]) > 0,
-        2 * final_df["Precision"] * final_df["Recall"]
+        2
+        * final_df["Precision"]
+        * final_df["Recall"]
         / (final_df["Precision"] + final_df["Recall"]),
         0.0,
     )
@@ -1535,7 +1630,7 @@ def plot_single_diversity_timeline(
     if metric_name not in data.columns:
         print(f"[plot.py] Skipping '{metric_name}' plot — column not found")
         return None
-        
+
     # Filter data for No Diversity setting
     filtered_data = data[data["diversity_setting"] == "No Diversity"]
 
@@ -1810,6 +1905,7 @@ def plot_dominant_trait_degree_bar_all_recommenders(
 
     return fig
 
+
 def plot_recommendation_like_rate(data, output_path=None):
     """
     Plot recommendation like rate for each recommender type,
@@ -1868,12 +1964,9 @@ def plot_recommendation_like_rate(data, output_path=None):
             ax.set_visible(False)
             continue
 
-        summary = (
-            subset.groupby("recommender_type", as_index=False)
-            .agg(
-                total_recommendations=("Recommendation_Impressions", "sum"),
-                total_likes=("Recommendation_Likes", "sum"),
-            )
+        summary = subset.groupby("recommender_type", as_index=False).agg(
+            total_recommendations=("Recommendation_Impressions", "sum"),
+            total_likes=("Recommendation_Likes", "sum"),
         )
 
         summary["like_rate"] = np.where(
@@ -1891,8 +1984,7 @@ def plot_recommendation_like_rate(data, output_path=None):
             summary["label"],
             summary["like_rate"],
             color=[
-                RECOMMENDER_COLORS.get(label, "#888888")
-                for label in summary["label"]
+                RECOMMENDER_COLORS.get(label, "#888888") for label in summary["label"]
             ],
             alpha=0.85,
         )
@@ -1935,6 +2027,7 @@ def plot_recommendation_like_rate(data, output_path=None):
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
 
     return fig
+
 
 def plot_like_rate_vs_misinformation_count(data, output_path=None):
     """
@@ -1997,13 +2090,10 @@ def plot_like_rate_vs_misinformation_count(data, output_path=None):
             continue
 
         # Aggregate per recommender
-        summary = (
-            subset.groupby("recommender_type", as_index=False)
-            .agg(
-                total_recommendations=("Recommendation_Impressions", "sum"),
-                total_likes=("Recommendation_Likes", "sum"),
-                avg_mc=("Misinformation_Count_In_Recommendations", "mean"),
-            )
+        summary = subset.groupby("recommender_type", as_index=False).agg(
+            total_recommendations=("Recommendation_Impressions", "sum"),
+            total_likes=("Recommendation_Likes", "sum"),
+            avg_mc=("Misinformation_Count_In_Recommendations", "mean"),
         )
 
         summary["like_rate"] = np.where(
@@ -2064,7 +2154,11 @@ def plot_like_rate_vs_misinformation_count(data, output_path=None):
         default=1,
     )
     max_y = max(
-        (summary["like_rate"].max() for summary in panel_summaries if not summary.empty),
+        (
+            summary["like_rate"].max()
+            for summary in panel_summaries
+            if not summary.empty
+        ),
         default=0.05,
     )
 
@@ -2116,8 +2210,9 @@ def generate_all_plots(
 
     # Generate individual plots
     plot_misinformation_spread(
-        data, os.path.join(output_dir, "misinformation_infection_comparison.png")
+        data, os.path.join(output_dir, "misinformation_spread_comparison.png")
     )
+    plot_infection_rate(data, os.path.join(output_dir, "infection_rate_comparison.png"))
     plot_misinformation_ratio_difference(
         data, os.path.join(output_dir, "misinformation_ratio_difference_comparison.png")
     )
@@ -2167,39 +2262,41 @@ def generate_all_plots(
             os.path.join(output_dir, "diversity_impact_table.png"),
         )
 
-    #plot_dominant_trait_degree_bar(
+    # plot_dominant_trait_degree_bar(
     #    data,
     #    degree_type="Followers",
     #    diversity_setting="No Diversity",
     #    recommender_type="random",
     #    output_path=os.path.join(output_dir, "dominant_trait_followers_final.png"),
-    #)
-    #plot_dominant_trait_degree_bar(
+    # )
+    # plot_dominant_trait_degree_bar(
     #    data,
     #    degree_type="Following",
     #    diversity_setting="No Diversity",
     #    recommender_type="random",
     #    output_path=os.path.join(output_dir, "dominant_trait_following_final.png"),
-    #)
-    #plot_dominant_trait_degree_bar_all_recommenders(
+    # )
+    # plot_dominant_trait_degree_bar_all_recommenders(
     #    data,
     #    degree_type="Followers",
     #    diversity_setting="No Diversity",
     #    output_path=os.path.join(
     #        output_dir, "dominant_trait_followers_final_all_recommenders.png"
     #    ),
-    #)
-    #plot_dominant_trait_degree_bar_all_recommenders(
+    # )
+    # plot_dominant_trait_degree_bar_all_recommenders(
     #    data,
     #    degree_type="Following",
     #    diversity_setting="No Diversity",
     #    output_path=os.path.join(
     #        output_dir, "dominant_trait_following_final_all_recommenders.png"
     #    ),
-    #)
-    #plot_recommendation_like_rate(data, os.path.join(output_dir, "recommendation_like_rate.png"))
-    
-    plot_like_rate_vs_misinformation_count(data, os.path.join(output_dir, "like_rate_vs_misinformation_count.png"))
+    # )
+    # plot_recommendation_like_rate(data, os.path.join(output_dir, "recommendation_like_rate.png"))
+
+    plot_like_rate_vs_misinformation_count(
+        data, os.path.join(output_dir, "like_rate_vs_misinformation_count.png")
+    )
     # Show all plots
     plt.show()
 

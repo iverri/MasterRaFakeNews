@@ -1,7 +1,6 @@
-import os
-
 from mesa import Model
 import networkx as nx
+import numpy as np
 from mesa.space import NetworkGrid
 from agents.user_agent import BotAgent, InfluencerAgent, UserAgent
 import random
@@ -75,16 +74,19 @@ class FakeNewsModel(Model):
         network_file: Optional[str] = None,
         seed: Optional[int] = None,
         max_steps: int = 100,
-        collect_personality_degree_stats: bool = True,
+        collect_personality_degree_stats: bool = False,
         collect_community_data: bool = True,
         collect_agent_stats: bool = True,
         collect_metrics: bool = True,
+        enable_personalities: bool = True,
     ) -> None:
         """Initialize the Fake News Model."""
         super().__init__(seed=seed)
 
         # Validate parameters
-        self._validate_parameters(N, m_links)
+        self._validate_parameters(
+            N, m_links, enable_personalities, collect_personality_degree_stats
+        )
 
         # Set model parameters
         self.info = project_info
@@ -112,11 +114,18 @@ class FakeNewsModel(Model):
         self.collect_agent_stats = collect_agent_stats
         self.collect_metrics = collect_metrics
 
+        self.enable_personalities = (
+            enable_personalities  # Toggle for personality vectior
+        )
+
         # Generate preference vectors first (these might be replaced if using stored network)
         self.preference_vectors = [random_preferences() for _ in range(self.num_agents)]
-        self.personality_vectors = [
-            generate_personalities() for _ in range(self.num_agents)
-        ]
+
+        self.personality_vectors = (
+            [generate_personalities() for _ in range(self.num_agents)]
+            if enable_personalities
+            else np.zeros((self.num_agents, 5))
+        )
 
         self.social_media_platform = SocialMediaPlatform(
             self,
@@ -129,6 +138,7 @@ class FakeNewsModel(Model):
             self.num_recommendations,
             self.use_stored_network,
             self.network_file,
+            self.enable_personalities,
         )
 
         # Setup grid for Mesa
@@ -197,7 +207,9 @@ class FakeNewsModel(Model):
         # Collect data
         self.datacollector.collect(self)
 
-    def _validate_parameters(self, N, m_links):
+    def _validate_parameters(
+        self, N, m_links, enable_personalities, collect_personality_degree_stats
+    ):
         """
         Validate model parameters to ensure they are within acceptable ranges.
 
@@ -217,6 +229,10 @@ class FakeNewsModel(Model):
             raise ValueError("Number of agents must be positive")
         if m_links >= N:
             raise ValueError("Number of edges must be less than number of nodes")
+        if enable_personalities == False and collect_personality_degree_stats == True:
+            raise ValueError(
+                "Personalities must be enabled to collect personality data"
+            )
 
     def _setup_grid(self):
         """
@@ -245,6 +261,7 @@ class FakeNewsModel(Model):
 
     def _create_agent_by_type(self, index):
         """Create an agent based on its index/type."""
+
         if index < int(self.influencer_percentage * self.num_agents):  # Influencers
             return InfluencerAgent(
                 self, self.preference_vectors[index], self.personality_vectors[index]
