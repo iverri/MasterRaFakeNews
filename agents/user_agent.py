@@ -16,7 +16,6 @@ class UserAgent(Agent):
     LIKE_THRESHOLD = 0.6  # Threshold for liking content
     SHARE_THRESHOLD = 0.8  # Threshold for sharing content
     COEFFICIENTS = {
-        "p0": 0.10,
         "alpha_E": 0.30,
         "alpha_A": 0.25,
         "alpha_C": 0.20,
@@ -93,12 +92,7 @@ class UserAgent(Agent):
         # Only process feed if the agent is active
         if self.is_active:
             for content in self.feed:
-                self.evaluate_content(content, source="feed")
-
-            for content in self.recommended_content:
-                self.evaluate_content(content, source="recommendation")
-
-            self.model.recommendation_step = len(self.recommended_content)
+                self.evaluate_content(content)
 
             self.feed = []
             self._feed_ids.clear()  # Keep set in sync with list
@@ -156,9 +150,6 @@ class UserAgent(Agent):
                 self.pos, content.content, adjusted_evaluation
             )
 
-            if source == "recommendation":
-                self.model.recommendation_likes_step += 1
-
             if content.isFake:
                 if self.state == "E":
                     self.state = "I"
@@ -167,7 +158,9 @@ class UserAgent(Agent):
         else:
             # Track implicit interaction
             self.model.social_media_platform.recommender.add_implicit_interaction(
-                self.pos, content.content, rating=adjusted_evaluation
+                self.pos,
+                content.content,
+                rating=adjusted_evaluation * 0.5,  # lower rating if not interacted with
             )
         # Share content
         if (
@@ -329,8 +322,9 @@ class UserAgent(Agent):
         return self._cached_seen_content_objects
 
     def _calculate_p_share(self, personality_vector, coefficients):
+        p0 = 0.10 if self.model.enable_personalities else 0
         p_share = (
-            coefficients["p0"]
+            p0
             + coefficients["alpha_E"] * personality_vector[0]
             - coefficients["alpha_A"] * personality_vector[1]
             - coefficients["alpha_C"] * personality_vector[2]

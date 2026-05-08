@@ -15,6 +15,7 @@ class SocialMediaPlatform:
         num_recommendations,
         use_stored_network=False,
         network_file=None,
+        enable_personalities=True,
     ):
         # Create social network
         self.social_network = Social_Network(
@@ -25,6 +26,7 @@ class SocialMediaPlatform:
             personality_vectors,
             use_stored_network,
             network_file,
+            enable_personalities,
         )
 
         # Create recommender system

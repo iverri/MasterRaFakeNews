@@ -73,10 +73,10 @@ class Recommender:
 
         # Paramteres for BiasedMFScorer was decided through parameter tuning
         self.mf_model = BiasedMFScorer(
-            embedding_size=32,  # Number of latent factors
-            epochs=40,  # Number of iterations for training
-            regularization=0.1,  # Regularization parameter
-            damping=15,  # Damping factor for bias terms
+            embedding_size=8,  # Number of latent factors
+            epochs=60,  # Number of iterations for training
+            regularization=0.001,  # Regularization parameter
+            damping=1.0,  # Damping factor for bias terms
         )
 
         self.mf_pipeline = None  # Pipeline for matrix factorization model
@@ -307,15 +307,6 @@ class Recommender:
             if dataset is None:
                 self.random_recommendation(agent)
                 return
-
-            # Create and train pipeline if not already created or if it needs retraining
-            if self.pipeline is None or n_interactions > self._last_training_count:
-                if self.pipeline is None:
-                    self.pipeline = topn_pipeline(
-                        self.item_knn if type == "item" else self.user_knn
-                    )
-                self.pipeline.train(dataset)
-                self._last_training_count = n_interactions
 
             # Use global content cache for efficiency
             content_cache = self._get_global_content_cache(agent.model)
@@ -911,16 +902,6 @@ class Recommender:
             if dataset is None:
                 self.random_recommendation(agent)
                 return
-
-            # Train MF model if needed
-            if (
-                self.mf_pipeline is None
-                or n_interactions > self._last_mf_training_count
-            ):
-                if self.mf_pipeline is None:
-                    self.mf_pipeline = topn_pipeline(self.mf_model)
-                self.mf_pipeline.train(dataset)
-                self._last_mf_training_count = n_interactions
 
             # Use global content cache for efficiency
             content_cache = self._get_global_content_cache(agent.model)

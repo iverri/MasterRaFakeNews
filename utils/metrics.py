@@ -56,7 +56,7 @@ def calculate_misinformation_ratio_difference(model):
 
 
 def calculate_misinformation_spread(model):
-    """Calculate the percentage of agents who have been exposed to fake news."""
+    """Calculate the percentage of agents who have been encountered fake news."""
     exposed_agents = sum(
         1 for a in model.agents if hasattr(a, "state") and (a.state == "E")
     )
@@ -64,10 +64,19 @@ def calculate_misinformation_spread(model):
         1 for a in model.agents if hasattr(a, "state") and (a.state == "I")
     )
     return (
-        (exposed_agents + infected_agents) / len(model.agents)
-        if len(model.agents) > 0
+        (exposed_agents + infected_agents) / model.num_agents
+        if model.num_agents > 0
         else 0
     )
+
+
+def calculate_infection_rate(model):
+    """Calculate the percentage of agents who have interacted with fake news."""
+    infected_agents = sum(
+        1 for a in model.agents if hasattr(a, "state") and a.state == "I"
+    )
+
+    return infected_agents / model.num_agents if model.num_agents > 0 else 0
 
 
 def calculate_echo_chamber_effect(model):

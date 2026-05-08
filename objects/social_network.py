@@ -18,6 +18,7 @@ class Social_Network:
         personality_vectors=None,
         use_stored_network=True,
         network_file=None,
+        enable_personalities=True,
     ):
         self.model = model
         self.num_agents = num_agents
@@ -27,6 +28,7 @@ class Social_Network:
         self.num_influencers = int(model.influencer_percentage * num_agents)
         self.num_bots = int(model.bot_percentage * num_agents)
         self.num_regular = num_agents - (self.num_influencers + self.num_bots)
+        self.enable_personalities = enable_personalities
 
         # Check if we should use a stored network
         storage = model.network_storage
@@ -62,16 +64,27 @@ class Social_Network:
                     model.preference_vectors = stored_preferences
             else:
                 # Create a new network if no stored network is available
-                self._create_new_network(model, num_agents, m_links, preference_vectors, personality_vectors)
+                self._create_new_network(
+                    model, num_agents, m_links, preference_vectors, personality_vectors
+                )
         else:
             # Create a new network
-            self._create_new_network(model, num_agents, m_links, preference_vectors, personality_vectors)
+            self._create_new_network(
+                model, num_agents, m_links, preference_vectors, personality_vectors
+            )
 
-    def _create_new_network(self, model, num_agents, m_links, preference_vectors, personality_vectors):
+    def _create_new_network(
+        self, model, num_agents, m_links, preference_vectors, personality_vectors
+    ):
         """Create a new network and store it"""
         if preference_vectors is not None:
             self.network = create_preference_based_network(
-                model, num_agents, m_links, preference_vectors, personality_vectors
+                model,
+                num_agents,
+                m_links,
+                preference_vectors,
+                personality_vectors,
+                enable_personalities=self.enable_personalities,
             )
         else:
             # Fallback to simpler network if no preferences provided

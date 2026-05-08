@@ -1,6 +1,5 @@
 import os
 
-
 # Safeguard against thread conficts across libraries
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -72,11 +71,9 @@ def run_recommender_comparison_experiment(
         influencer_percentage=influencer_percentage,
         diversity_level=0,
         num_recommendations=num_recommendations,
-        recommend_shared_content=False,
         use_stored_network=True,
         stored_network=None,  # Force creation of new network
         recommender_type=RecommenderType.RANDOM.value,  # Use any recommender for initial setup
-        max_steps=max_steps,
     )
 
     # Store the network to a file that can be accessed by all processes
@@ -99,6 +96,7 @@ def run_recommender_comparison_experiment(
         "influencer_percentage": influencer_percentage,
         "diversity_level": [0, 0.75, 1.0],
         "num_recommendations": num_recommendations,
+        "recommend_shared_content": False,  # boost engagement instead of adding to a feed
         "use_stored_network": True,  # Now use the stored network for all runs
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
@@ -115,10 +113,11 @@ def run_recommender_comparison_experiment(
             "feature_combination",
         ],
         "max_steps": max_steps,
-        "collect_personality_degree_stats": False,
+        "collect_personality_degree_stats": True,
         "collect_community_data": False,
         "collect_agent_stats": False,
         "collect_metrics": True,
+        "enable_personalities": True,
     }
     print(f"Starting batch run with {iterations} iterations per recommender type...")
     print(f"Recommender types: {[rec for rec in parameters['recommender_type']]}")
@@ -182,6 +181,7 @@ def run_recommender_comparison_experiment(
         "Misinformation_Count_In_Recommendations",
         "Misinformation_Ratio_Difference",
         "Misinformation_Spread_Percentage",
+        "Infection_Rate",
         "Echo_Chamber_Effect",
         "Diversity_Improvement_Percentage",
         "Number_Of_Communities",
