@@ -153,8 +153,9 @@ class UserAgent(Agent):
                     )  # Record when infection started
         # Share content
         if (
-            adjusted_evaluation > self.SHARE_THRESHOLD
-#            or np.random.random() < self.p_share
+            adjusted_evaluation
+            > self.SHARE_THRESHOLD
+            #            or np.random.random() < self.p_share
         ):
             self.share_content(content, user_evaluation)
 
@@ -306,7 +307,7 @@ class BotAgent(UserAgent):
 
 
 class InfluencerAgent(UserAgent):
-    def __init__(self, model, preference_vector, personality_vector):
+    def __init__(self, model, preference_vector, personality_vector=None):
         super().__init__(model, preference_vector, personality_vector)
         self.naivety_level = min(max(random.gauss(0.5, 0.15), 0), 1)
         # Influencers are more active than regular users
