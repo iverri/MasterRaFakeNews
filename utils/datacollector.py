@@ -1,11 +1,10 @@
 from mesa import DataCollector
 import networkx as nx
-from utils.metrics import calculate_echo_chamber_effect, calculate_misinformation_count, calculate_misinformation_ratio_difference, calculate_misinformation_spread, calculate_cluster_content_similarity, calculate_diversity_improvement
+from utils.metrics import calculate_echo_chamber_effect, calculate_misinformation_count, calculate_misinformation_ratio_difference, calculate_misinformation_spread, calculate_cluster_content_similarity, calculate_diversity_improvement, calculate_precision
 
 def setup_datacollector(model):
     """Initialize the datacollector with metrics."""
-    return DataCollector(
-        model_reporters={
+    model_reporters={
             "Number_of_Infected": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "I"),
             "Number_of_Susceptible": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "S"),
             "Number_of_Exposed": lambda m: sum(1 for a in m.agents if hasattr(a, "state") and a.state == "E"),
@@ -17,9 +16,18 @@ def setup_datacollector(model):
             "Misinformation_Ratio_Difference": lambda m: calculate_misinformation_ratio_difference(m),
             "Misinformation_Spread_Percentage": lambda m: calculate_misinformation_spread(m),
             "Echo_Chamber_Effect": lambda m: calculate_echo_chamber_effect(m),
-            "Community_Data": lambda m: getattr(m, 'community_data', None),
-            "Number_Of_Communities": lambda m: len(set(m.community_data['communities'].values())) if hasattr(m, 'community_data') else 0,
-        },
+            "Precision": lambda m: calculate_precision(m),
+            }
+    if getattr(model, "collect_community_data", False):
+        model_reporters["Community_Data"] = lambda m: getattr(m, "community_data", None)
+        model_reporters["Number_Of_Communities"] = lambda m: (
+        len(set(m.community_data["communities"].values()))
+        if hasattr(m, "community_data") and m.community_data is not None
+        else 0
+        )
+    return DataCollector(
+        model_reporters, 
+            
         agent_reporters={
             "State": lambda a: getattr(a, "state", None),
             "Followers": lambda a: a.social_media_platform.social_network.network.in_degree(a.pos),

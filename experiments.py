@@ -95,7 +95,18 @@ def run_recommender_comparison_experiment(
         "use_stored_network": True,  # Now use the stored network for all runs
         "network_file": network_file,  # Pass the network file path instead of the network object
         "stored_network": None,  # No longer needed
-        "recommender_type": [type.value for type in RecommenderType],
+        "recommender_type": [
+            "random",
+            "item_knn",
+            "user_knn",
+            "content_based",
+            "popular",
+            # "hybrid_weighted_static",
+            # "hybrid_weighted_dynamic",
+            # "matrix_factorization",
+            # "mixed",
+            # "feature_combination",
+        ],
         "max_steps": max_steps,
     }
 
@@ -108,7 +119,7 @@ def run_recommender_comparison_experiment(
         parameters=parameters,
         iterations=iterations,
         max_steps=max_steps,
-        number_processes=8,  # Set to higher number for parallel processing
+        number_processes=16,  # Set to higher number for parallel processing
         data_collection_period=1,  # Collect data at each step
         display_progress=True,
     )
@@ -164,6 +175,7 @@ def run_recommender_comparison_experiment(
         "Echo_Chamber_Effect",
         "Diversity_Improvement_Percentage",
         "Number_Of_Communities",
+        "Precision",
     ]
 
     # Filter for model-level variables
@@ -207,6 +219,9 @@ def run_recommender_comparison_experiment(
             ].mean()
             * 100,
         }
+        
+        if "Precision" in recommender_data.columns:
+            summary["avg_precision"] = recommender_data["Precision"].mean()
 
         final_step_data.append(summary)
 

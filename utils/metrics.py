@@ -339,3 +339,41 @@ def matrix_cosine_similarity(matrix):
     norms[norms == 0] = 1e-12
     x_normalized = x / norms
     return x_normalized @ x_normalized.T
+
+def calculate_precision(model):
+    """Calculate the average precision of recommendations across all agents.
+
+    Precision = TP / (TP + FP) where:
+    - TP (True Positives): Recommended content that is relevant (user evaluation > LIKE_THRESHOLD)
+    - FP (False Positives): Recommended content that is not relevant (user evaluation <= LIKE_THRESHOLD)
+    """
+
+    precisions = []
+
+    for agent in model.agents:
+        if not hasattr(agent, "recommended_content") or not agent.recommended_content:
+            continue
+
+        recommended_items = agent.recommended_content
+        tp = 0
+        fp = 0
+
+        for content in recommended_items:
+            user_evaluation = (
+                cosine_similarity(np.array(agent.preference_vector).reshape(1, -1), np.array(content.topic_vector).reshape(1, -1))
+                * agent.naivety_level
+            )
+            engagement_factor = min(1.5, content.engagement)
+            adjusted_evaluation = user_evaluation * engagement_factor
+
+            relevant = adjusted_evaluation > agent.LIKE_THRESHOLD
+
+            if relevant:
+                tp += 1
+            else:
+                fp += 1
+
+        if tp + fp > 0:
+            precisions.append(tp / (tp + fp))
+
+    return sum(precisions) / len(precisions) if precisions else 0.0
