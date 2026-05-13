@@ -9,7 +9,7 @@ class SocialMediaPlatform:
         num_agents,
         m_links,
         preference_vectors,
-        personality_vectors,
+        #personality_vectors,
         recommender_type,
         diversity_level,
         num_recommendations,
@@ -22,7 +22,7 @@ class SocialMediaPlatform:
             num_agents,
             m_links,
             preference_vectors,
-            personality_vectors,
+            #personality_vectors,
             use_stored_network,
             network_file,
         )

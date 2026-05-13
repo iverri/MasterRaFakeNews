@@ -15,7 +15,7 @@ class Social_Network:
         num_agents,
         m_links,
         preference_vectors=None,
-        personality_vectors=None,
+        #personality_vectors=None,
         use_stored_network=True,
         network_file=None,
     ):

@@ -24,13 +24,13 @@ class UserAgent(Agent):
     }
 
     # Initialize the agent
-    def __init__(self, model, preference_vector, personality_vector):
+    def __init__(self, model, preference_vector, personality_vector=None):
         super().__init__(model)
         self.preference_vector = preference_vector
         self.personality_vector = personality_vector
-        self.p_share = self._calculate_p_share(
-            self.personality_vector, self.COEFFICIENTS
-        )
+        # self.p_share = self._calculate_p_share(
+        #     self.personality_vector, self.COEFFICIENTS
+        # )
         self.naivety_level = min(max(random.gauss(0.5, 0.15), 0), 1)
         # whatto do with this
         self.state = "S"  # S: Susceptible, E: Exposed, I: Infected
@@ -154,7 +154,7 @@ class UserAgent(Agent):
         # Share content
         if (
             adjusted_evaluation > self.SHARE_THRESHOLD
-            or np.random.random() < self.p_share
+#            or np.random.random() < self.p_share
         ):
             self.share_content(content, user_evaluation)
 
@@ -294,7 +294,7 @@ class UserAgent(Agent):
 
 
 class BotAgent(UserAgent):
-    def __init__(self, model, preference_vector, personality_vector):
+    def __init__(self, model, preference_vector, personality_vector=None):
         super().__init__(model, preference_vector, personality_vector)
 
         self.naivety_level = min(max(random.gauss(0.9, 0.05), 0), 1)

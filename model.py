@@ -101,16 +101,16 @@ class FakeNewsModel(Model):
 
         # Generate preference vectors first (these might be replaced if using stored network)
         self.preference_vectors = [random_preferences() for _ in range(self.num_agents)]
-        self.personality_vectors = [
-            generate_personalities() for _ in range(self.num_agents)
-        ]
+        # self.personality_vectors = [
+        #     generate_personalities() for _ in range(self.num_agents)
+        # ]
 
         self.social_media_platform = SocialMediaPlatform(
             self,
             self.num_agents,
             self.m_links,
             self.preference_vectors,
-            self.personality_vectors,
+#            self.personality_vectors,
             self.recommender_type,
             self.diversity_level,
             self.num_recommendations,
