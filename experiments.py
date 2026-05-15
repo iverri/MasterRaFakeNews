@@ -107,6 +107,7 @@ def run_recommender_comparison_experiment(
             # "mixed",
             # "feature_combination",
         ],
+        "collect_community_data": False,
         "max_steps": max_steps,
     }
 

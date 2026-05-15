@@ -71,6 +71,7 @@ class FakeNewsModel(Model):
         stored_network: Optional[NetworkStorage] = None,
         network_file: Optional[str] = None,
         seed: Optional[int] = None,
+        collect_community_data: bool = True,
         max_steps: int = 100,
     ) -> None:
         """Initialize the Fake News Model."""
@@ -97,6 +98,8 @@ class FakeNewsModel(Model):
             if use_stored_network and stored_network
             else NetworkStorage()
         )
+
+        self.collect_community_data = collect_community_data
         self.max_steps = max_steps
 
         # Generate preference vectors first (these might be replaced if using stored network)
