@@ -161,6 +161,7 @@ def plot_misinformation_spread(data, output_path=None):
 
     if output_path:
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        plt.close()
 
     return fig
 
@@ -250,6 +251,7 @@ def plot_misinformation_ratio_difference(data, output_path=None):
 
     if output_path:
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        plt.close()
 
     return fig
 
@@ -338,6 +340,7 @@ def plot_misinformation_count(data, output_path=None):
 
     if output_path:
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        plt.close()
 
     return fig
 
@@ -427,6 +430,7 @@ def plot_echo_chamber_effect(data, output_path=None, skip_steps=5):
 
     if output_path:
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        plt.close()
 
     return fig
 
@@ -552,6 +556,7 @@ def plot_recommender_summary(data, output_path=None, skip_steps=5):
             metric_name = metric.lower().replace("_", "")
             file_path = output_path.replace(".png", f"_{metric_name}.png")
             plt.savefig(file_path, dpi=300, bbox_inches="tight")
+            plt.close()
 
     # Return the last created figure
     return fig
@@ -724,6 +729,7 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
             diversity_suffix = diversity_setting.replace(" ", "_").lower()
             file_path = output_path.replace(".png", f"_{diversity_suffix}.png")
             plt.savefig(file_path, dpi=300, bbox_inches="tight")
+            plt.close()
 
     # Return the last created figure or None if no figures were created
     try:
@@ -800,6 +806,7 @@ def plot_diversity_impact_heatmap(data, output_path=None, skip_steps=5):
 
     if output_path:
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        plt.close()
 
     return fig
 
@@ -947,6 +954,7 @@ def plot_community_metrics_table_by_recommender(
 
     if output_path:
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        plt.close()
 
     return fig
 
@@ -1139,6 +1147,7 @@ def plot_community_metrics_by_recommender(data, community_data_file, output_path
 
     if output_path:
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        plt.close()
 
     return fig
 
@@ -1374,6 +1383,7 @@ def plot_diversity_impact_table(data, community_data_file, output_path=None):
 
     if output_path:
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        plt.close()
 
     return fig
 
@@ -1456,6 +1466,7 @@ def plot_single_diversity_timeline(
 
     if output_path:
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        plt.close()
 
     return fig
 
@@ -1597,8 +1608,8 @@ def generate_all_plots(
             os.path.join(output_dir, "diversity_impact_table.png"),
         )
 
-    # Show all plots
-    plt.show()
+    # Close all plots to prevent them from displaying
+    plt.close("all")
 
 
 if __name__ == "__main__":
