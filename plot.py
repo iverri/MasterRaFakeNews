@@ -544,10 +544,11 @@ def plot_recommender_summary(data, output_path=None, skip_steps=5):
     """
     # Define metrics to plot
     metrics = {
-        "Misinformation_Spread_Percentage": "IR",
+        "Misinformation_Spread_Percentage": "MS",
         "Misinformation_Ratio_Difference": "MRD",
         "Misinformation_Count_In_Recommendations": "MC",
         "Echo_Chamber_Effect": "EC",
+        "Infection_Rate": "IR",
     }
 
     # Create a copy of the data with mapped labels
@@ -1714,10 +1715,18 @@ def generate_no_diversity_plots(data, output_dir=None, skip_steps=5):
     # Generate individual plots for No Diversity
     plot_single_diversity_timeline(
         data,
-        "Misinformation_Spread_Percentage",
+        "Infection_Rate",
         "Infection Rate",
         "Misinformation Infection Rate (No Diversity)",
         os.path.join(output_dir, "no_diversity_infection_rate.png"),
+    )
+
+    plot_single_diversity_timeline(
+        data,
+        "Misinformation_Spread_Percentage",
+        "Misinformation Spread Percentage",
+        "Misinformation Spread Percentage (No Diversity)",
+        os.path.join(output_dir, "no_diversity_misinformation_spread_percentage.png"),
     )
 
     plot_single_diversity_timeline(
