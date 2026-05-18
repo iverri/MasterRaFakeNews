@@ -680,14 +680,15 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
     """
     # Define metrics and whether lower is better
     metrics = {
-        "Misinformation_Spread_Percentage": {"label": "IR", "lower_better": True},
+        "Misinformation_Spread_Percentage": {"label": "MS", "lower_better": True},
+        "Infection_Rate": {"label": "IR", "lower_better": True},
         "Misinformation_Ratio_Difference": {"label": "MRD", "lower_better": True},
         "Misinformation_Count_In_Recommendations": {
             "label": "MC",
             "lower_better": True,
         },
-        "Echo_Chamber_Effect": {"label": "EC", "lower_better": True},
-        "Average_Diversity_Score": {"label": "DS", "lower_better": False},
+        #"Echo_Chamber_Effect": {"label": "EC", "lower_better": True},
+        #"Average_Diversity_Score": {"label": "DS", "lower_better": False},
     }
 
     # Create a copy of the data with mapped labels
@@ -701,18 +702,18 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
         # Filter data for the current diversity setting
         filtered_data = plot_data[plot_data["diversity_setting"] == diversity_setting]
 
-        # For non-"No Diversity" settings, add the Diversity_Improvement_Percentage metric
-        if (
-            diversity_setting != "No Diversity"
-            and "Diversity_Improvement_Percentage" in filtered_data.columns
-        ):
-            metrics["Diversity_Improvement_Percentage"] = {
-                "label": "DI",
-                "lower_better": False,
-            }
-        elif "Diversity_Improvement_Percentage" in metrics:
-            # Remove the metric if we're on "No Diversity" setting
-            del metrics["Diversity_Improvement_Percentage"]
+        ## For non-"No Diversity" settings, add the Diversity_Improvement_Percentage metric
+        #if (
+        #    diversity_setting != "No Diversity"
+        #    and "Diversity_Improvement_Percentage" in filtered_data.columns
+        #):
+        #    metrics["Diversity_Improvement_Percentage"] = {
+        #        "label": "DI",
+        #        "lower_better": False,
+        #    }
+        #elif "Diversity_Improvement_Percentage" in metrics:
+        #    # Remove the metric if we're on "No Diversity" setting
+        #    del metrics["Diversity_Improvement_Percentage"]
 
         # Calculate average for each metric and recommender across all steps
         summary = {}
