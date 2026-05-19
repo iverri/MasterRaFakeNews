@@ -193,8 +193,9 @@ class UserAgent(Agent):
 
     def _manage_feed(self):
         """Manage feed size and content relevance."""
-        # Update engagement of all content in feed
-        for content in self.feed:
+        # Update engagement of all content in feed AND recommendations
+        # This is critical because recommendations can accumulate when agents are inactive
+        for content in self.feed + self.recommended_content:
             content.update_engagement(self.model.steps)
 
         # Clean up old shared content (keep only last 50 items or last 20 steps)

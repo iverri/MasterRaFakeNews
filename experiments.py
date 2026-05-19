@@ -120,7 +120,7 @@ def run_recommender_comparison_experiment(
         parameters=parameters,
         iterations=iterations,
         max_steps=max_steps,
-        number_processes=5,  # Set to higher number for parallel processing
+        number_processes=16,  # Set to higher number for parallel processing
         data_collection_period=1,  # Collect data at each step
         display_progress=True,
     )
@@ -286,10 +286,10 @@ if __name__ == "__main__":
     # Run the experiment
     results_df, model_data, summary_df, community_data_file = (
         run_recommender_comparison_experiment(
-            iterations=1,  # Number of runs per recommender type
-            max_steps=200,  # Steps per run
-            n_agents=100,  # Number of agents
-            m_links=8,  # Links per new node
+            iterations=5,  # Number of runs per recommender type
+            max_steps=1000,  # Steps per run
+            n_agents=800,  # Number of agents
+            m_links=20,  # Links per new node
             news_amount=400,  # Initial news items
             fake_news_percentage=10,  # Percentage of fake news
             bot_percentage=7,  # Percentage of bots

@@ -25,13 +25,18 @@ def setup_datacollector(model):
         if hasattr(m, "community_data") and m.community_data is not None
         else 0
         )
-    return DataCollector(
-        model_reporters, 
-            
-        agent_reporters={
+    # Only collect agent-level data if explicitly enabled (defaults to False to save memory)
+    agent_reporters = (
+        {
             "State": lambda a: getattr(a, "state", None),
             "Followers": lambda a: a.social_media_platform.social_network.network.in_degree(a.pos),
             "Following": lambda a: a.social_media_platform.social_network.network.out_degree(a.pos),
             "Misinformation_In_Recommendations": lambda a: sum(1 for c in a.recommended_content if c.isFake) if hasattr(a, "recommended_content") else 0,
         }
+        if getattr(model, "collect_agent_stats", False)
+        else {}
+    )
+    return DataCollector(
+        model_reporters, 
+        agent_reporters=agent_reporters
     )
