@@ -687,8 +687,8 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
             "label": "MC",
             "lower_better": True,
         },
-        #"Echo_Chamber_Effect": {"label": "EC", "lower_better": True},
-        #"Average_Diversity_Score": {"label": "DS", "lower_better": False},
+        # "Echo_Chamber_Effect": {"label": "EC", "lower_better": True},
+        # "Average_Diversity_Score": {"label": "DS", "lower_better": False},
     }
 
     # Create a copy of the data with mapped labels
@@ -703,15 +703,15 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
         filtered_data = plot_data[plot_data["diversity_setting"] == diversity_setting]
 
         ## For non-"No Diversity" settings, add the Diversity_Improvement_Percentage metric
-        #if (
+        # if (
         #    diversity_setting != "No Diversity"
         #    and "Diversity_Improvement_Percentage" in filtered_data.columns
-        #):
+        # ):
         #    metrics["Diversity_Improvement_Percentage"] = {
         #        "label": "DI",
         #        "lower_better": False,
         #    }
-        #elif "Diversity_Improvement_Percentage" in metrics:
+        # elif "Diversity_Improvement_Percentage" in metrics:
         #    # Remove the metric if we're on "No Diversity" setting
         #    del metrics["Diversity_Improvement_Percentage"]
 
@@ -1709,6 +1709,120 @@ def plot_single_diversity_timeline(
     return fig
 
 
+def plot_SEI_timeline(data, output_path=None):
+    """
+    Plot the number of agents in each state (Susceptible, Exposed, Infected) over time by recommender type.
+
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        DataFrame containing experiment results
+    output_path : str, optional
+        Path to save the plot. If None, the plot is not saved.
+    """
+    # Filter data for No Diversity setting
+    filtered_data = data[data["diversity_setting"] == "No Diversity"].copy()
+
+    # Create a copy with mapped labels
+    plot_data = filtered_data.copy()
+    plot_data["recommender_label"] = plot_data["recommender_type"].apply(
+        get_recommender_label
+    )
+
+    # Get unique recommender types
+    recommender_types = sorted(plot_data["recommender_label"].unique())
+
+    # Create figure with subplots for each recommender
+    fig, axes = plt.subplots(
+        1, len(recommender_types), figsize=(5 * len(recommender_types), 6), sharey=True
+    )
+
+    # Handle case with only one recommender
+    if len(recommender_types) == 1:
+        axes = [axes]
+
+    # Define colors for each state
+    state_colors = {
+        "Susceptible": "#00cc00",  # green
+        "Exposed": "#FF8800",  # orange
+        "Infected": "#FF0000",  # red
+    }
+
+    # Plot for each recommender type
+    for i, rec_label in enumerate(recommender_types):
+        # Filter data for this recommender
+        rec_data = plot_data[plot_data["recommender_label"] == rec_label]
+
+        # Plot Susceptible
+        sns.lineplot(
+            data=rec_data,
+            x="Step",
+            y="Number_of_Susceptible",
+            label="Susceptible",
+            color=state_colors["Susceptible"],
+            errorbar="sd",
+            linewidth=2.5,
+            ax=axes[i],
+        )
+
+        # Plot Exposed
+        sns.lineplot(
+            data=rec_data,
+            x="Step",
+            y="Number_of_Exposed",
+            label="Exposed",
+            color=state_colors["Exposed"],
+            errorbar="sd",
+            linewidth=2.5,
+            ax=axes[i],
+        )
+
+        # Plot Infected
+        sns.lineplot(
+            data=rec_data,
+            x="Step",
+            y="Number_of_Infected",
+            label="Infected",
+            color=state_colors["Infected"],
+            errorbar="sd",
+            linewidth=2.5,
+            ax=axes[i],
+        )
+
+        axes[i].set_title(f"{rec_label}", fontsize=14)
+        axes[i].set_xlabel("Step", fontsize=12)
+        axes[i].grid(True, linestyle="--", alpha=0.7)
+
+        # Only add y-label to the first subplot
+        if i == 0:
+            axes[i].set_ylabel("Number of Agents", fontsize=12)
+
+        # Remove individual legend from each subplot
+        axes[i].get_legend().remove()
+
+    # Add a shared legend at the bottom
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(
+        handles,
+        labels,
+        bbox_to_anchor=(0.5, -0.05),
+        loc="upper center",
+        ncol=3,
+        fontsize=12,
+    )
+
+    plt.suptitle(
+        "Number of Agents in Each State by Recommender Type", fontsize=16, y=1.02
+    )
+    plt.tight_layout(rect=[0, 0.05, 1, 0.98])
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        plt.close()
+
+    return fig
+
+
 def generate_no_diversity_plots(data, output_dir=None, skip_steps=5):
     """
     Generate standalone plots for the No Diversity setting.
@@ -2318,6 +2432,8 @@ def generate_all_plots(
     plot_like_rate_vs_misinformation_count(
         data, os.path.join(output_dir, "precision_vs_misinformation_count.png")
     )
+
+    plot_SEI_timeline(data, os.path.join(output_dir, "no_diversity_SEI_timeline.png"))
     # Close all plots to prevent them from displaying
     plt.close("all")
 
