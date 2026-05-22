@@ -1471,6 +1471,238 @@ def plot_single_diversity_timeline(
     return fig
 
 
+def create_success_metrics_ranking_table(data, output_path=None):
+    """
+    Create a table ranking recommenders by avg Precision, avg Recall,
+    and avg F1 using the model data file.
+
+    The averages are computed from the final step of each run.
+
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        DataFrame containing model-level experiment results
+    output_path : str, optional
+        Path to save the table. If None, the table is not saved.
+    """
+    required_cols = [
+        "RunId",
+        "iteration",
+        "Step",
+        "recommender_type",
+        "Precision",
+    ]
+    missing = [col for col in required_cols if col not in data.columns]
+    if missing:
+        print(f"Missing required columns for success metrics table: {missing}")
+        return None
+
+    df = data.copy()
+    df["recommender_label"] = df["recommender_type"].apply(get_recommender_label)
+
+    # Keep only final step of each run
+    df["RunKey"] = df["RunId"].astype(str) + "_" + df["iteration"].astype(str)
+    last_steps = df.groupby("RunKey")["Step"].transform("max")
+    final_df = df[df["Step"] == last_steps].copy()
+
+    metrics = {
+        "Precision": {"label": "Precision", "lower_better": False},
+    }
+
+    summary = {}
+    for metric, info in metrics.items():
+        metric_summary = (
+            final_df.groupby(["recommender_type", "recommender_label"])[metric]
+            .mean()
+            .reset_index()
+        )
+
+        metric_summary = metric_summary.sort_values(
+            metric, ascending=info["lower_better"]
+        )
+        metric_summary["rank"] = range(1, len(metric_summary) + 1)
+        summary[metric] = metric_summary
+
+    all_recommender_types = sorted(final_df["recommender_type"].unique())
+
+    fig, ax = plt.subplots(figsize=(8, len(all_recommender_types) * 0.55 + 2.5))
+    ax.axis("tight")
+    ax.axis("off")
+
+    table_data = []
+
+    header = ["Rec Type"] + [info["label"] for metric, info in metrics.items()]
+    table_data.append(header)
+
+    for rec_type in all_recommender_types:
+        rec_label = get_recommender_label(rec_type)
+        row = [rec_label]
+
+        for metric in metrics.keys():
+            rec_data = summary[metric][summary[metric]["recommender_type"] == rec_type]
+            if len(rec_data) > 0:
+                rank = rec_data["rank"].values[0]
+                value = rec_data[metric].values[0]
+                row.append(f"#{rank} ({value:.3f})")
+            else:
+                row.append("N/A")
+
+        table_data.append(row)
+
+    table = ax.table(
+        cellText=table_data[1:],
+        colLabels=table_data[0],
+        loc="center",
+        cellLoc="center",
+    )
+
+    table.auto_set_font_size(False)
+    table.set_fontsize(14)
+    table.scale(1.2, 1.8)
+
+    n_recommenders = len(all_recommender_types)
+
+    # Color cells by rank: green best -> red worst
+    for i in range(len(table_data) - 1):
+        for j in range(1, len(header)):
+            cell = table[i + 1, j]
+            cell_text = cell.get_text().get_text()
+
+            if cell_text == "N/A":
+                continue
+
+            rank = int(cell_text.split("#")[1].split(" ")[0])
+            color_val = rank / n_recommenders
+            cell.set_facecolor((color_val, 1 - color_val, 0, 0.3))
+
+    plt.title(
+        "Recommender Algorithm Rankings by Precision",
+        fontsize=18,
+        pad=20,
+    )
+    plt.tight_layout()
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        plt.close()
+
+    return fig
+
+
+def plot_SEI_timeline(data, output_path=None):
+    """
+    Plot the number of agents in each state (Susceptible, Exposed, Infected) over time by recommender type.
+
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        DataFrame containing experiment results
+    output_path : str, optional
+        Path to save the plot. If None, the plot is not saved.
+    """
+    # Filter data for No Diversity setting
+    filtered_data = data[data["diversity_setting"] == "No Diversity"].copy()
+
+    # Create a copy with mapped labels
+    plot_data = filtered_data.copy()
+    plot_data["recommender_label"] = plot_data["recommender_type"].apply(
+        get_recommender_label
+    )
+
+    # Get unique recommender types
+    recommender_types = sorted(plot_data["recommender_label"].unique())
+
+    # Create figure with subplots for each recommender
+    fig, axes = plt.subplots(
+        1, len(recommender_types), figsize=(5 * len(recommender_types), 6), sharey=True
+    )
+
+    # Handle case with only one recommender
+    if len(recommender_types) == 1:
+        axes = [axes]
+
+    # Define colors for each state
+    state_colors = {
+        "Susceptible": "#00cc00",  # green
+        "Exposed": "#FF8800",  # orange
+        "Infected": "#FF0000",  # red
+    }
+
+    # Plot for each recommender type
+    for i, rec_label in enumerate(recommender_types):
+        # Filter data for this recommender
+        rec_data = plot_data[plot_data["recommender_label"] == rec_label]
+
+        # Plot Susceptible
+        sns.lineplot(
+            data=rec_data,
+            x="Step",
+            y="Number_of_Susceptible",
+            label="Susceptible",
+            color=state_colors["Susceptible"],
+            errorbar="sd",
+            linewidth=2.5,
+            ax=axes[i],
+        )
+
+        # Plot Exposed
+        sns.lineplot(
+            data=rec_data,
+            x="Step",
+            y="Number_of_Exposed",
+            label="Exposed",
+            color=state_colors["Exposed"],
+            errorbar="sd",
+            linewidth=2.5,
+            ax=axes[i],
+        )
+
+        # Plot Infected
+        sns.lineplot(
+            data=rec_data,
+            x="Step",
+            y="Number_of_Infected",
+            label="Infected",
+            color=state_colors["Infected"],
+            errorbar="sd",
+            linewidth=2.5,
+            ax=axes[i],
+        )
+
+        axes[i].set_title(f"{rec_label}", fontsize=14)
+        axes[i].set_xlabel("Step", fontsize=12)
+        axes[i].grid(True, linestyle="--", alpha=0.7)
+
+        # Only add y-label to the first subplot
+        if i == 0:
+            axes[i].set_ylabel("Number of Agents", fontsize=12)
+
+        # Remove individual legend from each subplot
+        axes[i].get_legend().remove()
+
+    # Add a shared legend at the bottom
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(
+        handles,
+        labels,
+        bbox_to_anchor=(0.5, -0.05),
+        loc="upper center",
+        ncol=3,
+        fontsize=12,
+    )
+
+    plt.suptitle(
+        "Number of Agents in Each State by Recommender Type", fontsize=16, y=1.02
+    )
+    plt.tight_layout(rect=[0, 0.05, 1, 0.98])
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        plt.close()
+
+    return fig
+
+
 def generate_no_diversity_plots(data, output_dir=None, skip_steps=5):
     """
     Generate standalone plots for the No Diversity setting.
@@ -1534,7 +1766,7 @@ def generate_no_diversity_plots(data, output_dir=None, skip_steps=5):
 
 
 def generate_all_plots(
-    csv_path, output_dir=None, community_data_file=None, skip_steps=5
+    csv_path, output_dir=None, community_data_file=None, skip_steps=100
 ):
     """
     Generate all plots for the given experiment results.
@@ -1588,6 +1820,10 @@ def generate_all_plots(
     create_recommender_ranking_table(
         data, os.path.join(output_dir, "recommender_ranking_table.png"), skip_steps
     )
+    create_success_metrics_ranking_table(
+        data, os.path.join(output_dir, "success_metric_ranking_table.png")
+    )
+    plot_SEI_timeline(data, os.path.join(output_dir, "SEI_timeline.png"))
 
     # Generate community-specific plots if community data is available
     if community_data_file:
