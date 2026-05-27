@@ -724,18 +724,24 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
                 if metric == "Echo_Chamber_Effect":
                     metric_data = metric_data[metric_data["Step"] > skip_steps]
 
-                # Group by recommender type and calculate mean across all steps
+                # Group by recommender type and calculate mean and std across all steps
                 metric_summary = (
                     metric_data.groupby(["recommender_type", "recommender_label"])[
                         metric
                     ]
-                    .mean()
+                    .agg(["mean", "std"])
                     .reset_index()
                 )
+                metric_summary.columns = [
+                    "recommender_type",
+                    "recommender_label",
+                    "mean",
+                    "std",
+                ]
 
                 # Sort based on whether lower is better
                 metric_summary = metric_summary.sort_values(
-                    metric, ascending=info["lower_better"]
+                    "mean", ascending=info["lower_better"]
                 )
 
                 # Assign ranks
@@ -752,45 +758,33 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
         # Get a consistent order of recommender types across all diversity settings
         all_recommender_types = sorted(filtered_data["recommender_type"].unique())
 
-        # Create a figure for the table
-        fig, ax = plt.subplots(figsize=(10, len(all_recommender_types) * 0.5 + 2))
+        fig, ax = plt.subplots(figsize=(8, len(all_recommender_types) * 0.55 + 2.5))
         ax.axis("tight")
         ax.axis("off")
 
-        # Prepare table data
         table_data = []
 
-        # Header row
-        header = ["Rec Type"] + [
-            info["label"] for metric, info in metrics.items() if metric in summary
-        ]
+        header = ["Rec Type"] + [info["label"] for metric, info in metrics.items()]
         table_data.append(header)
 
-        # Data rows - use the consistent order of recommender types
         for rec_type in all_recommender_types:
             rec_label = get_recommender_label(rec_type)
             row = [rec_label]
+
             for metric in metrics.keys():
-                if metric in summary:
-                    # Find the rank and value for this recommender type
-                    rec_data = summary[metric][
-                        summary[metric]["recommender_type"] == rec_type
-                    ]
-                    if len(rec_data) > 0:
-                        rank = rec_data["rank"].values[0]
-                        value = rec_data[metric].values[0]
-                        row.append(f"#{rank} ({value:.3f})")
-                    else:
-                        row.append("N/A")
+                rec_data = summary[metric][
+                    summary[metric]["recommender_type"] == rec_type
+                ]
+                if len(rec_data) > 0:
+                    rank = rec_data["rank"].values[0]
+                    mean_val = rec_data["mean"].values[0]
+                    std_val = rec_data["std"].values[0]
+                    row.append(f"#{rank} ({mean_val:.3f}±{std_val:.3f})")
+                else:
+                    row.append("N/A")
+
             table_data.append(row)
 
-        # Check if we have any data rows before creating the table
-        if len(table_data) <= 1:  # Only header row exists
-            print(f"No data rows for {diversity_setting}, skipping table creation.")
-            plt.close(fig)
-            continue
-
-        # Create table
         table = ax.table(
             cellText=table_data[1:],
             colLabels=table_data[0],
@@ -896,12 +890,18 @@ def create_success_metrics_ranking_table(data, output_path=None):
     for metric, info in metrics.items():
         metric_summary = (
             final_df.groupby(["recommender_type", "recommender_label"])[metric]
-            .mean()
+            .agg(["mean", "std"])
             .reset_index()
         )
+        metric_summary.columns = [
+            "recommender_type",
+            "recommender_label",
+            "mean",
+            "std",
+        ]
 
         metric_summary = metric_summary.sort_values(
-            metric, ascending=info["lower_better"]
+            "mean", ascending=info["lower_better"]
         )
         metric_summary["rank"] = range(1, len(metric_summary) + 1)
         summary[metric] = metric_summary
@@ -925,8 +925,9 @@ def create_success_metrics_ranking_table(data, output_path=None):
             rec_data = summary[metric][summary[metric]["recommender_type"] == rec_type]
             if len(rec_data) > 0:
                 rank = rec_data["rank"].values[0]
-                value = rec_data[metric].values[0]
-                row.append(f"#{rank} ({value:.3f})")
+                mean_val = rec_data["mean"].values[0]
+                std_val = rec_data["std"].values[0]
+                row.append(f"#{rank} ({mean_val:.3f}±{std_val:.3f})")
             else:
                 row.append("N/A")
 
@@ -1711,7 +1712,8 @@ def plot_single_diversity_timeline(
 
 def plot_SEI_timeline(data, output_path=None):
     """
-    Plot the number of agents in each state (Susceptible, Exposed, Infected) over time by recommender type.
+    Plot the number of agents in each state (Susceptible, Exposed, Infected) over time
+    by recommender type and diversity level.
 
     Parameters:
     -----------
@@ -1720,26 +1722,31 @@ def plot_SEI_timeline(data, output_path=None):
     output_path : str, optional
         Path to save the plot. If None, the plot is not saved.
     """
-    # Filter data for No Diversity setting
-    filtered_data = data[data["diversity_setting"] == "No Diversity"].copy()
-
     # Create a copy with mapped labels
-    plot_data = filtered_data.copy()
+    plot_data = data.copy()
     plot_data["recommender_label"] = plot_data["recommender_type"].apply(
         get_recommender_label
     )
 
-    # Get unique recommender types
+    # Get unique recommender types and diversity settings
     recommender_types = sorted(plot_data["recommender_label"].unique())
+    diversity_settings = sorted(plot_data["diversity_setting"].unique())
 
-    # Create figure with subplots for each recommender
+    # Create figure with subplots: rows = diversity levels, columns = recommenders
     fig, axes = plt.subplots(
-        1, len(recommender_types), figsize=(5 * len(recommender_types), 6), sharey=True
+        len(diversity_settings),
+        len(recommender_types),
+        figsize=(5 * len(recommender_types), 4 * len(diversity_settings)),
+        sharey=True,
     )
 
-    # Handle case with only one recommender
-    if len(recommender_types) == 1:
+    # Handle case with only one row or column
+    if len(diversity_settings) == 1 and len(recommender_types) == 1:
+        axes = [[axes]]
+    elif len(diversity_settings) == 1:
         axes = [axes]
+    elif len(recommender_types) == 1:
+        axes = [[ax] for ax in axes]
 
     # Define colors for each state
     state_colors = {
@@ -1748,73 +1755,88 @@ def plot_SEI_timeline(data, output_path=None):
         "Infected": "#FF0000",  # red
     }
 
-    # Plot for each recommender type
-    for i, rec_label in enumerate(recommender_types):
-        # Filter data for this recommender
-        rec_data = plot_data[plot_data["recommender_label"] == rec_label]
+    # Plot for each diversity setting and recommender type
+    for div_idx, diversity in enumerate(diversity_settings):
+        for rec_idx, rec_label in enumerate(recommender_types):
+            ax = axes[div_idx][rec_idx]
 
-        # Plot Susceptible
-        sns.lineplot(
-            data=rec_data,
-            x="Step",
-            y="Number_of_Susceptible",
-            label="Susceptible",
-            color=state_colors["Susceptible"],
-            errorbar="sd",
-            linewidth=2.5,
-            ax=axes[i],
-        )
+            # Filter data for this diversity and recommender
+            filtered_data = plot_data[
+                (plot_data["diversity_setting"] == diversity)
+                & (plot_data["recommender_label"] == rec_label)
+            ]
 
-        # Plot Exposed
-        sns.lineplot(
-            data=rec_data,
-            x="Step",
-            y="Number_of_Exposed",
-            label="Exposed",
-            color=state_colors["Exposed"],
-            errorbar="sd",
-            linewidth=2.5,
-            ax=axes[i],
-        )
+            # Plot Susceptible
+            sns.lineplot(
+                data=filtered_data,
+                x="Step",
+                y="Number_of_Susceptible",
+                label="Susceptible",
+                color=state_colors["Susceptible"],
+                errorbar="sd",
+                linewidth=2.5,
+                ax=ax,
+            )
 
-        # Plot Infected
-        sns.lineplot(
-            data=rec_data,
-            x="Step",
-            y="Number_of_Infected",
-            label="Infected",
-            color=state_colors["Infected"],
-            errorbar="sd",
-            linewidth=2.5,
-            ax=axes[i],
-        )
+            # Plot Exposed
+            sns.lineplot(
+                data=filtered_data,
+                x="Step",
+                y="Number_of_Exposed",
+                label="Exposed",
+                color=state_colors["Exposed"],
+                errorbar="sd",
+                linewidth=2.5,
+                ax=ax,
+            )
 
-        axes[i].set_title(f"{rec_label}", fontsize=14)
-        axes[i].set_xlabel("Step", fontsize=12)
-        axes[i].grid(True, linestyle="--", alpha=0.7)
+            # Plot Infected
+            sns.lineplot(
+                data=filtered_data,
+                x="Step",
+                y="Number_of_Infected",
+                label="Infected",
+                color=state_colors["Infected"],
+                errorbar="sd",
+                linewidth=2.5,
+                ax=ax,
+            )
 
-        # Only add y-label to the first subplot
-        if i == 0:
-            axes[i].set_ylabel("Number of Agents", fontsize=12)
+            # Set title: recommender type at top, diversity at left edge
+            if div_idx == 0:
+                ax.set_title(f"{rec_label}", fontsize=12, fontweight="bold")
 
-        # Remove individual legend from each subplot
-        axes[i].get_legend().remove()
+            if rec_idx == 0:
+                ax.set_ylabel(
+                    f"{diversity}\n(# Agents)", fontsize=11, fontweight="bold"
+                )
+            else:
+                ax.set_ylabel("")
+
+            ax.set_xlabel("Step", fontsize=10)
+            ax.grid(True, linestyle="--", alpha=0.7)
+
+            # Remove individual legend from each subplot
+            if ax.get_legend():
+                ax.get_legend().remove()
 
     # Add a shared legend at the bottom
-    handles, labels = axes[0].get_legend_handles_labels()
+    handles, labels = axes[0][0].get_legend_handles_labels()
     fig.legend(
         handles,
         labels,
-        bbox_to_anchor=(0.5, -0.05),
+        bbox_to_anchor=(0.5, -0.02),
         loc="upper center",
         ncol=3,
         fontsize=12,
     )
 
     plt.suptitle(
-        "Number of Agents in Each State by Recommender Type", fontsize=16, y=1.02
+        "SEI: Number of Agents in Each State by Recommender and Diversity",
+        fontsize=16,
+        y=0.995,
     )
-    plt.tight_layout(rect=[0, 0.05, 1, 0.98])
+    plt.tight_layout(rect=[0, 0.02, 1, 0.99])
 
     if output_path:
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
@@ -1896,6 +1918,13 @@ def generate_no_diversity_plots(data, output_dir=None, skip_steps=5):
         "Recall",
         "Recall (No Diversity)",
         os.path.join(output_dir, "no_diversity_recall.png"),
+    )
+    plot_single_diversity_timeline(
+        data,
+        "News_Amount",
+        "News Amount",
+        "News amount (No diversity)",
+        os.path.join(output_dir, "news_amount.png"),
     )
 
 
