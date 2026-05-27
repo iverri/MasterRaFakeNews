@@ -579,14 +579,15 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
     """
     # Define metrics and whether lower is better
     metrics = {
-        "Misinformation_Spread_Percentage": {"label": "IR", "lower_better": True},
+        "Misinformation_Spread_Percentage": {"label": "MS", "lower_better": True},
+        "Infection_Rate": {"label": "IR", "lower_better": True},
         "Misinformation_Ratio_Difference": {"label": "MRD", "lower_better": True},
         "Misinformation_Count_In_Recommendations": {
             "label": "MC",
             "lower_better": True,
         },
-        "Echo_Chamber_Effect": {"label": "EC", "lower_better": True},
-        "Average_Diversity_Score": {"label": "DS", "lower_better": False},
+        # "Echo_Chamber_Effect": {"label": "EC", "lower_better": True},
+        # "Average_Diversity_Score": {"label": "DS", "lower_better": False},
     }
 
     # Create a copy of the data with mapped labels
@@ -600,19 +601,6 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
         # Filter data for the current diversity setting
         filtered_data = plot_data[plot_data["diversity_setting"] == diversity_setting]
 
-        # For non-"No Diversity" settings, add the Diversity_Improvement_Percentage metric
-        if (
-            diversity_setting != "No Diversity"
-            and "Diversity_Improvement_Percentage" in filtered_data.columns
-        ):
-            metrics["Diversity_Improvement_Percentage"] = {
-                "label": "DI",
-                "lower_better": False,
-            }
-        elif "Diversity_Improvement_Percentage" in metrics:
-            # Remove the metric if we're on "No Diversity" setting
-            del metrics["Diversity_Improvement_Percentage"]
-
         # Calculate average for each metric and recommender across all steps
         summary = {}
         for metric, info in metrics.items():
@@ -622,18 +610,24 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
                 if metric == "Echo_Chamber_Effect":
                     metric_data = metric_data[metric_data["Step"] > skip_steps]
 
-                # Group by recommender type and calculate mean across all steps
+                # Group by recommender type and calculate mean and std across all steps
                 metric_summary = (
                     metric_data.groupby(["recommender_type", "recommender_label"])[
                         metric
                     ]
-                    .mean()
+                    .agg(["mean", "std"])
                     .reset_index()
                 )
+                metric_summary.columns = [
+                    "recommender_type",
+                    "recommender_label",
+                    "mean",
+                    "std",
+                ]
 
                 # Sort based on whether lower is better
                 metric_summary = metric_summary.sort_values(
-                    metric, ascending=info["lower_better"]
+                    "mean", ascending=info["lower_better"]
                 )
 
                 # Assign ranks
@@ -676,8 +670,9 @@ def create_recommender_ranking_table(data, output_path=None, skip_steps=5):
                     ]
                     if len(rec_data) > 0:
                         rank = rec_data["rank"].values[0]
-                        value = rec_data[metric].values[0]
-                        row.append(f"#{rank} ({value:.3f})")
+                        mean_val = rec_data["mean"].values[0]
+                        std_val = rec_data["std"].values[0]
+                        row.append(f"#{rank} ({mean_val:.3f}±{std_val:.3f})")
                     else:
                         row.append("N/A")
             table_data.append(row)
@@ -1513,12 +1508,18 @@ def create_success_metrics_ranking_table(data, output_path=None):
     for metric, info in metrics.items():
         metric_summary = (
             final_df.groupby(["recommender_type", "recommender_label"])[metric]
-            .mean()
+            .agg(["mean", "std"])
             .reset_index()
         )
+        metric_summary.columns = [
+            "recommender_type",
+            "recommender_label",
+            "mean",
+            "std",
+        ]
 
         metric_summary = metric_summary.sort_values(
-            metric, ascending=info["lower_better"]
+            "mean", ascending=info["lower_better"]
         )
         metric_summary["rank"] = range(1, len(metric_summary) + 1)
         summary[metric] = metric_summary
@@ -1542,8 +1543,9 @@ def create_success_metrics_ranking_table(data, output_path=None):
             rec_data = summary[metric][summary[metric]["recommender_type"] == rec_type]
             if len(rec_data) > 0:
                 rank = rec_data["rank"].values[0]
-                value = rec_data[metric].values[0]
-                row.append(f"#{rank} ({value:.3f})")
+                mean_val = rec_data["mean"].values[0]
+                std_val = rec_data["std"].values[0]
+                row.append(f"#{rank} ({mean_val:.3f}±{std_val:.3f})")
             else:
                 row.append("N/A")
 
