@@ -109,7 +109,7 @@ pip install -r requirements.txt
 ```bash
 python3 experiments.py
 ```
-You can modify the parameters in the `experiments.py` file.
+You can modify the parameters in the `experiments.py` file. \
 If the number of agents exceed 200, it is suggested to switch off community data (collect_community_data = False)
 
 Experiment results are saved in the `experiment_results` folder.
