@@ -8,11 +8,11 @@ Forked from Anna Johanne Holden Jacobsen and Lise Jakobsen's repository.
 This project expands upon the foundations created by Anna Johanne Holden Jacobsen and Lise Jakobsen.
 
 ### New additions
--**Personality**: Gives agents personalities that affect the social network structure and agent interactions with content.
--**Evaluation metrics**: Allows for evaluation of the quality of the recommendations provided by the recommendation algorithm.
--**Accuracy enhancements**: Fixes parts of the simulation that caused content-based and collaborative filtering to have lower accuracy than random.
--**Hybrid recommendation algorithms**: Expands the number of available recommendation algorithms by including algorithms used more in practice.
--**Runtime enhancements**: Optimises the simulation to run faster and to be less resource-heavy.
+- **Personality**: Gives agents personalities that affect the social network structure and agent interactions with content.
+- **Evaluation metrics**: Allows for evaluation of the quality of the recommendations provided by the recommendation algorithm.
+- **Accuracy enhancements**: Fixes parts of the simulation that caused content-based and collaborative filtering to have lower accuracy than random.
+- **Hybrid recommendation algorithms**: Expands the number of available recommendation algorithms by including algorithms used more in practice.
+-  **Runtime enhancements**: Optimises the simulation to run faster and to be less resource-heavy.
 
 ### Key Features
 
