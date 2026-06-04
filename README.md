@@ -1,6 +1,7 @@
 # Fake News Propagation in Social Networks: An Agent-Based Model
 
-Master thesis repository for Anna Johanne Holden Jacobsen and Lise Jakobsen - Computer Science students at NTNU Trondheim.
+Master thesis repository for Iver Ringheim and Elena Willmann - Computer Science students at NTNU Trondheim.
+Forked from Anna Johanne Holden Jacobsen and Lise Jakobsen's repository.
 
 ## Project Description
 
@@ -8,12 +9,11 @@ This project implements an agent-based model (ABM) to simulate the propagation o
 
 ### Key Features
 
-- **Agent Types**: Regular users, bot agents, and influencer agents with distinct behaviors
+- **Agent Types**: Regular users, bot agents, and influencer agents with distinct behaviors and personalities
 - **SEIS-like State Model**: Agents transition through Susceptible → Exposed → Infected states
-- **Multiple Recommendation Algorithms**: Random, collaborative filtering, content-based, and popularity-based
-- **Social Network Dynamics**: Preference-based network formation with realistic follower distributions
-- **Comprehensive Metrics**: Echo chamber effects, misinformation spread, misinformation exposure, diversity scores
-- **Interactive Dashboard**: Real-time visualization and parameter adjustment
+- **Multiple Recommendation Algorithms**: Random, collaborative filtering, content-based, popularity-based and hybrid approaches.
+- **Social Network Dynamics**: Preference-based network formation with realistic follower distributions, that account for agent personality
+- **Comprehensive Metrics**: misinformation spread, infection rate, misinformation count, precision, recall and f1-score
 - **Batch Experiments**: Systematic comparison of recommendation algorithms
 
 ### Model Architecture
@@ -28,17 +28,6 @@ FakeNewsModel
 └── DataCollector (Metrics and visualization)
 ```
 
-
-
-## Dashboard
-
-![Solara Dashboard](diagrams/solara_dashboard.png)
-
-The Solara dashboard provides an interactive interface to run and visualize the simulation. It allows you to:
-- Adjust simulation parameters in real-time
-- View the network graph with different agent types and states
-- Monitor key metrics as the simulation progresses
-- Observe how misinformation spreads through the network
 
 ## Requirements
 
@@ -114,29 +103,14 @@ python3.11 -m venv .venv
 pip install -r requirements.txt
 ```
 
-## Usage
 
-To run the simulation:
-
-```bash
-solara run model.py
-```
-
-This will launch a Solara visualization interface where you can:
-- Adjust the number of agents (5-100)
-- Modify the number of edges per new node (1-5)
-- View network visualization
-- Monitor metrics like:
-  - Number of Infected/Susceptible/Exposed agents
-  - Misinformation Ratio Difference
-  - Misinformation Count in Recommendations
-
-### Run experiments
+## Run experiments
 
 ```bash
 python3 experiments.py
 ```
 You can modify the parameters in the `experiments.py` file.
+If the number of agents exceed 200, it is suggested to switch off community data (collect_community_data = False)
 
 Experiment results are saved in the `experiment_results` folder.
 
