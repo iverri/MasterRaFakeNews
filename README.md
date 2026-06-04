@@ -1,7 +1,7 @@
 # Fake News Propagation in Social Networks: An Agent-Based Model
 
 Master thesis repository for Iver Ringheim and Elena Willmann - Computer Science students at NTNU Trondheim. \
-A fork from Anna Johanne Holden Jacobsen and Lise Jakobsen's repository.
+A fork from Anna Johanne Holden Jacobsen and Lise Jakobsen's [repository](https://github.com/lisejakobsen/MasterRaFakeNews).
 
 ## Project Description
 
