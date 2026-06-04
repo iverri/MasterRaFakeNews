@@ -5,15 +5,22 @@ Forked from Anna Johanne Holden Jacobsen and Lise Jakobsen's repository.
 
 ## Project Description
 
-This project implements an agent-based model (ABM) to simulate the propagation of fake news in social networks. The simulation explores how different recommendation algorithms affect the spread of misinformation among users with varying characteristics.
+This project expands upon the foundations created by Anna Johanne Holden Jacobsen and Lise Jakobsen.
+
+### New additions
+-**Personality**: Gives agents personalities that affect the social network structure and agent interactions with content.
+-**Evaluation metrics**: Allows for evaluation of the quality of the recommendations provided by the recommendation algorithm.
+-**Accuracy enhancements**: Fixes parts of the simulation that caused content-based and collaborative filtering to have lower accuracy than random.
+-**Hybrid recommendation algorithms**: Expands the number of available recommendation algorithms by including algorithms used more in practice.
+-**Runtime enhancements**: Optimises the simulation to run faster and to be less resource-heavy.
 
 ### Key Features
 
-- **Agent Types**: Regular users, bot agents, and influencer agents with distinct behaviors and personalities
+- **Agent Types**: Regular users, bot agents, and influencer agents with distinct behaviors
 - **SEIS-like State Model**: Agents transition through Susceptible → Exposed → Infected states
 - **Multiple Recommendation Algorithms**: Random, collaborative filtering, content-based, popularity-based and hybrid approaches.
-- **Social Network Dynamics**: Preference-based network formation with realistic follower distributions, that account for agent personality
-- **Comprehensive Metrics**: misinformation spread, infection rate, misinformation count, precision, recall and f1-score
+- **Social Network Dynamics**: Preference-based network formation with realistic follower distributions
+- **Comprehensive Metrics**: misinformation spread, infection rate, misinformation count,
 - **Batch Experiments**: Systematic comparison of recommendation algorithms
 
 ### Model Architecture
